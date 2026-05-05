@@ -178,8 +178,11 @@ def clean_tagline(og_title):
 def card_html(p):
     img = p.get("og_image") or ""
     tagline = clean_tagline(p.get("og_title", "")) or p.get("community_display", "")
+    district = parse_district(p.get("address", ""))
+    tier_key = price_to_tier_key(p.get("price", 0))
+    community = (p.get("community_display") or "").strip()
     return f'''
-    <div class="card">
+    <div class="card" data-district="{district}" data-price-tier="{tier_key}" data-community="{community}">
       <div class="card-image" style="background-image: url('{img}');"></div>
       <div class="card-content">
         <div class="card-tagline">{tagline}</div>
@@ -214,14 +217,35 @@ def parse_district(address):
     return "其他"
 
 
+# 價格段 — 一致用於 client page 篩選 + dashboard 分析
+PRICE_TIERS = [
+    ("lt800", "< 800 萬", 0, 800),
+    ("800-1200", "800-1200 萬", 800, 1200),
+    ("1200-1500", "1200-1500 萬", 1200, 1500),
+    ("1500-2000", "1500-2000 萬", 1500, 2000),
+    ("gt2000", "> 2000 萬", 2000, 99999),
+]
+
+
+def price_to_tier_key(price):
+    """價格 → tier key (給 data-price-tier 用)"""
+    if not price:
+        return "unknown"
+    for key, _, lo, hi in PRICE_TIERS:
+        if lo <= price < hi:
+            return key
+    return "unknown"
+
+
 def community_subsection_html(community, items):
     """單一社區的 sub-section（在區裡面）"""
     items_sorted = sorted(items, key=lambda x: x["price"])
     prices = [x["price"] for x in items_sorted]
     c_range = f"{prices[0]:,} 萬" if len(prices) == 1 else f"{prices[0]:,} ~ {prices[-1]:,} 萬"
     cards = "\n".join(card_html(p) for p in items_sorted)
+    district = parse_district(items_sorted[0].get("address", "")) if items_sorted else "其他"
     return f'''
-    <div class="community-sub">
+    <div class="community-sub" data-district="{district}" data-community="{community}">
       <div class="community-header">
         <h3 class="community-title">{community}</h3>
         <div class="community-meta">{len(items_sorted)} 戶 · {c_range}</div>
@@ -259,22 +283,18 @@ def district_section_html(district, communities_dict, anchor):
     # 社區名稱預覽（讓 header 不空虛）
     community_chips = " · ".join(community_order)
 
-    # 價格段分布（讓客戶一眼看出這區哪個預算最多選擇）
-    price_tiers = [
-        ("< 800 萬", 0, 800),
-        ("800-1200 萬", 800, 1200),
-        ("1200-1500 萬", 1200, 1500),
-        ("1500-2000 萬", 1500, 2000),
-        ("> 2000 萬", 2000, 99999),
-    ]
+    # 價格段分布（讓客戶一眼看出這區哪個預算最多選擇）— 也是可點擊的篩選器
     tier_counts = []
-    for label, lo, hi in price_tiers:
+    for key, label, lo, hi in PRICE_TIERS:
         n = sum(1 for p in all_props if lo <= p.get("price", 0) < hi)
         if n > 0:
-            tier_counts.append(f"{label} <strong>{n}</strong>")
+            tier_counts.append(
+                f'<a class="price-tier-chip filter-chip" data-filter-price="{key}">'
+                f'{label} <strong>{n}</strong></a>'
+            )
     price_tier_html = ""
-    if len(tier_counts) >= 2:  # 只有 1 個區段就不顯示（meta 已經有總價格範圍）
-        price_tier_html = f'<div class="district-price-tiers">💰 價格段：{" · ".join(tier_counts)}</div>'
+    if len(tier_counts) >= 2:
+        price_tier_html = f'<div class="district-price-tiers">💰 點預算篩選：{" ".join(tier_counts)}</div>'
 
     chips_html = (
         f'<div class="district-communities">含 {len(community_order)} 個社區：{community_chips}</div>'
@@ -282,7 +302,7 @@ def district_section_html(district, communities_dict, anchor):
     )
 
     return f'''
-<section class="district-section" id="{anchor}">
+<section class="district-section" id="{anchor}" data-district="{district}">
   <div class="district-header">
     <h2 class="district-title">{district}</h2>
     <div class="district-meta">{meta_str}</div>
@@ -318,11 +338,23 @@ def gen_html(client_data, properties):
         anchor_id = "d-" + re.sub(r"[^a-z0-9一-龥]", "", d.lower()) + str(i)
         district_anchors[d] = anchor_id
 
-    # nav chips 按行政區（不再按社區）
+    # nav chips 按行政區（變成篩選器，點了 → 只顯示那區）
     nav_chips = "\n    ".join(
-        f'<a class="nav-chip" href="#{district_anchors[d]}">{d}<span class="nav-chip-count">{sum(len(c) for c in districts[d].values())}</span></a>'
+        f'<a class="nav-chip filter-chip" data-filter-district="{d}">{d}'
+        f'<span class="nav-chip-count">{sum(len(c) for c in districts[d].values())}</span></a>'
         for d in district_order
     )
+
+    # 全部價格段 chip 列（給 sticky-nav 第二行）
+    all_price_chips = []
+    for key, label, lo, hi in PRICE_TIERS:
+        n = sum(1 for d in districts.values() for c in d.values() for p in c if lo <= p.get("price", 0) < hi)
+        if n > 0:
+            all_price_chips.append(
+                f'<a class="nav-chip price-nav-chip filter-chip" data-filter-price="{key}">'
+                f'{label}<span class="nav-chip-count">{n}</span></a>'
+            )
+    price_filter_chips = "\n    ".join(all_price_chips)
     sections = "\n".join(
         district_section_html(d, districts[d], district_anchors[d])
         for d in district_order
@@ -436,6 +468,28 @@ def gen_html(client_data, properties):
     font-size: 14px; font-weight: 700; padding: 2px 9px; border-radius: 12px; margin-left: 8px;
   }}
   .nav-chip:hover .nav-chip-count {{ background: rgba(255,255,255,0.25); color: #FFF; }}
+  .nav-chip.active {{ background: var(--accent-deep); color: #FFF; border-color: var(--accent-deep); }}
+  .nav-chip.active .nav-chip-count {{ background: rgba(255,255,255,0.3); color: #FFF; }}
+  .nav-label {{ font-size: 13px; color: var(--text-muted); letter-spacing: 1.5px; padding: 10px 4px; flex-shrink: 0; font-weight: 600; }}
+  .price-nav-chip {{ background: rgba(201,120,90,0.06); border-color: rgba(201,120,90,0.4); }}
+  .filter-chip {{ cursor: pointer; user-select: none; }}
+  .filter-reset {{ background: var(--accent); color: #FFF; border-color: var(--accent); }}
+  .filter-reset:hover {{ background: var(--accent-deep); border-color: var(--accent-deep); }}
+  .filter-summary {{
+    text-align: center; padding: 10px 16px; font-size: 14px; color: var(--accent-deep);
+    background: var(--bg-soft); border-radius: 12px; margin: 10px 20px 0;
+    font-weight: 600; letter-spacing: 0.5px;
+  }}
+  .price-tier-chip {{
+    display: inline-block; padding: 4px 12px; margin: 2px;
+    background: rgba(201,120,90,0.15); border: 1px solid rgba(201,120,90,0.3);
+    border-radius: 16px; color: var(--accent-deep); text-decoration: none;
+    font-size: 14px; font-weight: 600; transition: all 0.15s;
+    cursor: pointer; user-select: none;
+  }}
+  .price-tier-chip:hover {{ background: var(--accent); color: #FFF; border-color: var(--accent); }}
+  .price-tier-chip.active {{ background: var(--accent-deep); color: #FFF; border-color: var(--accent-deep); }}
+  .price-tier-chip.active strong {{ color: #FFF; }}
   /* 行政區 (top-level section) */
   .district-section {{ padding: 50px 0 20px; border-bottom: 2px solid var(--border); }}
   .district-section:last-of-type {{ border-bottom: none; padding-bottom: 24px; }}
@@ -562,8 +616,15 @@ def gen_html(client_data, properties):
 
 <nav class="sticky-nav">
   <div class="nav-scroll">
+    <span class="nav-label">🏷️ 區域</span>
+    <a class="nav-chip filter-chip filter-reset" data-filter-reset="1" style="display:none">✕ 清除</a>
     {nav_chips}
   </div>
+  <div class="nav-scroll" style="margin-top: 8px;">
+    <span class="nav-label">💰 預算</span>
+    {price_filter_chips}
+  </div>
+  <div class="filter-summary" id="filter-summary" style="display:none"></div>
 </nav>
 
 <div class="container">
@@ -699,6 +760,87 @@ def gen_html(client_data, properties):
   }});
   document.querySelectorAll('.top-cta.line, .card-cta-line').forEach(function(el) {{
     el.addEventListener('click', function() {{ trackCta('line'); }});
+  }});
+
+  // ============== 區域 + 預算 篩選邏輯 ==============
+  var activeDistrict = null;
+  var activePrice = null;
+
+  function applyFilters() {{
+    var visibleCount = 0;
+    document.querySelectorAll('.card').forEach(function(card) {{
+      var d = card.dataset.district;
+      var p = card.dataset.priceTier;
+      var match = (
+        (!activeDistrict || activeDistrict === d) &&
+        (!activePrice || activePrice === p)
+      );
+      card.style.display = match ? '' : 'none';
+      if (match) visibleCount++;
+    }});
+    // 隱藏空的社區 sub-section
+    document.querySelectorAll('.community-sub').forEach(function(s) {{
+      var v = s.querySelectorAll('.card[style=""], .card:not([style])').length;
+      s.style.display = v > 0 ? '' : 'none';
+    }});
+    // 隱藏空的區段
+    document.querySelectorAll('.district-section').forEach(function(s) {{
+      var v = s.querySelectorAll('.card[style=""], .card:not([style])').length;
+      s.style.display = v > 0 ? '' : 'none';
+    }});
+    // 更新 chip active 狀態
+    document.querySelectorAll('[data-filter-district]').forEach(function(c) {{
+      c.classList.toggle('active', c.dataset.filterDistrict === activeDistrict);
+    }});
+    document.querySelectorAll('[data-filter-price]').forEach(function(c) {{
+      c.classList.toggle('active', c.dataset.filterPrice === activePrice);
+    }});
+    // Reset 按鈕 + summary 顯示
+    var any = activeDistrict || activePrice;
+    var resetBtn = document.querySelector('[data-filter-reset]');
+    if (resetBtn) resetBtn.style.display = any ? '' : 'none';
+    var summary = document.getElementById('filter-summary');
+    if (summary) {{
+      if (any) {{
+        var parts = [];
+        if (activeDistrict) parts.push('區域：' + activeDistrict);
+        if (activePrice) {{
+          var pchip = document.querySelector('[data-filter-price="' + activePrice + '"]');
+          parts.push('預算：' + (pchip ? pchip.textContent.replace(/\\d+$/, '').trim() : activePrice));
+        }}
+        summary.textContent = '🔍 ' + parts.join(' + ') + ' → ' + visibleCount + ' 戶符合';
+        summary.style.display = '';
+      }} else {{
+        summary.style.display = 'none';
+      }}
+    }}
+  }}
+
+  document.querySelectorAll('[data-filter-district]').forEach(function(chip) {{
+    chip.addEventListener('click', function(e) {{
+      e.preventDefault();
+      var d = this.dataset.filterDistrict;
+      activeDistrict = activeDistrict === d ? null : d;
+      applyFilters();
+      window.scrollTo({{ top: 0, behavior: 'smooth' }});
+    }});
+  }});
+  document.querySelectorAll('[data-filter-price]').forEach(function(chip) {{
+    chip.addEventListener('click', function(e) {{
+      e.preventDefault();
+      var p = this.dataset.filterPrice;
+      activePrice = activePrice === p ? null : p;
+      applyFilters();
+      window.scrollTo({{ top: 0, behavior: 'smooth' }});
+    }});
+  }});
+  document.querySelectorAll('[data-filter-reset]').forEach(function(btn) {{
+    btn.addEventListener('click', function(e) {{
+      e.preventDefault();
+      activeDistrict = null;
+      activePrice = null;
+      applyFilters();
+    }});
   }});
 
   window.addEventListener('pagehide', trackVisit);
