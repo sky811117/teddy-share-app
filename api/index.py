@@ -290,6 +290,43 @@ def gen_html(client_data, properties):
   .hero-stats {{ display: flex; justify-content: center; gap: 50px; margin-top: 36px; flex-wrap: wrap; }}
   .hero-stat-num {{ font-size: 40px; font-weight: 900; color: var(--wood-deep); line-height: 1; }}
   .hero-stat-label {{ font-size: 14px; color: var(--text-soft); margin-top: 8px; letter-spacing: 1.5px; }}
+  .top-contact {{
+    background: linear-gradient(180deg, #FFFFFF 0%, var(--bg-soft) 100%);
+    padding: 32px 20px; border-bottom: 1px solid var(--border);
+    position: relative;
+  }}
+  .top-contact::before {{
+    content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 60px; height: 3px; background: var(--accent); border-radius: 0 0 4px 4px;
+  }}
+  .top-contact-inner {{ max-width: 680px; margin: 0 auto; text-align: center; }}
+  .top-contact-name {{
+    font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: 5px;
+    margin-bottom: 6px;
+  }}
+  .top-contact-role {{
+    font-size: 13px; color: var(--text-muted); letter-spacing: 2px; font-weight: 500;
+    display: block; margin-top: 2px;
+  }}
+  .top-contact-btns {{
+    display: flex; gap: 12px; margin: 20px auto 0; flex-wrap: wrap;
+    justify-content: center; max-width: 560px;
+  }}
+  .top-cta {{
+    flex: 1 1 220px; padding: 16px 22px; border-radius: 14px;
+    font-size: 17px; font-weight: 700; text-decoration: none; letter-spacing: 1.5px;
+    transition: all 0.2s; box-shadow: 0 3px 12px rgba(139,115,85,0.12);
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  }}
+  .top-cta:hover {{ transform: translateY(-2px); box-shadow: 0 8px 22px rgba(139,115,85,0.22); }}
+  .top-cta.primary {{ background: var(--wood-deep); color: #FFF; border: 1.5px solid var(--wood-deep); }}
+  .top-cta.primary:hover {{ background: var(--accent-deep); border-color: var(--accent-deep); }}
+  .top-cta.line {{ background: #06C755; color: #FFF; border: 1.5px solid #06C755; }}
+  .top-cta.line:hover {{ background: #05a847; border-color: #05a847; }}
+  .top-contact-hint {{
+    font-size: 14px; color: var(--text-soft); margin-top: 16px;
+    letter-spacing: 0.5px; font-weight: 500;
+  }}
   .sticky-nav {{
     position: sticky; top: 0; z-index: 100; padding: 14px 0;
     background: rgba(250,247,242,0.97); backdrop-filter: blur(12px);
@@ -379,6 +416,17 @@ def gen_html(client_data, properties):
   <div class="hero-stats">
     <div class="hero-stat"><div class="hero-stat-num">{total_count}</div><div class="hero-stat-label">精選戶數</div></div>
     <div class="hero-stat"><div class="hero-stat-num">{community_count}</div><div class="hero-stat-label">優質社區</div></div>
+  </div>
+</section>
+
+<section class="top-contact">
+  <div class="top-contact-inner">
+    <div class="top-contact-name">陳景泰　<span class="top-contact-role">{contact["company"]}</span></div>
+    <div class="top-contact-btns">
+      <a class="top-cta primary" href="tel:{contact["phone_raw"]}">📞 {contact["phone"]}</a>
+      <a class="top-cta line" href="{contact["line_url"]}" target="_blank" rel="noopener">💬 LINE 我（{contact["line"]}）</a>
+    </div>
+    <div class="top-contact-hint">看到喜歡的物件 → 直接打給我或 LINE 我，幫你約看 ✨</div>
   </div>
 </section>
 
@@ -600,6 +648,12 @@ def publish_endpoint():
             err_body = e.read().decode("utf-8", errors="ignore")[:300]
             return jsonify({"error": f"GitHub push 失敗 ({e.code}): {err_body}"}), 500
 
+        # 寫物件快照到 Notion（不阻塞主流程，失敗也不影響 client 回應）
+        try:
+            notion_log_snapshot(share_id, name, properties)
+        except Exception as e:
+            print(f"snapshot logging error: {e}")
+
         return jsonify({
             "url": f"{PAGES_BASE_URL}/{share_id}/",
             "share_id": share_id,
@@ -691,6 +745,61 @@ def parse_geo(city, country):
     return " · ".join(filter(None, [city_zh, country_zh]))
 
 
+def notion_log_snapshot(share_id, client_name, properties_list):
+    """為某個 share 把所有物件當下資料存進 Notion 當快照（事件類型=snapshot）
+
+    用途：物件之後賣掉、ycut 連結 404，dashboard 仍可用快照還原物件名稱+縮圖
+    """
+    if not NOTION_TOKEN or not NOTION_DB_ID:
+        return 0
+
+    def text_prop(s):
+        return {"rich_text": [{"text": {"content": (s or "")[:1900]}}]} if s else {"rich_text": []}
+
+    written = 0
+    for p in properties_list:
+        slug = p.get("slug", "")
+        if not slug:
+            continue
+        target_url = f"https://x.ychouse.tw/{slug}"
+        # 摘要：建興大樓 950萬 3F/7 30坪 12年
+        summary_parts = [
+            (p.get("community_display") or "").strip(),
+            f"{p['price']}萬" if p.get("price") else "",
+            f"{p.get('floor')}F/{p.get('floor_total')}" if p.get("floor") else "",
+            f"{p.get('area')}坪" if p.get("area") else "",
+            f"{p.get('age')}年" if p.get("age") else "",
+        ]
+        summary = " · ".join(s for s in summary_parts if s)
+
+        properties = {
+            "客戶": {"title": [{"text": {"content": (client_name or "未知")[:200]}}]},
+            "share_id": text_prop(share_id),
+            "點擊物件": {"url": target_url[:1900]},
+            "物件摘要": text_prop(summary),
+            "物件首圖": {"url": (p.get("og_image") or "")[:1900] or None},
+            "事件類型": {"select": {"name": "snapshot"}},
+        }
+        body = {"parent": {"database_id": NOTION_DB_ID}, "properties": properties}
+        req = urllib.request.Request(
+            "https://api.notion.com/v1/pages",
+            data=json.dumps(body).encode("utf-8"),
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {NOTION_TOKEN}",
+                "Notion-Version": "2022-06-28",
+                "Content-Type": "application/json",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=8) as r:
+                if r.status in (200, 201):
+                    written += 1
+        except Exception as e:
+            print(f"snapshot write failed for {slug}: {e}")
+    return written
+
+
 def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer, clicked_slug="", clicked_url="", clicked_name=""):
     """寫一筆訪問記錄到 Notion DB（失敗就靜默吃掉，不影響客戶體驗）
 
@@ -707,8 +816,10 @@ def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_u
     if clicked_slug:
         target_url = (clicked_url or f"https://x.ychouse.tw/{clicked_slug}")[:1900]
         clicked_prop = {"url": target_url}
+        event_type = "click"
     else:
         clicked_prop = {"url": None}
+        event_type = "visit"
 
     properties = {
         "客戶": {"title": [{"text": {"content": (client_name or "未知")[:200]}}]},
@@ -718,6 +829,7 @@ def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_u
         "停留秒數": {"number": int(duration) if duration else 0},
         "referrer": text_prop(referrer),
         "點擊物件": clicked_prop,
+        "事件類型": {"select": {"name": event_type}},
     }
     if page_url:
         properties["訪問 URL"] = {"url": page_url[:1900]}
@@ -766,6 +878,388 @@ def track_endpoint():
         return jsonify({"ok": ok})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ============== Stats Dashboard ==============
+
+def notion_query_all(limit=1000):
+    """Fetch all rows from Notion DB, paginated. Returns raw page objects."""
+    if not NOTION_TOKEN or not NOTION_DB_ID:
+        return []
+    results = []
+    cursor = None
+    while True:
+        body = {"page_size": 100, "sorts": [{"timestamp": "created_time", "direction": "descending"}]}
+        if cursor:
+            body["start_cursor"] = cursor
+        req = urllib.request.Request(
+            f"https://api.notion.com/v1/databases/{NOTION_DB_ID}/query",
+            data=json.dumps(body).encode("utf-8"),
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {NOTION_TOKEN}",
+                "Notion-Version": "2022-06-28",
+                "Content-Type": "application/json",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as r:
+                data = json.loads(r.read().decode("utf-8"))
+        except Exception as e:
+            print(f"Notion query failed: {e}")
+            break
+        results.extend(data.get("results", []))
+        if len(results) >= limit or not data.get("has_more"):
+            break
+        cursor = data.get("next_cursor")
+    return results[:limit]
+
+
+def _row_field(row, prop_name, kind):
+    """Extract one value from a Notion row property"""
+    p = row.get("properties", {}).get(prop_name, {})
+    if kind == "title":
+        arr = p.get("title", [])
+        return arr[0].get("plain_text", "") if arr else ""
+    if kind == "rich_text":
+        arr = p.get("rich_text", [])
+        return arr[0].get("plain_text", "") if arr else ""
+    if kind == "url":
+        return p.get("url") or ""
+    if kind == "number":
+        return p.get("number") or 0
+    if kind == "select":
+        s = p.get("select")
+        return s.get("name", "") if s else ""
+    return ""
+
+
+def compute_stats(rows):
+    """Aggregate stats from raw Notion rows"""
+    from datetime import datetime, timedelta, timezone
+
+    parsed = []
+    for r in rows:
+        parsed.append({
+            "client": _row_field(r, "客戶", "title") or "未知",
+            "share_id": _row_field(r, "share_id", "rich_text"),
+            "device": _row_field(r, "裝置", "rich_text"),
+            "ip_geo": _row_field(r, "IP 粗略地點", "rich_text"),
+            "duration": _row_field(r, "停留秒數", "number"),
+            "clicked_url": _row_field(r, "點擊物件", "url"),
+            "summary": _row_field(r, "物件摘要", "rich_text"),
+            "image": _row_field(r, "物件首圖", "url"),
+            "event_type": _row_field(r, "事件類型", "select"),
+            "page_url": _row_field(r, "訪問 URL", "url"),
+            "referrer": _row_field(r, "referrer", "rich_text"),
+            "time": r.get("created_time", ""),
+        })
+
+    # 物件快照表（URL → {summary, image}），用於補強 click 事件的物件資訊
+    snapshots = {}
+    for v in parsed:
+        if v["event_type"] == "snapshot" or (not v["event_type"] and v["summary"]):
+            url = v["clicked_url"]
+            if url and (url not in snapshots or v["summary"]):
+                snapshots[url] = {"summary": v["summary"] or "", "image": v["image"] or ""}
+
+    # 推算 event_type（舊資料沒事件類型欄位）
+    def infer_type(v):
+        if v["event_type"]:
+            return v["event_type"]
+        if v["clicked_url"]:
+            return "click"
+        return "visit"
+
+    visits = [v for v in parsed if infer_type(v) == "visit"]
+    clicks = [v for v in parsed if infer_type(v) == "click"]
+
+    # 物件熱度榜（每個物件被點幾次）
+    click_counts = {}
+    for v in clicks:
+        url = v["clicked_url"]
+        if not url:
+            continue
+        if url not in click_counts:
+            snap = snapshots.get(url, {})
+            click_counts[url] = {
+                "url": url,
+                "count": 0,
+                "summary": snap.get("summary") or "",
+                "image": snap.get("image") or "",
+            }
+        click_counts[url]["count"] += 1
+    top_properties = sorted(click_counts.values(), key=lambda x: -x["count"])[:15]
+
+    # 各貼文表現（按 share_id 聚合）
+    posts = {}
+    for v in parsed:
+        sid = v["share_id"]
+        if not sid or infer_type(v) == "snapshot":
+            continue
+        if sid not in posts:
+            posts[sid] = {
+                "share_id": sid,
+                "client": v["client"],
+                "visits": 0,
+                "clicks": 0,
+                "latest": v["time"],
+                "click_counts": {},
+            }
+        if infer_type(v) == "click":
+            posts[sid]["clicks"] += 1
+            url = v["clicked_url"]
+            posts[sid]["click_counts"][url] = posts[sid]["click_counts"].get(url, 0) + 1
+        else:
+            posts[sid]["visits"] += 1
+        if v["time"] > posts[sid]["latest"]:
+            posts[sid]["latest"] = v["time"]
+    posts_list = list(posts.values())
+    for p in posts_list:
+        if p["click_counts"]:
+            top_url, top_count = max(p["click_counts"].items(), key=lambda x: x[1])
+            snap = snapshots.get(top_url, {})
+            p["top_property_summary"] = snap.get("summary") or top_url[-20:]
+            p["top_property_count"] = top_count
+            p["top_property_url"] = top_url
+        else:
+            p["top_property_summary"] = "—"
+            p["top_property_count"] = 0
+            p["top_property_url"] = ""
+    posts_list.sort(key=lambda p: p["latest"], reverse=True)
+
+    # 裝置分布
+    device_counts = {}
+    for v in parsed:
+        if infer_type(v) == "snapshot":
+            continue
+        d = v["device"] or "未知"
+        device_counts[d] = device_counts.get(d, 0) + 1
+    devices = sorted(device_counts.items(), key=lambda x: -x[1])
+
+    # 最近 7 天統計
+    now = datetime.now(timezone.utc)
+    week_ago = now - timedelta(days=7)
+    recent_visits = 0
+    recent_clicks = 0
+    for v in parsed:
+        if not v["time"]:
+            continue
+        try:
+            t = datetime.fromisoformat(v["time"].replace("Z", "+00:00"))
+        except Exception:
+            continue
+        if t < week_ago:
+            continue
+        et = infer_type(v)
+        if et == "visit":
+            recent_visits += 1
+        elif et == "click":
+            recent_clicks += 1
+
+    return {
+        "total_visits": len(visits),
+        "total_clicks": len(clicks),
+        "recent_visits": recent_visits,
+        "recent_clicks": recent_clicks,
+        "post_count": len(posts),
+        "top_properties": top_properties,
+        "posts": posts_list[:30],
+        "devices": devices,
+        "snapshots_count": len(snapshots),
+    }
+
+
+def render_stats_html(stats):
+    """產生 dashboard HTML"""
+    from datetime import datetime, timezone, timedelta
+    tw_now = (datetime.now(timezone.utc) + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
+
+    # 物件熱度榜
+    if stats["top_properties"]:
+        max_count = stats["top_properties"][0]["count"]
+        top_html = ""
+        for i, p in enumerate(stats["top_properties"]):
+            pct = int(p["count"] / max_count * 100) if max_count else 0
+            label = p["summary"] or p["url"][-30:]
+            img = p["image"] or ""
+            img_html = f'<img src="{img}" loading="lazy">' if img else '<div class="no-img">—</div>'
+            top_html += f'''
+            <div class="prop-row">
+              <div class="prop-rank">{i+1}</div>
+              <div class="prop-img">{img_html}</div>
+              <div class="prop-info">
+                <a class="prop-label" href="{p["url"]}" target="_blank" rel="noopener">{label}</a>
+                <div class="bar-wrap"><div class="bar" style="width:{pct}%"></div><span class="count">{p["count"]} 點</span></div>
+              </div>
+            </div>'''
+    else:
+        top_html = '<div class="empty">還沒有點擊資料</div>'
+
+    # 各貼文表現
+    if stats["posts"]:
+        posts_html = ""
+        for p in stats["posts"]:
+            try:
+                t = datetime.fromisoformat(p["latest"].replace("Z", "+00:00"))
+                latest_tw = (t + timedelta(hours=8)).strftime("%m/%d %H:%M")
+            except Exception:
+                latest_tw = "—"
+            top_label = p["top_property_summary"]
+            if p["top_property_url"]:
+                top_label = f'<a href="{p["top_property_url"]}" target="_blank">{top_label}</a> ({p["top_property_count"]})'
+            posts_html += f'''
+            <tr>
+              <td><strong>{p["client"]}</strong><div class="sub">{p["share_id"]}</div></td>
+              <td class="num">{p["visits"]}</td>
+              <td class="num">{p["clicks"]}</td>
+              <td>{top_label}</td>
+              <td class="sub">{latest_tw}</td>
+            </tr>'''
+    else:
+        posts_html = '<tr><td colspan="5" class="empty">還沒有資料</td></tr>'
+
+    # 裝置分布
+    total_dev = sum(c for _, c in stats["devices"]) or 1
+    dev_html = ""
+    for d, c in stats["devices"][:10]:
+        pct = int(c / total_dev * 100)
+        dev_html += f'<div class="dev-row"><span>{d}</span><span class="bar-wrap"><span class="bar" style="width:{pct}%"></span><span class="count">{c} ({pct}%)</span></span></div>'
+    if not dev_html:
+        dev_html = '<div class="empty">還沒有資料</div>'
+
+    return f'''<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📊 統計儀表板 — 景泰客戶頁</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {{
+    --bg: #FAF7F2; --bg-soft: #F2EDE4; --card: #FFFFFF;
+    --wood-deep: #8B7355; --wood-light: #D9C7B0;
+    --accent: #C9785A; --accent-deep: #A85D3F;
+    --text: #2C2620; --text-soft: #6B6258; --text-muted: #9A9088;
+    --border: #E8DFD2;
+  }}
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{
+    font-family: 'Noto Sans TC', -apple-system, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7;
+    font-size: 16px; padding: 30px 16px 80px;
+  }}
+  .wrap {{ max-width: 980px; margin: 0 auto; }}
+  header {{ text-align: center; margin-bottom: 30px; }}
+  h1 {{ font-size: 30px; font-weight: 900; letter-spacing: 1px; }}
+  .updated {{ font-size: 13px; color: var(--text-muted); margin-top: 6px; }}
+  .back-link {{ display: inline-block; margin-top: 10px; color: var(--accent-deep); text-decoration: none; font-weight: 500; }}
+  .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 30px; }}
+  .stat-box {{ background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(139,115,85,0.04); }}
+  .stat-label {{ font-size: 14px; color: var(--text-muted); letter-spacing: 1px; }}
+  .stat-value {{ font-size: 36px; font-weight: 900; color: var(--wood-deep); margin-top: 6px; line-height: 1; }}
+  .stat-sub {{ font-size: 13px; color: var(--accent-deep); margin-top: 4px; }}
+  section.card {{ background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 26px; margin-bottom: 22px; }}
+  h2 {{ font-size: 22px; font-weight: 700; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; }}
+  h2::before {{ content: ''; width: 5px; height: 26px; background: var(--accent); border-radius: 3px; }}
+  .prop-row {{ display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px dashed var(--bg-soft); }}
+  .prop-row:last-child {{ border-bottom: none; }}
+  .prop-rank {{ font-size: 22px; font-weight: 900; color: var(--wood-deep); width: 30px; text-align: center; }}
+  .prop-img {{ width: 80px; height: 60px; border-radius: 8px; overflow: hidden; flex-shrink: 0; background: var(--bg-soft); }}
+  .prop-img img {{ width: 100%; height: 100%; object-fit: cover; }}
+  .prop-img .no-img {{ display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); }}
+  .prop-info {{ flex: 1; min-width: 0; }}
+  .prop-label {{ font-size: 15px; color: var(--text); font-weight: 600; text-decoration: none; display: block; margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+  .prop-label:hover {{ color: var(--accent-deep); }}
+  .bar-wrap {{ display: flex; align-items: center; gap: 10px; }}
+  .bar {{ height: 8px; background: linear-gradient(90deg, var(--wood-light), var(--accent)); border-radius: 4px; min-width: 4px; }}
+  .count {{ font-size: 13px; color: var(--text-soft); font-weight: 600; flex-shrink: 0; }}
+  table {{ width: 100%; border-collapse: collapse; }}
+  th, td {{ padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--bg-soft); font-size: 14px; }}
+  th {{ font-size: 13px; color: var(--text-muted); letter-spacing: 1px; font-weight: 600; }}
+  td.num {{ font-weight: 700; color: var(--wood-deep); font-size: 18px; text-align: center; width: 70px; }}
+  .sub {{ font-size: 12px; color: var(--text-muted); }}
+  .empty {{ text-align: center; padding: 30px; color: var(--text-muted); }}
+  .dev-row {{ display: flex; align-items: center; justify-content: space-between; padding: 8px 0; gap: 14px; font-size: 14px; }}
+  .dev-row .bar-wrap {{ flex: 1; max-width: 60%; }}
+  .dev-row .bar {{ flex: 1; }}
+  a {{ color: var(--accent-deep); text-decoration: none; }}
+  a:hover {{ text-decoration: underline; }}
+  @media (max-width: 600px) {{
+    .prop-img {{ width: 60px; height: 45px; }}
+    h1 {{ font-size: 24px; }}
+    .stat-value {{ font-size: 28px; }}
+    th, td {{ padding: 8px 4px; font-size: 13px; }}
+    td.num {{ font-size: 16px; width: 50px; }}
+  }}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>📊 統計儀表板</h1>
+  <div class="updated">最後更新：{tw_now}（台北時間）</div>
+  <a class="back-link" href="/">← 回表單</a>
+</header>
+
+<div class="stats-grid">
+  <div class="stat-box">
+    <div class="stat-label">總訪問</div>
+    <div class="stat-value">{stats["total_visits"]}</div>
+    <div class="stat-sub">最近 7 天 +{stats["recent_visits"]}</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">總點擊</div>
+    <div class="stat-value">{stats["total_clicks"]}</div>
+    <div class="stat-sub">最近 7 天 +{stats["recent_clicks"]}</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">貼文數</div>
+    <div class="stat-value">{stats["post_count"]}</div>
+    <div class="stat-sub">{stats["snapshots_count"]} 個物件快照</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">轉換率</div>
+    <div class="stat-value">{int(stats["total_clicks"] / stats["total_visits"] * 100) if stats["total_visits"] else 0}%</div>
+    <div class="stat-sub">點擊 / 訪問</div>
+  </div>
+</div>
+
+<section class="card">
+  <h2>🔥 物件熱度榜（總點擊 TOP 15）</h2>
+  {top_html}
+</section>
+
+<section class="card">
+  <h2>📅 各貼文表現</h2>
+  <table>
+    <thead><tr><th>貼文</th><th>訪問</th><th>點擊</th><th>最熱物件</th><th>最近</th></tr></thead>
+    <tbody>{posts_html}</tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h2>📱 裝置分布</h2>
+  {dev_html}
+</section>
+
+<div style="text-align:center; margin-top: 26px;">
+  <a href="https://www.notion.so/c87cef4ae8df43f7983d50b238c7fc30" target="_blank">📋 開原始 Notion DB</a>
+  &nbsp;·&nbsp;
+  <a href="/">回表單</a>
+</div>
+
+</div>
+</body>
+</html>'''
+
+
+@app.route("/stats", methods=["GET"])
+def stats_endpoint():
+    rows = notion_query_all(limit=1000)
+    stats = compute_stats(rows)
+    return render_stats_html(stats), 200, {"Content-Type": "text/html; charset=utf-8"}
 
 
 # Serve frontend index.html at root（Vercel new Python runtime 把 / 也送進 app）
