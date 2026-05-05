@@ -418,6 +418,10 @@ def gen_html(client_data, properties):
     var params = new URLSearchParams(location.search);
     if (params.get('admin') === '1') {{
       localStorage.setItem('teddy_admin', '1');
+      // 清掉網址列的 ?admin=1 — 防止景泰不小心把預覽 URL 轉貼給客戶
+      if (history.replaceState) {{
+        history.replaceState(null, '', location.pathname);
+      }}
       return;
     }}
     if (localStorage.getItem('teddy_admin') === '1') return;
