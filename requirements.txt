@@ -1,0 +1,2 @@
+# 全部用 Python 標準庫（urllib / re / json / base64 / concurrent.futures）
+# 不需要外部套件

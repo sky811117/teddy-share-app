@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>泰迪客戶推薦頁產生器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FAF7F2;
+    --bg-soft: #F2EDE4;
+    --card: #FFFFFF;
+    --wood-deep: #8B7355;
+    --wood-light: #D9C7B0;
+    --accent: #C9785A;
+    --accent-deep: #A85D3F;
+    --text: #2C2620;
+    --text-soft: #6B6258;
+    --text-muted: #9A9088;
+    --border: #E8DFD2;
+    --success: #6B8E5A;
+    --danger: #B85850;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'PingFang TC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 17px;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    padding: 20px 16px 60px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  header {
+    text-align: center;
+    padding: 30px 0 36px;
+  }
+  .tag {
+    display: inline-block;
+    background: var(--wood-deep);
+    color: #FFF;
+    font-size: 14px;
+    letter-spacing: 3px;
+    padding: 6px 18px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+    font-weight: 500;
+  }
+  h1 {
+    font-size: clamp(26px, 5vw, 38px);
+    font-weight: 900;
+    color: var(--text);
+    letter-spacing: 1px;
+  }
+  .subtitle {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin-top: 8px;
+    letter-spacing: 1px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 32px 28px;
+    box-shadow: 0 4px 16px rgba(139, 115, 85, 0.06);
+  }
+
+  .field {
+    margin-bottom: 22px;
+  }
+  .field-label {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .field-hint {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    line-height: 1.6;
+  }
+  input[type="text"], textarea {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    font: inherit;
+    font-size: 17px;
+    background: var(--bg);
+    color: var(--text);
+    transition: border-color 0.2s;
+    font-family: inherit;
+  }
+  input[type="text"]:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: #FFF;
+  }
+  textarea {
+    min-height: 220px;
+    line-height: 1.7;
+    resize: vertical;
+  }
+  .submit {
+    width: 100%;
+    background: var(--wood-deep);
+    color: #FFF;
+    border: none;
+    border-radius: 14px;
+    padding: 16px 24px;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+  }
+  .submit:hover:not(:disabled) {
+    background: var(--accent);
+    transform: translateY(-1px);
+  }
+  .submit:disabled {
+    background: var(--text-muted);
+    cursor: not-allowed;
+  }
+
+  /* Loading */
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 30px 20px;
+    color: var(--text-soft);
+  }
+  .loading.show { display: block; }
+  .spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 14px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 15px; line-height: 1.8; }
+  .loading-text .step { color: var(--accent-deep); font-weight: 600; }
+
+  /* Result */
+  .result {
+    display: none;
+    margin-top: 24px;
+  }
+  .result.show { display: block; }
+  .result-success {
+    background: linear-gradient(135deg, #F2EDE4 0%, #E8DFD2 100%);
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+    border: 1.5px solid var(--wood-light);
+  }
+  .result-icon {
+    font-size: 42px;
+    margin-bottom: 6px;
+  }
+  .result-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .result-meta {
+    font-size: 14px;
+    color: var(--text-soft);
+    margin-bottom: 18px;
+  }
+  .result-url {
+    background: #FFF;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    word-break: break-all;
+    font-size: 15px;
+    color: var(--accent-deep);
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    margin-bottom: 14px;
+    text-align: left;
+  }
+  .result-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .btn-action {
+    flex: 1;
+    min-width: 120px;
+    background: var(--wood-deep);
+    color: #FFF;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .btn-action:hover { background: var(--accent); }
+  .btn-action.secondary {
+    background: #FFF;
+    color: var(--wood-deep);
+    border: 1.5px solid var(--wood-deep);
+  }
+  .btn-action.secondary:hover {
+    background: var(--bg-soft);
+  }
+  .qr-area {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px dashed var(--wood-light);
+  }
+  .qr-area img {
+    border-radius: 8px;
+    background: #FFF;
+    padding: 8px;
+  }
+  .build-note {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 14px;
+    line-height: 1.6;
+  }
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--text);
+    color: #FFF;
+    padding: 12px 24px;
+    border-radius: 24px;
+    font-size: 15px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    z-index: 999;
+  }
+  .toast.show { opacity: 1; }
+
+  .error {
+    display: none;
+    background: rgba(184, 88, 80, 0.08);
+    color: var(--danger);
+    border: 1px solid rgba(184, 88, 80, 0.3);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 14px;
+    margin-top: 16px;
+  }
+  .error.show { display: block; }
+
+  footer {
+    text-align: center;
+    margin-top: 40px;
+    color: var(--text-muted);
+    font-size: 12px;
+    letter-spacing: 1.5px;
+  }
+
+  @media (max-width: 540px) {
+    .card { padding: 24px 18px; border-radius: 14px; }
+    .submit { font-size: 17px; padding: 14px 20px; }
+    .result-actions { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="tag">景 泰 工 具</div>
+  <h1>客戶推薦頁產生器</h1>
+  <div class="subtitle">貼物件 · 一鍵產出 · LINE 給客戶</div>
+</header>
+
+<div class="card" id="form-card">
+  <div class="field">
+    <label class="field-label" for="name">客戶稱呼</label>
+    <div class="field-hint">例：黃小姐 / 陳先生</div>
+    <input type="text" id="name" placeholder="黃小姐" autocomplete="off">
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="need">需求摘要</label>
+    <div class="field-hint">一句話描述，會顯示在頁面開頭。例：潭子三房平車</div>
+    <input type="text" id="need" placeholder="潭子三房平車" autocomplete="off">
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="urls">物件清單</label>
+    <div class="field-hint">
+      永慶後台一鍵複製、手機分享、純 URL 都可以貼進來。我只認 ycut 短網址（<code>https://x.ychouse.tw/...</code>），其他文字會自動忽略。重複物件自動過濾。
+    </div>
+    <textarea id="urls" placeholder="把整段貼進來，多少物件都行..."></textarea>
+  </div>
+
+  <button class="submit" id="submit-btn">製 作 網 頁</button>
+
+  <div class="error" id="error"></div>
+</div>
+
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">
+    <div class="step" id="step-text">處理中...</div>
+    <div style="margin-top:6px;font-size:13px;color:var(--text-muted)">通常 5-15 秒，請稍等</div>
+  </div>
+</div>
+
+<div class="result" id="result">
+  <div class="result-success">
+    <div class="result-icon">🎉</div>
+    <div class="result-title">完成！</div>
+    <div class="result-meta" id="result-meta">─</div>
+
+    <div class="result-url" id="result-url">─</div>
+
+    <div class="result-actions">
+      <button class="btn-action" id="copy-btn">複 製 連 結</button>
+      <a class="btn-action secondary" id="open-btn" target="_blank">在新分頁開啟</a>
+    </div>
+
+    <div class="qr-area">
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:10px;letter-spacing:1px">QR Code（給客戶掃）</div>
+      <img id="qr-img" src="" alt="QR" width="200" height="200">
+    </div>
+
+    <div class="build-note">
+      ⏳ GitHub Pages 約 30-60 秒後 build 完成，URL 即可開啟<br>
+      📋 已複製到剪貼簿，可直接 Ctrl+V 貼到 LINE 給客戶
+    </div>
+  </div>
+
+  <button class="submit" style="margin-top:16px;background:var(--bg-soft);color:var(--wood-deep)" onclick="resetForm()">↻ 再做一個</button>
+</div>
+
+<footer>陳 景 泰 · 有 巢 氏 房 屋 台 中 世 界 之 心 加 盟 店</footer>
+
+</div>
+
+<div class="toast" id="toast">已複製</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const showToast = (msg) => {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1800);
+};
+
+const setStep = (text) => $('step-text').textContent = text;
+
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (e) {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (_) {}
+    document.body.removeChild(ta);
+    return true;
+  }
+}
+
+$('submit-btn').addEventListener('click', async () => {
+  const name = $('name').value.trim();
+  const need = $('need').value.trim();
+  const urls_text = $('urls').value;
+
+  $('error').classList.remove('show');
+
+  if (!name) { $('name').focus(); return showError('請填客戶稱呼'); }
+  if (!urls_text.trim()) { $('urls').focus(); return showError('請貼物件清單'); }
+
+  // 切到 loading
+  $('form-card').style.display = 'none';
+  $('loading').classList.add('show');
+  setStep('解析物件 URL...');
+
+  try {
+    setStep('抓 ycut 物件資料 + 產生網頁...');
+    const r = await fetch('/api/publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, need, urls_text })
+    });
+
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || '伺服器錯誤');
+
+    setStep('完成！');
+
+    // 顯示結果
+    $('loading').classList.remove('show');
+    $('result-meta').textContent = `${data.client} · ${data.count} 個物件`;
+    $('result-url').textContent = data.url;
+    $('open-btn').href = data.url;
+    $('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(data.url)}&size=200x200&margin=8`;
+
+    // 自動複製到剪貼簿
+    await copyToClipboard(data.url);
+
+    $('result').classList.add('show');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  } catch (e) {
+    $('loading').classList.remove('show');
+    $('form-card').style.display = '';
+    showError(e.message || '失敗');
+  }
+});
+
+$('copy-btn').addEventListener('click', async () => {
+  const url = $('result-url').textContent;
+  await copyToClipboard(url);
+  showToast('已複製');
+});
+
+function showError(msg) {
+  const e = $('error');
+  e.textContent = '⚠ ' + msg;
+  e.classList.add('show');
+}
+
+function resetForm() {
+  $('result').classList.remove('show');
+  $('form-card').style.display = '';
+  $('name').value = '';
+  $('need').value = '';
+  $('urls').value = '';
+  $('error').classList.remove('show');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
