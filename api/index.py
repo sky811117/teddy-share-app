@@ -13,7 +13,7 @@ import datetime
 import urllib.request
 import urllib.error
 import concurrent.futures
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 
 GITHUB_OWNER = "sky811117"
 GITHUB_REPO = "teddy-shares"
@@ -508,3 +508,21 @@ def publish_endpoint():
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "ts": datetime.datetime.now().isoformat()})
+
+
+# Serve frontend index.html at root（Vercel new Python runtime 把 / 也送進 app）
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+@app.route("/", methods=["GET"])
+def serve_index():
+    return send_from_directory(_REPO_ROOT, "index.html")
+
+
+@app.route("/<path:filename>", methods=["GET"])
+def serve_static(filename):
+    """fallback static serving — favicon、其他靜態檔"""
+    try:
+        return send_from_directory(_REPO_ROOT, filename)
+    except Exception:
+        return ("Not Found", 404)
