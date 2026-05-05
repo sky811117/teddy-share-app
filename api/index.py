@@ -452,12 +452,16 @@ def gen_html(client_data, properties):
     }});
   }}
 
-  function trackClick(slug) {{
+  function trackClick(slug, ycutUrl, name) {{
+    // 點擊事件的「停留秒數」= 點擊當下他已在推薦頁讀多久（思考訊號）
+    var elapsedSec = Math.round((Date.now() - startTime) / 1000);
     postTrack({{
       client: CLIENT_NAME,
       share_id: SHARE_ID,
       clicked_slug: slug,
-      duration: 0,
+      clicked_url: ycutUrl,
+      clicked_name: name,
+      duration: elapsedSec,
       url: location.href,
       referrer: document.referrer || ''
     }});
@@ -466,9 +470,18 @@ def gen_html(client_data, properties):
   // 綁定每張 card 的「看完整資訊」按鈕點擊事件
   document.querySelectorAll('.card-cta').forEach(function(link) {{
     link.addEventListener('click', function() {{
-      var url = link.getAttribute('href') || '';
-      var m = url.match(/x\\.ychouse\\.tw\\/(\\w+)/);
-      if (m) trackClick(m[1]);
+      var ycutUrl = link.getAttribute('href') || '';
+      var m = ycutUrl.match(/x\\.ychouse\\.tw\\/(\\w+)/);
+      if (!m) return;
+      var slug = m[1];
+      // 從同一張 card 裡撈 tagline 當「物件名稱」
+      var card = link.closest('.card');
+      var tagline = '';
+      if (card) {{
+        var t = card.querySelector('.card-tagline');
+        if (t) tagline = (t.textContent || '').trim();
+      }}
+      trackClick(slug, ycutUrl, tagline);
     }});
   }});
 
@@ -656,7 +669,7 @@ def parse_geo(city, country):
     return " · ".join(filter(None, [city_zh, country_zh]))
 
 
-def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer, clicked_slug=""):
+def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer, clicked_slug="", clicked_url="", clicked_name=""):
     """寫一筆訪問記錄到 Notion DB（失敗就靜默吃掉，不影響客戶體驗）
 
     clicked_slug 有值 → 客戶點某個物件去看完整資訊（click 事件）
@@ -668,6 +681,22 @@ def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_u
     def text_prop(s):
         return {"rich_text": [{"text": {"content": (s or "")[:1900]}}]} if s else {"rich_text": []}
 
+    # 「點擊物件」欄位：用物件名稱 (tagline) 顯示，附超連結到 ycut
+    if clicked_slug:
+        display_name = clicked_name or clicked_slug
+        target_url = clicked_url or f"https://x.ychouse.tw/{clicked_slug}"
+        clicked_prop = {
+            "rich_text": [{
+                "type": "text",
+                "text": {
+                    "content": display_name[:1900],
+                    "link": {"url": target_url[:1900]},
+                },
+            }]
+        }
+    else:
+        clicked_prop = {"rich_text": []}
+
     properties = {
         "客戶": {"title": [{"text": {"content": (client_name or "未知")[:200]}}]},
         "share_id": text_prop(share_id),
@@ -675,7 +704,7 @@ def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_u
         "IP 粗略地點": text_prop(ip_geo),
         "停留秒數": {"number": int(duration) if duration else 0},
         "referrer": text_prop(referrer),
-        "點擊物件": text_prop(clicked_slug),
+        "點擊物件": clicked_prop,
     }
     if page_url:
         properties["訪問 URL"] = {"url": page_url[:1900]}
@@ -711,6 +740,8 @@ def track_endpoint():
         page_url = body.get("url", "")
         referrer = body.get("referrer", "")
         clicked_slug = (body.get("clicked_slug") or "").strip()
+        clicked_url = (body.get("clicked_url") or "").strip()
+        clicked_name = (body.get("clicked_name") or "").strip()
 
         # 從 Vercel 自動 header 拿訪客 IP 粗略地理位置
         city = request.headers.get("X-Vercel-IP-City", "")
@@ -718,7 +749,7 @@ def track_endpoint():
         ip_geo = parse_geo(city, country)
         user_agent = parse_ua(request.headers.get("User-Agent", "")[:300])
 
-        ok = notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer, clicked_slug)
+        ok = notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer, clicked_slug, clicked_url, clicked_name)
         return jsonify({"ok": ok})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
