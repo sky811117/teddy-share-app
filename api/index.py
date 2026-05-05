@@ -413,17 +413,29 @@ def gen_html(client_data, properties):
 
 <script>
 (function() {{
-  // 景泰本人排除 — 帶 ?admin=1 訪問會標記這台裝置為管理者，之後永遠不追蹤
+  // 景泰本人排除 + 解除標記機制
   try {{
     var params = new URLSearchParams(location.search);
+
+    // ?clear_admin=1 → 解除 admin 標記（給誤寄 ?admin=1 URL 給客戶後挽救用）
+    if (params.get('clear_admin') === '1') {{
+      localStorage.removeItem('teddy_admin');
+      if (history.replaceState) {{
+        history.replaceState(null, '', location.pathname);
+      }}
+      // 不 return — 讓這次訪問被正常追蹤
+    }}
+
+    // ?admin=1 → 標記這台裝置為管理者
     if (params.get('admin') === '1') {{
       localStorage.setItem('teddy_admin', '1');
-      // 清掉網址列的 ?admin=1 — 防止景泰不小心把預覽 URL 轉貼給客戶
       if (history.replaceState) {{
         history.replaceState(null, '', location.pathname);
       }}
       return;
     }}
+
+    // 已被標記 → 跳過追蹤
     if (localStorage.getItem('teddy_admin') === '1') return;
   }} catch (e) {{}}
 
