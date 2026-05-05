@@ -1118,12 +1118,13 @@ def compute_stats(rows):
 
     # 物件快照表（URL → {summary, image}），用於補強 click 事件的物件資訊
     # snapshot + backfill 都當 snapshot 處理
+    # parsed 已按建立時間 desc 排序 → 最新的會先被處理 → not in snapshots 才設值 = 最新覆蓋舊
     snapshots = {}
     for v in parsed:
         et = v["event_type"]
         if et in ("snapshot", "backfill") or (not et and v["summary"]):
             url = v["clicked_url"]
-            if url and (url not in snapshots or v["summary"]):
+            if url and url not in snapshots:
                 snapshots[url] = {"summary": v["summary"] or "", "image": v["image"] or ""}
 
     # 推算 event_type（舊資料沒事件類型欄位）
@@ -1551,6 +1552,7 @@ def backfill_endpoint():
     if not NOTION_TOKEN or not NOTION_DB_ID:
         return jsonify({"error": "no notion config"}), 500
 
+    force = request.args.get("force") == "1"
     rows = notion_query_all(limit=2000)
     snapshot_urls = set()
     click_urls = set()
@@ -1564,7 +1566,8 @@ def backfill_endpoint():
         elif event_type == "click" or (not event_type and clicked):
             click_urls.add(clicked)
 
-    missing = sorted(click_urls - snapshot_urls)
+    # ?force=1 → 不管已有快照，全部 click URL 重抓；compute_stats 會自動用最新的覆蓋舊的
+    missing = sorted(click_urls) if force else sorted(click_urls - snapshot_urls)
     written, failed = 0, 0
     detail = []
     for url in missing:
