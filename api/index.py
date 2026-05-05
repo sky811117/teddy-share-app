@@ -202,10 +202,11 @@ def card_html(p):
 
 
 def parse_district(address):
-    """從地址抓行政區（台灣），「台中市北屯區XX路」→「北屯區」"""
+    """從地址抓行政區（台灣），「台中市北屯區XX路」→「北屯區」/「台中市北區XX路」→「北區」"""
     if not address:
         return "其他"
-    matches = re.findall(r'[一-龥]{1,4}[區鄉鎮市]', address)
+    # 非貪婪：避免「台中市北區」整串吃成 1 個 match（要切成「台中市」+「北區」兩個）
+    matches = re.findall(r'[一-龥]{1,4}?[區鄉鎮市]', address)
     if len(matches) >= 2:
         return matches[1]  # 第一個是縣市，第二個是區
     if matches:
@@ -255,12 +256,17 @@ def district_section_html(district, communities_dict, anchor):
         meta_parts.append(age_text)
     meta_str = " · ".join(meta_parts)
 
+    # 社區名稱預覽（讓 header 不空虛）
+    community_chips = " · ".join(community_order)
+    chips_html = f'<div class="district-communities">含 {len(community_order)} 個社區：{community_chips}</div>'
+
     return f'''
 <section class="district-section" id="{anchor}">
   <div class="district-header">
     <h2 class="district-title">{district}</h2>
     <div class="district-meta">{meta_str}</div>
   </div>
+  {chips_html}
   {sub_sections}
 </section>'''
 
@@ -426,6 +432,12 @@ def gen_html(client_data, properties):
   .district-title::before {{ content: '🏷️'; font-size: 0.85em; }}
   .district-meta {{ font-size: 16px; color: var(--text-soft); letter-spacing: 1px; font-weight: 500; }}
   .district-meta strong {{ color: var(--accent-deep); font-weight: 800; font-size: 18px; }}
+  .district-communities {{
+    font-size: 14px; color: var(--text-soft); letter-spacing: 0.5px;
+    margin: 14px 4px 4px 4px; padding: 10px 16px;
+    background: rgba(217,199,176,0.18); border-radius: 10px;
+    font-weight: 500; line-height: 1.7;
+  }}
 
   /* 社區 (sub-section under district) */
   .community-sub {{ padding: 22px 0 14px; }}
@@ -1082,7 +1094,8 @@ def parse_property_meta(summary):
     if not summary:
         return {}
     meta = {}
-    m = re.search(r'([一-龥]{1,4}[區鄉鎮市])', summary)
+    # 非貪婪 — 跟 parse_district 同邏輯
+    m = re.search(r'([一-龥]{1,4}?[區鄉鎮市])', summary)
     if m:
         meta["district"] = m.group(1)
     m = re.search(r'(\d+)\s*萬', summary)
