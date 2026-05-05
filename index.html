@@ -337,7 +337,7 @@
 
     <div class="result-actions">
       <button class="btn-action" id="copy-btn">複 製 連 結</button>
-      <a class="btn-action secondary" id="open-btn" target="_blank">在新分頁開啟</a>
+      <a class="btn-action secondary" id="open-btn" target="_blank">我先預覽 (不算追蹤)</a>
     </div>
 
     <div class="qr-area">
@@ -347,7 +347,8 @@
 
     <div class="build-note">
       ⏳ GitHub Pages 約 30-60 秒後 build 完成，URL 即可開啟<br>
-      📋 已複製到剪貼簿，可直接 Ctrl+V 貼到 LINE 給客戶
+      📋 已複製到剪貼簿（純連結，傳給客戶會被追蹤）<br>
+      💡「我先預覽」會把這台裝置標記為管理者，**之後永遠不會被追蹤**（每台你用的裝置點一次即可）
     </div>
   </div>
 
@@ -423,7 +424,7 @@ $('submit-btn').addEventListener('click', async () => {
     $('loading').classList.remove('show');
     $('result-meta').textContent = `${data.client} · ${data.count} 個物件`;
     $('result-url').textContent = data.url;
-    $('open-btn').href = data.url;
+    $('open-btn').href = data.url + '?admin=1';
     $('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(data.url)}&size=200x200&margin=8`;
 
     // 自動複製到剪貼簿

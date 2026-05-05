@@ -411,37 +411,71 @@ def gen_html(client_data, properties):
 
 <script>
 (function() {{
+  // 景泰本人排除 — 帶 ?admin=1 訪問會標記這台裝置為管理者，之後永遠不追蹤
+  try {{
+    var params = new URLSearchParams(location.search);
+    if (params.get('admin') === '1') {{
+      localStorage.setItem('teddy_admin', '1');
+      return;
+    }}
+    if (localStorage.getItem('teddy_admin') === '1') return;
+  }} catch (e) {{}}
+
   var SHARE_ID = {json.dumps(client_data["share_id"])};
   var CLIENT_NAME = {json.dumps(client_data["name"])};
   var TRACK_API = 'https://teddy-share-app.vercel.app/api/track';
   var startTime = Date.now();
-  var sent = false;
+  var visitSent = false;
 
-  function track() {{
-    if (sent) return;
-    var duration = Math.round((Date.now() - startTime) / 1000);
-    if (duration < 3) return;
-    sent = true;
+  function postTrack(payload) {{
     try {{
       fetch(TRACK_API, {{
         method: 'POST',
         headers: {{ 'Content-Type': 'application/json' }},
-        body: JSON.stringify({{
-          client: CLIENT_NAME,
-          share_id: SHARE_ID,
-          duration: duration,
-          url: location.href,
-          referrer: document.referrer || ''
-        }}),
+        body: JSON.stringify(payload),
         keepalive: true
       }});
     }} catch (e) {{}}
   }}
 
-  window.addEventListener('pagehide', track);
-  window.addEventListener('beforeunload', track);
+  function trackVisit() {{
+    if (visitSent) return;
+    var duration = Math.round((Date.now() - startTime) / 1000);
+    if (duration < 3) return;
+    visitSent = true;
+    postTrack({{
+      client: CLIENT_NAME,
+      share_id: SHARE_ID,
+      duration: duration,
+      url: location.href,
+      referrer: document.referrer || ''
+    }});
+  }}
+
+  function trackClick(slug) {{
+    postTrack({{
+      client: CLIENT_NAME,
+      share_id: SHARE_ID,
+      clicked_slug: slug,
+      duration: 0,
+      url: location.href,
+      referrer: document.referrer || ''
+    }});
+  }}
+
+  // 綁定每張 card 的「看完整資訊」按鈕點擊事件
+  document.querySelectorAll('.card-cta').forEach(function(link) {{
+    link.addEventListener('click', function() {{
+      var url = link.getAttribute('href') || '';
+      var m = url.match(/x\\.ychouse\\.tw\\/(\\w+)/);
+      if (m) trackClick(m[1]);
+    }});
+  }});
+
+  window.addEventListener('pagehide', trackVisit);
+  window.addEventListener('beforeunload', trackVisit);
   // 也定期 ping 一次（讓還在閱讀的訪客也記到，避免關閉太快沒記到）
-  setTimeout(track, 30000);
+  setTimeout(trackVisit, 30000);
 }})();
 </script>
 
@@ -622,8 +656,12 @@ def parse_geo(city, country):
     return " · ".join(filter(None, [city_zh, country_zh]))
 
 
-def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer):
-    """寫一筆訪問記錄到 Notion DB（失敗就靜默吃掉，不影響客戶體驗）"""
+def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer, clicked_slug=""):
+    """寫一筆訪問記錄到 Notion DB（失敗就靜默吃掉，不影響客戶體驗）
+
+    clicked_slug 有值 → 客戶點某個物件去看完整資訊（click 事件）
+    clicked_slug 空 → 客戶開了客戶頁本身（visit 事件）
+    """
     if not NOTION_TOKEN or not NOTION_DB_ID:
         return False
 
@@ -637,6 +675,7 @@ def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_u
         "IP 粗略地點": text_prop(ip_geo),
         "停留秒數": {"number": int(duration) if duration else 0},
         "referrer": text_prop(referrer),
+        "點擊物件": text_prop(clicked_slug),
     }
     if page_url:
         properties["訪問 URL"] = {"url": page_url[:1900]}
@@ -671,6 +710,7 @@ def track_endpoint():
         duration = body.get("duration", 0)
         page_url = body.get("url", "")
         referrer = body.get("referrer", "")
+        clicked_slug = (body.get("clicked_slug") or "").strip()
 
         # 從 Vercel 自動 header 拿訪客 IP 粗略地理位置
         city = request.headers.get("X-Vercel-IP-City", "")
@@ -678,7 +718,7 @@ def track_endpoint():
         ip_geo = parse_geo(city, country)
         user_agent = parse_ua(request.headers.get("User-Agent", "")[:300])
 
-        ok = notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer)
+        ok = notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer, clicked_slug)
         return jsonify({"ok": ok})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
