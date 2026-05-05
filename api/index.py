@@ -13,7 +13,7 @@ import datetime
 import urllib.request
 import urllib.error
 import concurrent.futures
-from http.server import BaseHTTPRequestHandler
+from flask import Flask, request, jsonify
 
 GITHUB_OWNER = "sky811117"
 GITHUB_REPO = "teddy-shares"
@@ -438,70 +438,73 @@ def github_push(path, content, message, token):
         return json.loads(r.read().decode("utf-8"))
 
 
-# ============== Vercel Handler ==============
+# ============== Flask App ==============
 
-class handler(BaseHTTPRequestHandler):
-    def _json(self, status, data):
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+app = Flask(__name__)
 
-    def do_OPTIONS(self):
-        self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
 
-    def do_POST(self):
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return response
+
+
+@app.route("/api/publish", methods=["POST", "OPTIONS"])
+def publish_endpoint():
+    if request.method == "OPTIONS":
+        return ("", 204)
+    try:
+        body = request.get_json(silent=True) or {}
+        name = (body.get("name") or "").strip() or "客戶"
+        need = (body.get("need") or "").strip() or "找房需求"
+        if not need.startswith("找房需求"):
+            need = f"找房需求：{need}"
+        text = body.get("urls_text", "")
+
+        slugs = extract_urls(text)
+        if not slugs:
+            return jsonify({"error": "找不到任何 ycut 短網址（https://x.ychouse.tw/...）"}), 400
+
+        properties = fetch_full_batch(slugs)
+        if not properties:
+            return jsonify({"error": "全部物件抓取失敗（可能 URL 已失效）"}), 400
+
+        share_id = gen_share_id()
+        client_data = {
+            "name": name,
+            "need": need,
+            "share_id": share_id,
+            "contact": DEFAULT_CONTACT,
+        }
+        html = gen_html(client_data, properties)
+
+        token = os.environ.get("GITHUB_TOKEN")
+        if not token:
+            return jsonify({"error": "Server 缺 GITHUB_TOKEN 環境變數"}), 500
+
         try:
-            length = int(self.headers.get("Content-Length", 0))
-            body = json.loads(self.rfile.read(length))
-            name = (body.get("name") or "").strip() or "客戶"
-            need = (body.get("need") or "").strip() or "找房需求"
-            if not need.startswith("找房需求"):
-                need = f"找房需求：{need}"
-            text = body.get("urls_text", "")
+            github_push(
+                f"{share_id}/index.html",
+                html,
+                f"add: {name} {len(properties)} 戶 ({share_id})",
+                token,
+            )
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode("utf-8", errors="ignore")[:300]
+            return jsonify({"error": f"GitHub push 失敗 ({e.code}): {err_body}"}), 500
 
-            slugs = extract_urls(text)
-            if not slugs:
-                return self._json(400, {"error": "找不到任何 ycut 短網址（https://x.ychouse.tw/...）"})
+        return jsonify({
+            "url": f"{PAGES_BASE_URL}/{share_id}/",
+            "share_id": share_id,
+            "count": len(properties),
+            "client": name,
+        })
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
 
-            properties = fetch_full_batch(slugs)
-            if not properties:
-                return self._json(400, {"error": "全部物件抓取失敗（可能 URL 已失效）"})
 
-            share_id = gen_share_id()
-            client_data = {
-                "name": name,
-                "need": need,
-                "share_id": share_id,
-                "contact": DEFAULT_CONTACT,
-            }
-            html = gen_html(client_data, properties)
-
-            token = os.environ.get("GITHUB_TOKEN")
-            if not token:
-                return self._json(500, {"error": "Server 缺 GITHUB_TOKEN 環境變數，請聯繫管理者"})
-
-            try:
-                github_push(
-                    f"{share_id}/index.html",
-                    html,
-                    f"add: {name} {len(properties)} 戶 ({share_id})",
-                    token,
-                )
-            except urllib.error.HTTPError as e:
-                err_body = e.read().decode("utf-8", errors="ignore")[:300]
-                return self._json(500, {"error": f"GitHub push 失敗 ({e.code}): {err_body}"})
-
-            return self._json(200, {
-                "url": f"{PAGES_BASE_URL}/{share_id}/",
-                "share_id": share_id,
-                "count": len(properties),
-                "client": name,
-            })
-        except Exception as e:
-            return self._json(500, {"error": f"{type(e).__name__}: {e}"})
+@app.route("/api/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok", "ts": datetime.datetime.now().isoformat()})
