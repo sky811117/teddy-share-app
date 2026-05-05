@@ -621,6 +621,18 @@ def gen_html(client_data, properties):
     }});
   }}
 
+  function trackCta(ctaType) {{
+    var elapsedSec = Math.round((Date.now() - startTime) / 1000);
+    postTrack({{
+      client: CLIENT_NAME,
+      share_id: SHARE_ID,
+      cta_type: ctaType,
+      duration: elapsedSec,
+      url: location.href,
+      referrer: document.referrer || ''
+    }});
+  }}
+
   // 綁定每張 card 的「看完整資訊」按鈕點擊事件
   document.querySelectorAll('.card-cta').forEach(function(link) {{
     link.addEventListener('click', function() {{
@@ -637,6 +649,14 @@ def gen_html(client_data, properties):
       }}
       trackClick(slug, ycutUrl, tagline);
     }});
+  }});
+
+  // 綁定上方 CTA 按鈕（電話 + LINE）— 真正轉換訊號
+  document.querySelectorAll('.top-cta.primary, .card-cta-phone').forEach(function(el) {{
+    el.addEventListener('click', function() {{ trackCta('phone'); }});
+  }});
+  document.querySelectorAll('.top-cta.line, .card-cta-line').forEach(function(el) {{
+    el.addEventListener('click', function() {{ trackCta('line'); }});
   }});
 
   window.addEventListener('pagehide', trackVisit);
@@ -888,11 +908,12 @@ def notion_log_snapshot(share_id, client_name, properties_list):
     return written
 
 
-def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer, clicked_slug="", clicked_url="", clicked_name=""):
+def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer, clicked_slug="", clicked_url="", clicked_name="", cta_type=""):
     """寫一筆訪問記錄到 Notion DB（失敗就靜默吃掉，不影響客戶體驗）
 
+    cta_type 有值 → 客戶點 CTA 按鈕（phone/line）
     clicked_slug 有值 → 客戶點某個物件去看完整資訊（click 事件）
-    clicked_slug 空 → 客戶開了客戶頁本身（visit 事件）
+    都沒有 → 客戶開了客戶頁本身（visit 事件）
     """
     if not NOTION_TOKEN or not NOTION_DB_ID:
         return False
@@ -900,8 +921,18 @@ def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_u
     def text_prop(s):
         return {"rich_text": [{"text": {"content": (s or "")[:1900]}}]} if s else {"rich_text": []}
 
-    # 「點擊物件」欄位：URL 類型，可直接點擊到 ycut
-    if clicked_slug:
+    # 事件類型優先順序：cta > click > visit
+    summary = ""
+    if cta_type:
+        event_type = "cta"
+        if cta_type == "phone":
+            summary = "📞 電話 CTA 點擊"
+        elif cta_type == "line":
+            summary = "💬 LINE CTA 點擊"
+        else:
+            summary = f"CTA: {cta_type}"
+        clicked_prop = {"url": None}
+    elif clicked_slug:
         target_url = (clicked_url or f"https://x.ychouse.tw/{clicked_slug}")[:1900]
         clicked_prop = {"url": target_url}
         event_type = "click"
@@ -919,6 +950,8 @@ def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_u
         "點擊物件": clicked_prop,
         "事件類型": {"select": {"name": event_type}},
     }
+    if summary:
+        properties["物件摘要"] = text_prop(summary)
     if page_url:
         properties["訪問 URL"] = {"url": page_url[:1900]}
 
@@ -955,6 +988,7 @@ def track_endpoint():
         clicked_slug = (body.get("clicked_slug") or "").strip()
         clicked_url = (body.get("clicked_url") or "").strip()
         clicked_name = (body.get("clicked_name") or "").strip()
+        cta_type = (body.get("cta_type") or "").strip()
 
         # 從 Vercel 自動 header 拿訪客 IP 粗略地理位置
         city = request.headers.get("X-Vercel-IP-City", "")
@@ -962,7 +996,7 @@ def track_endpoint():
         ip_geo = parse_geo(city, country)
         user_agent = parse_ua(request.headers.get("User-Agent", "")[:300])
 
-        ok = notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer, clicked_slug, clicked_url, clicked_name)
+        ok = notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer, clicked_slug, clicked_url, clicked_name, cta_type)
         return jsonify({"ok": ok})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -1061,9 +1095,11 @@ def compute_stats(rows):
         })
 
     # 物件快照表（URL → {summary, image}），用於補強 click 事件的物件資訊
+    # snapshot + backfill 都當 snapshot 處理
     snapshots = {}
     for v in parsed:
-        if v["event_type"] == "snapshot" or (not v["event_type"] and v["summary"]):
+        et = v["event_type"]
+        if et in ("snapshot", "backfill") or (not et and v["summary"]):
             url = v["clicked_url"]
             if url and (url not in snapshots or v["summary"]):
                 snapshots[url] = {"summary": v["summary"] or "", "image": v["image"] or ""}
@@ -1078,6 +1114,9 @@ def compute_stats(rows):
 
     visits = [v for v in parsed if infer_type(v) == "visit"]
     clicks = [v for v in parsed if infer_type(v) == "click"]
+    ctas = [v for v in parsed if infer_type(v) == "cta"]
+    cta_phone = sum(1 for v in ctas if "電話" in (v.get("summary") or ""))
+    cta_line = sum(1 for v in ctas if "LINE" in (v.get("summary") or ""))
 
     # 物件熱度榜（每個物件被點幾次）
     click_counts = {}
@@ -1172,6 +1211,9 @@ def compute_stats(rows):
         "posts": posts_list[:30],
         "devices": devices,
         "snapshots_count": len(snapshots),
+        "cta_phone": cta_phone,
+        "cta_line": cta_line,
+        "cta_total": len(ctas),
     }
 
 
@@ -1335,11 +1377,40 @@ def render_stats_html(stats):
     <div class="stat-sub">{stats["snapshots_count"]} 個物件快照</div>
   </div>
   <div class="stat-box">
-    <div class="stat-label">轉換率</div>
-    <div class="stat-value">{int(stats["total_clicks"] / stats["total_visits"] * 100) if stats["total_visits"] else 0}%</div>
-    <div class="stat-sub">點擊 / 訪問</div>
+    <div class="stat-label">CTA 轉換</div>
+    <div class="stat-value">{stats["cta_total"]}</div>
+    <div class="stat-sub">📞 {stats["cta_phone"]} · 💬 {stats["cta_line"]}</div>
   </div>
 </div>
+
+<section class="card">
+  <h2>🎯 客戶意願度漏斗</h2>
+  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+    <div class="stat-box" style="background: var(--bg-soft);">
+      <div class="stat-label">訪問</div>
+      <div class="stat-value" style="font-size: 28px;">{stats["total_visits"]}</div>
+      <div class="stat-sub">看了客戶頁</div>
+    </div>
+    <div class="stat-box" style="background: var(--bg-soft);">
+      <div class="stat-label">物件點擊</div>
+      <div class="stat-value" style="font-size: 28px;">{stats["total_clicks"]}</div>
+      <div class="stat-sub">{int(stats["total_clicks"] / stats["total_visits"] * 100) if stats["total_visits"] else 0}% 點進物件</div>
+    </div>
+    <div class="stat-box" style="background: var(--bg-soft);">
+      <div class="stat-label">📞 點電話</div>
+      <div class="stat-value" style="font-size: 28px; color: var(--accent-deep);">{stats["cta_phone"]}</div>
+      <div class="stat-sub">{int(stats["cta_phone"] / stats["total_visits"] * 100) if stats["total_visits"] else 0}% 強訊號</div>
+    </div>
+    <div class="stat-box" style="background: var(--bg-soft);">
+      <div class="stat-label">💬 點 LINE</div>
+      <div class="stat-value" style="font-size: 28px; color: #06C755;">{stats["cta_line"]}</div>
+      <div class="stat-sub">{int(stats["cta_line"] / stats["total_visits"] * 100) if stats["total_visits"] else 0}% 強訊號</div>
+    </div>
+  </div>
+  <div style="margin-top: 14px; font-size: 13px; color: var(--text-muted); text-align: center;">
+    📞 / 💬 點擊 = 強烈購買訊號（這位客戶真的想跟你聊）
+  </div>
+</section>
 
 <section class="card">
   <h2>🔥 物件熱度榜（總點擊 TOP 15）</h2>
@@ -1368,6 +1439,110 @@ def render_stats_html(stats):
 </div>
 </body>
 </html>'''
+
+
+@app.route("/api/backfill", methods=["GET"])
+def backfill_endpoint():
+    """歷史回填 — 對舊的點擊 URL 重新從 ycut 抓資料寫進 Notion 當快照
+
+    用途：新增「物件快照」機制之前的舊資料，物件熱度榜會顯示「物件 8j3D8L（無快照資料）」，
+    跑這支 endpoint 一次，沒賣掉的物件都會補上社區/價格/坪數+首圖
+    """
+    if not NOTION_TOKEN or not NOTION_DB_ID:
+        return jsonify({"error": "no notion config"}), 500
+
+    rows = notion_query_all(limit=2000)
+    snapshot_urls = set()
+    click_urls = set()
+    for r in rows:
+        clicked = _normalize_property_url(_row_field(r, "點擊物件", "url"))
+        event_type = _row_field(r, "事件類型", "select")
+        summary = _row_field(r, "物件摘要", "rich_text")
+        if event_type in ("snapshot", "backfill") or summary:
+            if clicked:
+                snapshot_urls.add(clicked)
+        elif event_type == "click" or (not event_type and clicked):
+            click_urls.add(clicked)
+
+    missing = sorted(click_urls - snapshot_urls)
+    written, failed = 0, 0
+    detail = []
+    for url in missing:
+        m = re.search(r'/([A-Za-z0-9_-]+)/?$', url)
+        if not m:
+            failed += 1
+            continue
+        slug = m.group(1)
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=12) as r:
+                html = r.read().decode("utf-8", errors="ignore")
+            parsed = parse_ycut_html(html, slug)
+        except Exception as e:
+            detail.append(f"❌ {slug}: {type(e).__name__}")
+            failed += 1
+            continue
+
+        if not parsed.get("community_display") or not parsed.get("price"):
+            detail.append(f"⚠️ {slug}: 解析失敗（可能已下架）")
+            failed += 1
+            continue
+
+        # 寫入快照（標記 event_type=backfill 區分原生 snapshot）
+        n = _write_backfill_snapshot(slug, parsed)
+        if n:
+            detail.append(f"✅ {slug}: {parsed.get('community_display')} {parsed.get('price')}萬")
+            written += n
+        else:
+            detail.append(f"❌ {slug}: Notion 寫入失敗")
+            failed += 1
+
+    return jsonify({
+        "checked_clicks": len(click_urls),
+        "already_snapshotted": len(snapshot_urls),
+        "needs_backfill": len(missing),
+        "written": written,
+        "failed": failed,
+        "detail": detail[:50],
+    })
+
+
+def _write_backfill_snapshot(slug, parsed):
+    """寫一筆 event_type=backfill 的快照"""
+    target_url = f"https://x.ychouse.tw/{slug}"
+    summary_parts = [
+        (parsed.get("community_display") or "").strip(),
+        f"{parsed['price']}萬" if parsed.get("price") else "",
+        f"{parsed.get('floor')}F/{parsed.get('floor_total')}" if parsed.get("floor") else "",
+        f"{parsed.get('area')}坪" if parsed.get("area") else "",
+        f"{parsed.get('age')}年" if parsed.get("age") else "",
+    ]
+    summary = " · ".join(s for s in summary_parts if s)
+
+    properties = {
+        "客戶": {"title": [{"text": {"content": "歷史回填"[:200]}}]},
+        "點擊物件": {"url": target_url[:1900]},
+        "物件摘要": {"rich_text": [{"text": {"content": summary[:1900]}}]} if summary else {"rich_text": []},
+        "物件首圖": {"url": (parsed.get("og_image") or "")[:1900] or None},
+        "事件類型": {"select": {"name": "backfill"}},
+    }
+    body = {"parent": {"database_id": NOTION_DB_ID}, "properties": properties}
+    req = urllib.request.Request(
+        "https://api.notion.com/v1/pages",
+        data=json.dumps(body).encode("utf-8"),
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {NOTION_TOKEN}",
+            "Notion-Version": "2022-06-28",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return 1 if r.status in (200, 201) else 0
+    except Exception as e:
+        print(f"backfill write failed for {slug}: {e}")
+        return 0
 
 
 @app.route("/stats", methods=["GET"])
