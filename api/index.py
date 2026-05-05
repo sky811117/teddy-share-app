@@ -199,21 +199,67 @@ def card_html(p):
     </div>'''
 
 
-def section_html(community, items, anchor):
+def parse_district(address):
+    """從地址抓行政區（台灣），「台中市北屯區XX路」→「北屯區」"""
+    if not address:
+        return "其他"
+    matches = re.findall(r'[一-龥]{1,4}[區鄉鎮市]', address)
+    if len(matches) >= 2:
+        return matches[1]  # 第一個是縣市，第二個是區
+    if matches:
+        return matches[0]
+    return "其他"
+
+
+def community_subsection_html(community, items):
+    """單一社區的 sub-section（在區裡面）"""
     items_sorted = sorted(items, key=lambda x: x["price"])
     prices = [x["price"] for x in items_sorted]
-    price_range = f"{prices[0]:,} 萬" if len(prices) == 1 else f"{prices[0]:,} ~ {prices[-1]:,} 萬"
-    ages = sorted({x["age"] for x in items_sorted})
-    age_text = f"{ages[0]} 年" if len(ages) == 1 else f"{ages[0]}~{ages[-1]} 年"
+    c_range = f"{prices[0]:,} 萬" if len(prices) == 1 else f"{prices[0]:,} ~ {prices[-1]:,} 萬"
     cards = "\n".join(card_html(p) for p in items_sorted)
     return f'''
-<section class="section" id="{anchor}">
-  <div class="section-header">
-    <h2 class="section-title">{community}</h2>
-    <div class="section-meta">屋齡 {age_text} · <strong>{len(items_sorted)} 戶可選</strong> · {price_range}</div>
+    <div class="community-sub">
+      <div class="community-header">
+        <h3 class="community-title">{community}</h3>
+        <div class="community-meta">{len(items_sorted)} 戶 · {c_range}</div>
+      </div>
+      <div class="grid">{cards}
+      </div>
+    </div>'''
+
+
+def district_section_html(district, communities_dict, anchor):
+    """單一行政區的 section，內含多個社區 sub-section"""
+    all_props = [p for comm in communities_dict.values() for p in comm]
+    total_count = len(all_props)
+    prices = sorted(p["price"] for p in all_props)
+    price_range = f"{prices[0]:,} 萬" if len(prices) == 1 else f"{prices[0]:,} ~ {prices[-1]:,} 萬"
+    ages = sorted({p["age"] for p in all_props if p.get("age")})
+    age_text = ""
+    if ages:
+        age_text = f"屋齡 {ages[0]} 年" if len(ages) == 1 else f"屋齡 {ages[0]}~{ages[-1]} 年"
+
+    # 社區按該社區最低價排序
+    community_order = sorted(
+        communities_dict.keys(),
+        key=lambda c: min(p["price"] for p in communities_dict[c])
+    )
+    sub_sections = "\n".join(
+        community_subsection_html(c, communities_dict[c]) for c in community_order
+    )
+
+    meta_parts = [f"<strong>{total_count} 戶</strong>", price_range]
+    if age_text:
+        meta_parts.append(age_text)
+    meta_str = " · ".join(meta_parts)
+
+    return f'''
+<section class="district-section" id="{anchor}">
+  <div class="district-header">
+    <h2 class="district-title">{district}</h2>
+    <div class="district-meta">{meta_str}</div>
   </div>
-  <div class="grid">{cards}
-  </div>
+  {sub_sections}
 </section>'''
 
 
@@ -222,25 +268,40 @@ def gen_html(client_data, properties):
     theme = (client_data.get("theme") or "景泰精選").strip()
     signature = (client_data.get("signature") or contact.get("agent_name") or "陳景泰").strip()
 
-    # 按社區分組
-    groups, order = {}, []
-    for i, p in enumerate(properties):
-        c = p["community_display"]
-        if c not in groups:
-            groups[c] = []
-            anchor = "c-" + re.sub(r"[^a-z0-9]", "", c.lower())[:8] + str(i)
-            order.append((c, anchor))
-        groups[c].append(p)
-    order_sorted = sorted(order, key=lambda x: min(item["price"] for item in groups[x[0]]))
+    # 兩層分組：行政區 → 社區
+    districts = {}
+    for p in properties:
+        district = parse_district(p.get("address", ""))
+        community = p.get("community_display", "未知社區")
+        if district not in districts:
+            districts[district] = {}
+        if community not in districts[district]:
+            districts[district][community] = []
+        districts[district][community].append(p)
 
-    nav_chips = "\n    ".join(
-        f'<a class="nav-chip" href="#{anchor}">{community.replace("佳茂6962","")}<span class="nav-chip-count">{len(groups[community])}</span></a>'
-        for community, anchor in order_sorted
+    # 行政區按該區最低價排序
+    district_order = sorted(
+        districts.keys(),
+        key=lambda d: min(p["price"] for comm in districts[d].values() for p in comm)
     )
-    sections = "\n".join(section_html(c, groups[c], a) for c, a in order_sorted)
+    district_anchors = {}
+    for i, d in enumerate(district_order):
+        anchor_id = "d-" + re.sub(r"[^a-z0-9一-龥]", "", d.lower()) + str(i)
+        district_anchors[d] = anchor_id
+
+    # nav chips 按行政區（不再按社區）
+    nav_chips = "\n    ".join(
+        f'<a class="nav-chip" href="#{district_anchors[d]}">{d}<span class="nav-chip-count">{sum(len(c) for c in districts[d].values())}</span></a>'
+        for d in district_order
+    )
+    sections = "\n".join(
+        district_section_html(d, districts[d], district_anchors[d])
+        for d in district_order
+    )
 
     total_count = len(properties)
-    community_count = len(groups)
+    community_count = sum(len(c) for c in districts.values())
+    district_count = len(districts)
     prices = sorted(p["price"] for p in properties)
     price_min, price_max = prices[0], prices[-1]
     today = datetime.date.today().strftime("%Y.%m.%d")
@@ -346,13 +407,39 @@ def gen_html(client_data, properties):
     font-size: 14px; font-weight: 700; padding: 2px 9px; border-radius: 12px; margin-left: 8px;
   }}
   .nav-chip:hover .nav-chip-count {{ background: rgba(255,255,255,0.25); color: #FFF; }}
-  .section {{ padding: 56px 0 30px; border-bottom: 1px dashed var(--border); }}
-  .section:last-of-type {{ border-bottom: none; }}
-  .section-header {{ display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }}
-  .section-title {{ font-size: clamp(22px, 3.2vw, 30px); font-weight: 700; display: flex; align-items: center; gap: 12px; }}
-  .section-title::before {{ content: ''; display: inline-block; width: 5px; height: 28px; background: var(--accent); border-radius: 3px; }}
-  .section-meta {{ font-size: 16px; color: var(--text-muted); letter-spacing: 1px; }}
-  .section-meta strong {{ color: var(--accent-deep); font-weight: 700; }}
+  /* 行政區 (top-level section) */
+  .district-section {{ padding: 50px 0 20px; border-bottom: 2px solid var(--border); }}
+  .district-section:last-of-type {{ border-bottom: none; padding-bottom: 24px; }}
+  .district-header {{
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 26px; flex-wrap: wrap; gap: 12px;
+    padding: 18px 22px;
+    background: linear-gradient(90deg, var(--bg-soft) 0%, rgba(242,237,228,0.3) 100%);
+    border-radius: 14px; border-left: 6px solid var(--accent);
+  }}
+  .district-title {{
+    font-size: clamp(24px, 4vw, 34px); font-weight: 900; letter-spacing: 2px;
+    color: var(--text); display: flex; align-items: center; gap: 10px;
+  }}
+  .district-title::before {{ content: '🏷️'; font-size: 0.85em; }}
+  .district-meta {{ font-size: 16px; color: var(--text-soft); letter-spacing: 1px; font-weight: 500; }}
+  .district-meta strong {{ color: var(--accent-deep); font-weight: 800; font-size: 18px; }}
+
+  /* 社區 (sub-section under district) */
+  .community-sub {{ padding: 22px 0 14px; }}
+  .community-header {{
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 18px; flex-wrap: wrap; gap: 10px;
+  }}
+  .community-title {{
+    font-size: clamp(19px, 3vw, 24px); font-weight: 700; color: var(--text);
+    display: flex; align-items: center; gap: 12px;
+  }}
+  .community-title::before {{
+    content: ''; display: inline-block; width: 4px; height: 22px;
+    background: var(--wood-light); border-radius: 2px;
+  }}
+  .community-meta {{ font-size: 14px; color: var(--text-muted); letter-spacing: 1px; }}
   .grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 22px; }}
   .card {{
     background: var(--card); border: 1px solid var(--border); border-radius: 18px;
@@ -410,11 +497,12 @@ def gen_html(client_data, properties):
   <h1>{total_count} 戶 客製整理</h1>
   <div class="for-client">給 {client_data["name"]} 的專屬精選 · {client_data["need"]}</div>
   <p class="summary">
-    精選 {total_count} 個物件 · {community_count} 個社區<br>
+    精選 {total_count} 個物件 · {district_count} 區 · {community_count} 個社區<br>
     售價 {price_min:,} 萬 ~ {price_max:,} 萬
   </p>
   <div class="hero-stats">
     <div class="hero-stat"><div class="hero-stat-num">{total_count}</div><div class="hero-stat-label">精選戶數</div></div>
+    <div class="hero-stat"><div class="hero-stat-num">{district_count}</div><div class="hero-stat-label">行政區</div></div>
     <div class="hero-stat"><div class="hero-stat-num">{community_count}</div><div class="hero-stat-label">優質社區</div></div>
   </div>
 </section>
