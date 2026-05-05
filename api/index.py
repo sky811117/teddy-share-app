@@ -143,7 +143,9 @@ def fetch_full_batch(slugs):
 
 
 def extract_urls(text):
-    found = re.findall(r"https?://x\.ychouse\.tw/(\w+)", text or "")
+    # 非貪婪 + lookahead：slug 結束於下個 URL 或非英數字符 — 支援 URL 連在一起貼不分隔
+    # 例如：「https://x.ychouse.tw/abc123https://x.ychouse.tw/def456」也能正確切成 abc123 + def456
+    found = re.findall(r"https?://x\.ychouse\.tw/([A-Za-z0-9]+?)(?=https?://|[^A-Za-z0-9]|$)", text or "")
     seen, out = set(), []
     for s in found:
         if s not in seen:
