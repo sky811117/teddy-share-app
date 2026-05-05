@@ -1022,6 +1022,23 @@ def _row_field(row, prop_name, kind):
     return ""
 
 
+def _normalize_property_url(url):
+    """把舊資料的 slug-only 統一成完整 ycut URL"""
+    if not url:
+        return ""
+    if url.startswith("http"):
+        return url
+    return f"https://x.ychouse.tw/{url}"
+
+
+def _slug_from_url(url):
+    """從 URL 抓 slug，失敗回傳完整 URL 當顯示文字"""
+    if not url:
+        return ""
+    m = re.search(r'/([A-Za-z0-9_-]+)/?$', url)
+    return m.group(1) if m else url
+
+
 def compute_stats(rows):
     """Aggregate stats from raw Notion rows"""
     from datetime import datetime, timedelta, timezone
@@ -1034,7 +1051,7 @@ def compute_stats(rows):
             "device": _row_field(r, "裝置", "rich_text"),
             "ip_geo": _row_field(r, "IP 粗略地點", "rich_text"),
             "duration": _row_field(r, "停留秒數", "number"),
-            "clicked_url": _row_field(r, "點擊物件", "url"),
+            "clicked_url": _normalize_property_url(_row_field(r, "點擊物件", "url")),
             "summary": _row_field(r, "物件摘要", "rich_text"),
             "image": _row_field(r, "物件首圖", "url"),
             "event_type": _row_field(r, "事件類型", "select"),
@@ -1169,9 +1186,15 @@ def render_stats_html(stats):
         top_html = ""
         for i, p in enumerate(stats["top_properties"]):
             pct = int(p["count"] / max_count * 100) if max_count else 0
-            label = p["summary"] or p["url"][-30:]
+            slug = _slug_from_url(p["url"])
+            # 名稱優先順序：物件摘要 → 物件 {slug}（避免顯示成代碼）
+            label = p["summary"] or f"物件 {slug}（無快照資料）"
             img = p["image"] or ""
-            img_html = f'<img src="{img}" loading="lazy">' if img else '<div class="no-img">—</div>'
+            # 圖片 onerror → 顯示「已下架」fallback，避免破圖
+            img_html = (
+                f'<img src="{img}" loading="lazy" onerror="this.parentElement.innerHTML=\'<div class=no-img>已下架</div>\'">'
+                if img else '<div class="no-img">—</div>'
+            )
             top_html += f'''
             <div class="prop-row">
               <div class="prop-rank">{i+1}</div>
@@ -1193,7 +1216,11 @@ def render_stats_html(stats):
                 latest_tw = (t + timedelta(hours=8)).strftime("%m/%d %H:%M")
             except Exception:
                 latest_tw = "—"
-            top_label = p["top_property_summary"]
+            # 最熱物件 fallback：summary 沒值就顯示 slug
+            tp_summary = p["top_property_summary"]
+            if tp_summary == "—" and p["top_property_url"]:
+                tp_summary = f"物件 {_slug_from_url(p['top_property_url'])}"
+            top_label = tp_summary
             if p["top_property_url"]:
                 top_label = f'<a href="{p["top_property_url"]}" target="_blank">{top_label}</a> ({p["top_property_count"]})'
             posts_html += f'''
