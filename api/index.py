@@ -870,8 +870,10 @@ def notion_log_snapshot(share_id, client_name, properties_list):
         if not slug:
             continue
         target_url = f"https://x.ychouse.tw/{slug}"
-        # 摘要：建興大樓 950萬 3F/7 30坪 12年
+        # 摘要：北屯區 · 建興大樓 950萬 3F/7 30坪 12年
+        district = parse_district(p.get("address", ""))
         summary_parts = [
+            district if district != "其他" else "",
             (p.get("community_display") or "").strip(),
             f"{p['price']}萬" if p.get("price") else "",
             f"{p.get('floor')}F/{p.get('floor_total')}" if p.get("floor") else "",
@@ -1073,6 +1075,26 @@ def _slug_from_url(url):
     return m.group(1) if m else url
 
 
+def parse_property_meta(summary):
+    """從物件摘要 '北屯區 · 建興大樓 980萬 3F/7 30坪 12年' 抽出屬性"""
+    if not summary:
+        return {}
+    meta = {}
+    m = re.search(r'([一-龥]{1,4}[區鄉鎮市])', summary)
+    if m:
+        meta["district"] = m.group(1)
+    m = re.search(r'(\d+)\s*萬', summary)
+    if m:
+        meta["price"] = int(m.group(1))
+    m = re.search(r'([\d.]+)\s*坪', summary)
+    if m:
+        meta["area"] = float(m.group(1))
+    m = re.search(r'([\d.]+)\s*年', summary)
+    if m:
+        meta["age"] = float(m.group(1))
+    return meta
+
+
 def compute_stats(rows):
     """Aggregate stats from raw Notion rows"""
     from datetime import datetime, timedelta, timezone
@@ -1201,6 +1223,42 @@ def compute_stats(rows):
         elif et == "click":
             recent_clicks += 1
 
+    # 屋齡 / 價格 / 區域分析（依快照資料聚合）
+    age_buckets = {"< 5 年": 0, "5-10 年": 0, "10-20 年": 0, "> 20 年": 0, "未知": 0}
+    price_buckets = {"< 800 萬": 0, "800-1200 萬": 0, "1200-1800 萬": 0, "> 1800 萬": 0, "未知": 0}
+    district_clicks = {}
+    for url, info in click_counts.items():
+        meta = parse_property_meta(info.get("summary") or "")
+        cnt = info["count"]
+        age = meta.get("age")
+        if age is None:
+            age_buckets["未知"] += cnt
+        elif age < 5:
+            age_buckets["< 5 年"] += cnt
+        elif age < 10:
+            age_buckets["5-10 年"] += cnt
+        elif age <= 20:
+            age_buckets["10-20 年"] += cnt
+        else:
+            age_buckets["> 20 年"] += cnt
+
+        price = meta.get("price")
+        if price is None:
+            price_buckets["未知"] += cnt
+        elif price < 800:
+            price_buckets["< 800 萬"] += cnt
+        elif price < 1200:
+            price_buckets["800-1200 萬"] += cnt
+        elif price < 1800:
+            price_buckets["1200-1800 萬"] += cnt
+        else:
+            price_buckets["> 1800 萬"] += cnt
+
+        district = meta.get("district") or "未知"
+        district_clicks[district] = district_clicks.get(district, 0) + cnt
+
+    district_list = sorted(district_clicks.items(), key=lambda x: -x[1])
+
     return {
         "total_visits": len(visits),
         "total_clicks": len(clicks),
@@ -1214,6 +1272,9 @@ def compute_stats(rows):
         "cta_phone": cta_phone,
         "cta_line": cta_line,
         "cta_total": len(ctas),
+        "age_buckets": age_buckets,
+        "price_buckets": price_buckets,
+        "district_clicks": district_list,
     }
 
 
@@ -1284,6 +1345,30 @@ def render_stats_html(stats):
         dev_html += f'<div class="dev-row"><span>{d}</span><span class="bar-wrap"><span class="bar" style="width:{pct}%"></span><span class="count">{c} ({pct}%)</span></span></div>'
     if not dev_html:
         dev_html = '<div class="empty">還沒有資料</div>'
+
+    # 屋齡 / 價格段分析 helper
+    def render_buckets(buckets):
+        total = sum(v for v in buckets.values() if v) or 1
+        rows = ""
+        for label, c in buckets.items():
+            if c == 0:
+                continue
+            pct = int(c / total * 100)
+            rows += f'<div class="dev-row"><span>{label}</span><span class="bar-wrap"><span class="bar" style="width:{pct}%"></span><span class="count">{c} ({pct}%)</span></span></div>'
+        return rows or '<div class="empty">還沒有資料</div>'
+
+    age_html = render_buckets(stats["age_buckets"])
+    price_html = render_buckets(stats["price_buckets"])
+
+    # 區域熱度
+    if stats["district_clicks"]:
+        max_d = stats["district_clicks"][0][1]
+        district_html = ""
+        for name, c in stats["district_clicks"][:10]:
+            pct = int(c / max_d * 100)
+            district_html += f'<div class="dev-row"><span>{name}</span><span class="bar-wrap"><span class="bar" style="width:{pct}%"></span><span class="count">{c} 點</span></span></div>'
+    else:
+        district_html = '<div class="empty">還沒有資料</div>'
 
     return f'''<!DOCTYPE html>
 <html lang="zh-Hant">
@@ -1426,6 +1511,21 @@ def render_stats_html(stats):
 </section>
 
 <section class="card">
+  <h2>🏘️ 區域熱度（首購族最在意哪邊）</h2>
+  {district_html}
+</section>
+
+<section class="card">
+  <h2>💰 價格段熱度</h2>
+  {price_html}
+</section>
+
+<section class="card">
+  <h2>📅 屋齡段熱度</h2>
+  {age_html}
+</section>
+
+<section class="card">
   <h2>📱 裝置分布</h2>
   {dev_html}
 </section>
@@ -1510,7 +1610,9 @@ def backfill_endpoint():
 def _write_backfill_snapshot(slug, parsed):
     """寫一筆 event_type=backfill 的快照"""
     target_url = f"https://x.ychouse.tw/{slug}"
+    district = parse_district(parsed.get("address", ""))
     summary_parts = [
+        district if district != "其他" else "",
         (parsed.get("community_display") or "").strip(),
         f"{parsed['price']}萬" if parsed.get("price") else "",
         f"{parsed.get('floor')}F/{parsed.get('floor_total')}" if parsed.get("floor") else "",
