@@ -409,6 +409,42 @@ def gen_html(client_data, properties):
   </div>
 </footer>
 
+<script>
+(function() {{
+  var SHARE_ID = {json.dumps(client_data["share_id"])};
+  var CLIENT_NAME = {json.dumps(client_data["name"])};
+  var TRACK_API = 'https://teddy-share-app.vercel.app/api/track';
+  var startTime = Date.now();
+  var sent = false;
+
+  function track() {{
+    if (sent) return;
+    var duration = Math.round((Date.now() - startTime) / 1000);
+    if (duration < 3) return;
+    sent = true;
+    try {{
+      fetch(TRACK_API, {{
+        method: 'POST',
+        headers: {{ 'Content-Type': 'application/json' }},
+        body: JSON.stringify({{
+          client: CLIENT_NAME,
+          share_id: SHARE_ID,
+          duration: duration,
+          url: location.href,
+          referrer: document.referrer || ''
+        }}),
+        keepalive: true
+      }});
+    }} catch (e) {{}}
+  }}
+
+  window.addEventListener('pagehide', track);
+  window.addEventListener('beforeunload', track);
+  // 也定期 ping 一次（讓還在閱讀的訪客也記到，避免關閉太快沒記到）
+  setTimeout(track, 30000);
+}})();
+</script>
+
 </body>
 </html>
 '''
@@ -508,6 +544,74 @@ def publish_endpoint():
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "ts": datetime.datetime.now().isoformat()})
+
+
+# ============== Notion 訪問追蹤 ==============
+
+NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "")
+NOTION_DB_ID = os.environ.get("NOTION_DB_ID", "")
+
+
+def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer):
+    """寫一筆訪問記錄到 Notion DB（失敗就靜默吃掉，不影響客戶體驗）"""
+    if not NOTION_TOKEN or not NOTION_DB_ID:
+        return False
+
+    def text_prop(s):
+        return {"rich_text": [{"text": {"content": (s or "")[:1900]}}]} if s else {"rich_text": []}
+
+    properties = {
+        "客戶": {"title": [{"text": {"content": (client_name or "未知")[:200]}}]},
+        "share_id": text_prop(share_id),
+        "裝置": text_prop(user_agent),
+        "IP 粗略地點": text_prop(ip_geo),
+        "停留秒數": {"number": int(duration) if duration else 0},
+        "referrer": text_prop(referrer),
+    }
+    if page_url:
+        properties["訪問 URL"] = {"url": page_url[:1900]}
+
+    body = {"parent": {"database_id": NOTION_DB_ID}, "properties": properties}
+    req = urllib.request.Request(
+        "https://api.notion.com/v1/pages",
+        data=json.dumps(body).encode("utf-8"),
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {NOTION_TOKEN}",
+            "Notion-Version": "2022-06-28",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8) as r:
+            return r.status in (200, 201)
+    except Exception as e:
+        print(f"Notion log failed: {type(e).__name__}: {e}")
+        return False
+
+
+@app.route("/api/track", methods=["POST", "OPTIONS"])
+def track_endpoint():
+    if request.method == "OPTIONS":
+        return ("", 204)
+    try:
+        body = request.get_json(silent=True) or {}
+        client_name = (body.get("client") or "").strip()
+        share_id = (body.get("share_id") or "").strip()
+        duration = body.get("duration", 0)
+        page_url = body.get("url", "")
+        referrer = body.get("referrer", "")
+
+        # 從 Vercel 自動 header 拿訪客 IP 粗略地理位置
+        city = request.headers.get("X-Vercel-IP-City", "")
+        country = request.headers.get("X-Vercel-IP-Country", "")
+        ip_geo = " · ".join(filter(None, [city, country])) or ""
+        user_agent = request.headers.get("User-Agent", "")[:300]
+
+        ok = notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer)
+        return jsonify({"ok": ok})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 # Serve frontend index.html at root（Vercel new Python runtime 把 / 也送進 app）
