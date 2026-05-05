@@ -571,6 +571,16 @@ def gen_html(client_data, properties):
   .contact-icon {{ font-size: 20px; }}
   .footer-license {{ font-size: 14px; color: var(--text-muted); letter-spacing: 1px; line-height: 2; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; }}
   .footer-date {{ font-size: 13px; color: rgba(232,223,210,0.4); margin-top: 16px; letter-spacing: 2px; }}
+  .back-to-top {{
+    position: fixed; bottom: 24px; right: 24px; width: 52px; height: 52px;
+    border-radius: 50%; background: var(--wood-deep); color: #FFF;
+    border: 2px solid #FFF; font-size: 24px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 6px 18px rgba(139,115,85,0.35); z-index: 200;
+    opacity: 0; pointer-events: none; transition: all 0.25s;
+    display: flex; align-items: center; justify-content: center;
+  }}
+  .back-to-top.show {{ opacity: 1; pointer-events: auto; }}
+  .back-to-top:hover {{ background: var(--accent); transform: translateY(-3px); box-shadow: 0 10px 24px rgba(139,115,85,0.5); }}
   @media (max-width: 640px) {{
     .hero {{ padding: 50px 16px 36px; }}
     .hero-stats {{ gap: 28px; }}
@@ -649,6 +659,8 @@ def gen_html(client_data, properties):
     <div class="footer-date">本頁產出日期：{today}</div>
   </div>
 </footer>
+
+<button class="back-to-top" id="back-to-top" aria-label="回到頂部">↑</button>
 
 <script>
 (function() {{
@@ -843,6 +855,21 @@ def gen_html(client_data, properties):
     }});
   }});
 
+  // 回到頂部按鈕
+  var backBtn = document.getElementById('back-to-top');
+  if (backBtn) {{
+    window.addEventListener('scroll', function() {{
+      if (window.scrollY > 400) {{
+        backBtn.classList.add('show');
+      }} else {{
+        backBtn.classList.remove('show');
+      }}
+    }});
+    backBtn.addEventListener('click', function() {{
+      window.scrollTo({{ top: 0, behavior: 'smooth' }});
+    }});
+  }}
+
   window.addEventListener('pagehide', trackVisit);
   window.addEventListener('beforeunload', trackVisit);
   // 也定期 ping 一次（讓還在閱讀的訪客也記到，避免關閉太快沒記到）
@@ -857,13 +884,33 @@ def gen_html(client_data, properties):
 
 # ============== GitHub Push ==============
 
-def github_push(path, content, message, token):
+def github_push(path, content, message, token, update=False):
+    """PUT contents to GitHub. update=True 時先抓 sha，可覆蓋既有檔案。"""
     api_url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{path}"
+    sha = None
+    if update:
+        try:
+            req_get = urllib.request.Request(
+                api_url,
+                method="GET",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.github+json",
+                },
+            )
+            with urllib.request.urlopen(req_get, timeout=10) as r:
+                sha = json.loads(r.read().decode("utf-8")).get("sha")
+        except Exception:
+            sha = None
+
     body = {
         "message": message,
         "content": base64.b64encode(content.encode("utf-8")).decode("ascii"),
         "branch": "main",
     }
+    if sha:
+        body["sha"] = sha
+
     req = urllib.request.Request(
         api_url,
         data=json.dumps(body).encode("utf-8"),
@@ -1725,6 +1772,107 @@ def render_stats_html(stats):
 </div>
 </body>
 </html>'''
+
+
+@app.route("/api/regen", methods=["GET", "POST"])
+def regen_endpoint():
+    """重新生成既有 share_id 的客戶頁（同 URL 升級到最新版面）
+
+    用途：景泰加新功能後想讓舊客戶頁也享有 → 一鍵 regen，URL 不變客戶不用換
+    入口：?share_id=XXX 或 POST {"share_id": "XXX"}
+         ?share_id=all → 一次處理 Notion 看到的所有 share_id
+    """
+    share_id = request.args.get("share_id") or (request.get_json(silent=True) or {}).get("share_id", "")
+    share_id = (share_id or "").strip()
+    if not share_id:
+        return jsonify({"error": "需要 share_id 參數（?share_id=XXX 或 ?share_id=all）"}), 400
+
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        return jsonify({"error": "no GITHUB_TOKEN"}), 500
+
+    rows = notion_query_all(limit=2000)
+
+    # 先聚合：每個 share_id → {client, slugs}
+    share_map = {}
+    for r in rows:
+        sid = _row_field(r, "share_id", "rich_text")
+        if not sid:
+            continue
+        if sid not in share_map:
+            share_map[sid] = {"client": "客戶", "slugs": set()}
+        client = _row_field(r, "客戶", "title")
+        if client and client not in ("未知", "歷史回填"):
+            share_map[sid]["client"] = client
+        et = _row_field(r, "事件類型", "select")
+        url = _normalize_property_url(_row_field(r, "點擊物件", "url"))
+        if et in ("snapshot", "backfill", "click") and url:
+            m = re.search(r'/([A-Za-z0-9_-]+)/?$', url)
+            if m:
+                share_map[sid]["slugs"].add(m.group(1))
+
+    targets = list(share_map.keys()) if share_id == "all" else [share_id]
+
+    results = []
+    for sid in targets:
+        info = share_map.get(sid)
+        if not info or not info["slugs"]:
+            results.append({"share_id": sid, "ok": False, "error": "找不到物件資料"})
+            continue
+
+        try:
+            properties = fetch_full_batch(list(info["slugs"]))
+        except Exception as e:
+            results.append({"share_id": sid, "ok": False, "error": f"fetch 失敗: {e}"})
+            continue
+        if not properties:
+            results.append({"share_id": sid, "ok": False, "error": "全部物件已下架"})
+            continue
+
+        client_data = {
+            "name": info["client"],
+            "need": "找房需求",
+            "share_id": sid,
+            "contact": DEFAULT_CONTACT,
+        }
+        html = gen_html(client_data, properties)
+
+        try:
+            github_push(
+                f"{sid}/index.html",
+                html,
+                f"regen: {sid} ({len(properties)} 戶) 升級到最新版面",
+                token,
+                update=True,
+            )
+        except urllib.error.HTTPError as e:
+            err = e.read().decode("utf-8", errors="ignore")[:200] if hasattr(e, "read") else str(e)
+            results.append({"share_id": sid, "ok": False, "error": f"github push: {e.code} {err}"})
+            continue
+        except Exception as e:
+            results.append({"share_id": sid, "ok": False, "error": f"push 失敗: {e}"})
+            continue
+
+        # 順便寫新快照（會有最新摘要含區域）
+        try:
+            notion_log_snapshot(sid, info["client"], properties)
+        except Exception:
+            pass
+
+        results.append({
+            "share_id": sid,
+            "ok": True,
+            "url": f"{PAGES_BASE_URL}/{sid}/",
+            "client": info["client"],
+            "count": len(properties),
+        })
+
+    return jsonify({
+        "processed": len(results),
+        "succeeded": sum(1 for r in results if r["ok"]),
+        "failed": sum(1 for r in results if not r["ok"]),
+        "results": results,
+    })
 
 
 @app.route("/api/backfill", methods=["GET"])
