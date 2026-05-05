@@ -258,7 +258,28 @@ def district_section_html(district, communities_dict, anchor):
 
     # 社區名稱預覽（讓 header 不空虛）
     community_chips = " · ".join(community_order)
-    chips_html = f'<div class="district-communities">含 {len(community_order)} 個社區：{community_chips}</div>'
+
+    # 價格段分布（讓客戶一眼看出這區哪個預算最多選擇）
+    price_tiers = [
+        ("< 800 萬", 0, 800),
+        ("800-1200 萬", 800, 1200),
+        ("1200-1500 萬", 1200, 1500),
+        ("1500-2000 萬", 1500, 2000),
+        ("> 2000 萬", 2000, 99999),
+    ]
+    tier_counts = []
+    for label, lo, hi in price_tiers:
+        n = sum(1 for p in all_props if lo <= p.get("price", 0) < hi)
+        if n > 0:
+            tier_counts.append(f"{label} <strong>{n}</strong>")
+    price_tier_html = ""
+    if len(tier_counts) >= 2:  # 只有 1 個區段就不顯示（meta 已經有總價格範圍）
+        price_tier_html = f'<div class="district-price-tiers">💰 價格段：{" · ".join(tier_counts)}</div>'
+
+    chips_html = (
+        f'<div class="district-communities">含 {len(community_order)} 個社區：{community_chips}</div>'
+        + price_tier_html
+    )
 
     return f'''
 <section class="district-section" id="{anchor}">
@@ -438,6 +459,13 @@ def gen_html(client_data, properties):
     background: rgba(217,199,176,0.18); border-radius: 10px;
     font-weight: 500; line-height: 1.7;
   }}
+  .district-price-tiers {{
+    font-size: 14px; color: var(--accent-deep); letter-spacing: 0.5px;
+    margin: 8px 4px 4px 4px; padding: 10px 16px;
+    background: rgba(201,120,90,0.10); border-radius: 10px;
+    font-weight: 500; line-height: 1.7;
+  }}
+  .district-price-tiers strong {{ color: var(--accent-deep); font-weight: 800; }}
 
   /* 社區 (sub-section under district) */
   .community-sub {{ padding: 22px 0 14px; }}
