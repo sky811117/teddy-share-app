@@ -314,6 +314,18 @@
     <textarea id="urls" placeholder="把整段貼進來，多少物件都行..."></textarea>
   </div>
 
+  <div class="field">
+    <label class="field-label" for="theme">頂部標籤（可選）</label>
+    <div class="field-hint">客戶頁最上方的精選標籤。留空 = 景泰精選</div>
+    <input type="text" id="theme" placeholder="景泰精選" autocomplete="off">
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="signature">底部簽名（可選）</label>
+    <div class="field-hint">客戶頁最下方的大標題。留空 = 陳景泰</div>
+    <input type="text" id="signature" placeholder="陳景泰" autocomplete="off">
+  </div>
+
   <button class="submit" id="submit-btn">製 作 網 頁</button>
 
   <div class="error" id="error"></div>
@@ -396,6 +408,8 @@ $('submit-btn').addEventListener('click', async () => {
   const name = $('name').value.trim();
   const need = $('need').value.trim();
   const urls_text = $('urls').value;
+  const theme = $('theme').value.trim();
+  const signature = $('signature').value.trim();
 
   $('error').classList.remove('show');
 
@@ -412,7 +426,7 @@ $('submit-btn').addEventListener('click', async () => {
     const r = await fetch('/api/publish', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, need, urls_text })
+      body: JSON.stringify({ name, need, urls_text, theme, signature })
     });
 
     const data = await r.json();
@@ -458,6 +472,8 @@ function resetForm() {
   $('name').value = '';
   $('need').value = '';
   $('urls').value = '';
+  $('theme').value = '';
+  $('signature').value = '';
   $('error').classList.remove('show');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }

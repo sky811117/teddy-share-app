@@ -219,6 +219,8 @@ def section_html(community, items, anchor):
 
 def gen_html(client_data, properties):
     contact = client_data.get("contact", DEFAULT_CONTACT)
+    theme = (client_data.get("theme") or "景泰精選").strip()
+    signature = (client_data.get("signature") or contact.get("agent_name") or "陳景泰").strip()
 
     # 按社區分組
     groups, order = {}, []
@@ -248,8 +250,8 @@ def gen_html(client_data, properties):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>景泰精選 · 給 {client_data["name"]} 的 {total_count} 戶整理</title>
-<meta property="og:title" content="景泰精選 · 給 {client_data["name"]} 的 {total_count} 戶整理">
+<title>{theme} · 給 {client_data["name"]} 的 {total_count} 戶整理</title>
+<meta property="og:title" content="{theme} · 給 {client_data["name"]} 的 {total_count} 戶整理">
 <meta property="og:description" content="{client_data["need"]}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -367,7 +369,7 @@ def gen_html(client_data, properties):
 <body>
 
 <section class="hero">
-  <div class="hero-tag">景 泰 精 選</div>
+  <div class="hero-tag">{theme}</div>
   <h1>{total_count} 戶 客製整理</h1>
   <div class="for-client">給 {client_data["name"]} 的專屬精選 · {client_data["need"]}</div>
   <p class="summary">
@@ -392,7 +394,7 @@ def gen_html(client_data, properties):
 
 <footer class="footer">
   <div class="footer-content">
-    <div class="footer-title">陳 景 泰</div>
+    <div class="footer-title">{signature}</div>
     <div class="footer-subtitle">{contact["company"]}</div>
     <div class="footer-contact">
       <a class="contact-item" href="tel:{contact["phone_raw"]}"><span class="contact-icon">📞</span><span>{contact["phone"]}</span></a>
@@ -545,6 +547,8 @@ def publish_endpoint():
         if not need.startswith("找房需求"):
             need = f"找房需求：{need}"
         text = body.get("urls_text", "")
+        theme = (body.get("theme") or "").strip()
+        signature = (body.get("signature") or "").strip()
 
         slugs = extract_urls(text)
         if not slugs:
@@ -560,6 +564,8 @@ def publish_endpoint():
             "need": need,
             "share_id": share_id,
             "contact": DEFAULT_CONTACT,
+            "theme": theme,
+            "signature": signature,
         }
         html = gen_html(client_data, properties)
 
@@ -681,21 +687,12 @@ def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_u
     def text_prop(s):
         return {"rich_text": [{"text": {"content": (s or "")[:1900]}}]} if s else {"rich_text": []}
 
-    # 「點擊物件」欄位：用物件名稱 (tagline) 顯示，附超連結到 ycut
+    # 「點擊物件」欄位：URL 類型，可直接點擊到 ycut
     if clicked_slug:
-        display_name = clicked_name or clicked_slug
-        target_url = clicked_url or f"https://x.ychouse.tw/{clicked_slug}"
-        clicked_prop = {
-            "rich_text": [{
-                "type": "text",
-                "text": {
-                    "content": display_name[:1900],
-                    "link": {"url": target_url[:1900]},
-                },
-            }]
-        }
+        target_url = (clicked_url or f"https://x.ychouse.tw/{clicked_slug}")[:1900]
+        clicked_prop = {"url": target_url}
     else:
-        clicked_prop = {"rich_text": []}
+        clicked_prop = {"url": None}
 
     properties = {
         "客戶": {"title": [{"text": {"content": (client_name or "未知")[:200]}}]},
