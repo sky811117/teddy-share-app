@@ -552,6 +552,76 @@ NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "")
 NOTION_DB_ID = os.environ.get("NOTION_DB_ID", "")
 
 
+# UA / 地點解析（把長字串轉人話，景泰看了才不會頭痛）
+TW_CITIES = {
+    "Taipei": "台北市", "New Taipei": "新北市", "Taoyuan": "桃園市",
+    "Taichung": "台中市", "Tainan": "台南市", "Kaohsiung": "高雄市",
+    "Keelung": "基隆市", "Hsinchu": "新竹", "Chiayi": "嘉義",
+    "Changhua": "彰化縣", "Yunlin": "雲林縣", "Nantou": "南投縣",
+    "Miaoli": "苗栗縣", "Yilan": "宜蘭縣", "Hualien": "花蓮縣",
+    "Taitung": "台東縣", "Pingtung": "屏東縣", "Penghu": "澎湖縣",
+    "Kinmen": "金門縣", "Lienchiang": "連江縣",
+}
+
+COUNTRIES = {
+    "TW": "台灣", "US": "美國", "JP": "日本", "KR": "韓國",
+    "CN": "中國", "HK": "香港", "SG": "新加坡", "MY": "馬來西亞",
+}
+
+
+def parse_ua(ua):
+    if not ua:
+        return ""
+    if ua.startswith("curl/") or "bot" in ua.lower() or "spider" in ua.lower():
+        return f"機器人 ({ua[:40]})"
+
+    if "iPhone" in ua:
+        os_name, device = "iPhone", "手機"
+    elif "iPad" in ua:
+        os_name, device = "iPad", "平板"
+    elif "Android" in ua:
+        os_name = "Android"
+        device = "手機" if "Mobile" in ua else "平板"
+    elif "Windows" in ua:
+        os_name, device = "Windows", "桌機"
+    elif "Macintosh" in ua or "Mac OS X" in ua:
+        os_name, device = "Mac", "桌機"
+    elif "Linux" in ua:
+        os_name, device = "Linux", "桌機"
+    else:
+        os_name, device = "", ""
+
+    if "Line/" in ua:
+        browser = "LINE 內建"
+    elif "FBAN" in ua or "FBAV" in ua:
+        browser = "FB 內建"
+    elif "Instagram" in ua:
+        browser = "IG 內建"
+    elif "Edg/" in ua:
+        m = re.search(r"Edg/(\d+)", ua)
+        browser = f"Edge {m.group(1)}" if m else "Edge"
+    elif "Chrome/" in ua:
+        m = re.search(r"Chrome/(\d+)", ua)
+        browser = f"Chrome {m.group(1)}" if m else "Chrome"
+    elif "Firefox/" in ua:
+        m = re.search(r"Firefox/(\d+)", ua)
+        browser = f"Firefox {m.group(1)}" if m else "Firefox"
+    elif "Safari/" in ua:
+        m = re.search(r"Version/(\d+)", ua)
+        browser = f"Safari {m.group(1)}" if m else "Safari"
+    else:
+        browser = ""
+
+    parts = [p for p in (os_name, browser, device) if p]
+    return " · ".join(parts) or ua[:60]
+
+
+def parse_geo(city, country):
+    city_zh = TW_CITIES.get(city, city) if city else ""
+    country_zh = COUNTRIES.get(country, country) if country else ""
+    return " · ".join(filter(None, [city_zh, country_zh]))
+
+
 def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer):
     """寫一筆訪問記錄到 Notion DB（失敗就靜默吃掉，不影響客戶體驗）"""
     if not NOTION_TOKEN or not NOTION_DB_ID:
@@ -605,8 +675,8 @@ def track_endpoint():
         # 從 Vercel 自動 header 拿訪客 IP 粗略地理位置
         city = request.headers.get("X-Vercel-IP-City", "")
         country = request.headers.get("X-Vercel-IP-Country", "")
-        ip_geo = " · ".join(filter(None, [city, country])) or ""
-        user_agent = request.headers.get("User-Agent", "")[:300]
+        ip_geo = parse_geo(city, country)
+        user_agent = parse_ua(request.headers.get("User-Agent", "")[:300])
 
         ok = notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer)
         return jsonify({"ok": ok})
