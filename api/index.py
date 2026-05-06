@@ -215,6 +215,7 @@ def card_html(p):
     tagline = clean_tagline(p.get("og_title", "")) or p.get("community_display", "")
     district = parse_district(p.get("address", ""))
     tier_key = price_to_tier_key(p.get("price", 0))
+    age_key = age_to_tier_key(p.get("age"))
     community = (p.get("community_display") or "").strip()
     has_parking = p.get("has_parking")
     if has_parking is None:
@@ -223,15 +224,25 @@ def card_html(p):
             or _is_no_parking_text(p.get("parking_area", ""))
         )
     price_unit = "萬 含車位" if has_parking else "萬"
+    unit_price = unit_price_per_main(p.get("price"), p.get("main_area"))
+    unit_price_html = (
+        f'<div class="card-unit-price">單坪 <strong>{unit_price:g}</strong> 萬 / 主建坪</div>'
+        if unit_price else ''
+    )
+    img_html = (
+        f'<img src="{img}" loading="lazy" decoding="async" alt="" />'
+        if img else ''
+    )
     return f'''
-    <div class="card" data-district="{district}" data-price-tier="{tier_key}" data-community="{community}">
-      <div class="card-image" style="background-image: url('{img}');"></div>
+    <div class="card" data-district="{district}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-community="{community}">
+      <div class="card-image">{img_html}</div>
       <div class="card-content">
         <div class="card-tagline">{tagline}</div>
         <div class="card-price-row">
           <div><span class="card-price">{p["price"]:,}</span><span class="card-price-unit">{price_unit}</span></div>
           <div class="card-floor">{p["floor"]}F / {p["floor_total"]}F</div>
         </div>
+        {unit_price_html}
         <div class="card-spec">
           <div class="spec-item"><span class="spec-label">權狀坪數</span><span class="spec-value highlight">{p["area"]} 坪</span></div>
           <div class="spec-item"><span class="spec-label">主+附</span><span class="spec-value">{p["main_area"]} 坪</span></div>
@@ -268,6 +279,15 @@ PRICE_TIERS = [
     ("gt2000", "> 2000 萬", 2000, 99999),
 ]
 
+# 屋齡段 — BOSS 任務分段（市場精選模式核心 filter）
+AGE_TIERS = [
+    ("lt15", "< 15 年", 0, 15),
+    ("15-20", "15-20 年", 15, 20),
+    ("20-25", "20-25 年", 20, 25),
+    ("25-30", "25-30 年", 25, 30),
+    ("gt30", "> 30 年", 30, 999),
+]
+
 
 def price_to_tier_key(price):
     """價格 → tier key (給 data-price-tier 用)"""
@@ -277,6 +297,32 @@ def price_to_tier_key(price):
         if lo <= price < hi:
             return key
     return "unknown"
+
+
+def age_to_tier_key(age):
+    """屋齡 → tier key (給 data-age-tier 用)"""
+    if age is None or age == "":
+        return "unknown"
+    try:
+        a = float(age)
+    except (TypeError, ValueError):
+        return "unknown"
+    for key, _, lo, hi in AGE_TIERS:
+        if lo <= a < hi:
+            return key
+    return "unknown"
+
+
+def unit_price_per_main(price, main_area):
+    """單坪價（主建）= 總價 / 主建坪。回傳 None 表示無法計算。"""
+    try:
+        p = float(price or 0)
+        m = float(main_area or 0)
+        if p > 0 and m > 0:
+            return round(p / m, 2)
+    except (TypeError, ValueError):
+        pass
+    return None
 
 
 def community_subsection_html(community, items):
@@ -397,6 +443,28 @@ def gen_html(client_data, properties):
                 f'{label}<span class="nav-chip-count">{n}</span></a>'
             )
     price_filter_chips = "\n    ".join(all_price_chips)
+
+    # 屋齡段 chip 列（給 sticky-nav 第三行）— BOSS 任務市場精選核心 filter
+    all_age_chips = []
+    for key, label, lo, hi in AGE_TIERS:
+        n = 0
+        for d in districts.values():
+            for c in d.values():
+                for p in c:
+                    try:
+                        a = float(p.get("age") or 0)
+                    except (TypeError, ValueError):
+                        continue
+                    if lo <= a < hi:
+                        n += 1
+        if n > 0:
+            all_age_chips.append(
+                f'<a class="nav-chip age-nav-chip filter-chip" data-filter-age="{key}">'
+                f'{label}<span class="nav-chip-count">{n}</span></a>'
+            )
+    age_filter_chips = "\n    ".join(all_age_chips)
+    has_age_filter = len(all_age_chips) >= 2  # 只有 1 段就不顯示 filter（沒意義）
+
     sections = "\n".join(
         district_section_html(d, districts[d], district_anchors[d])
         for d in district_order
@@ -514,6 +582,9 @@ def gen_html(client_data, properties):
   .nav-chip.active .nav-chip-count {{ background: rgba(255,255,255,0.3); color: #FFF; }}
   .nav-label {{ font-size: 13px; color: var(--text-muted); letter-spacing: 1.5px; padding: 10px 4px; flex-shrink: 0; font-weight: 600; }}
   .price-nav-chip {{ background: rgba(201,120,90,0.06); border-color: rgba(201,120,90,0.4); }}
+  .age-nav-chip {{ background: rgba(139,115,85,0.06); border-color: rgba(139,115,85,0.4); color: var(--wood-deep); }}
+  .age-nav-chip:hover {{ background: var(--wood-deep); color: #FFF; border-color: var(--wood-deep); }}
+  .age-nav-chip.active {{ background: var(--wood-deep); color: #FFF; border-color: var(--wood-deep); }}
   .filter-chip {{ cursor: pointer; user-select: none; }}
   .filter-reset {{ background: var(--accent); color: #FFF; border-color: var(--accent); }}
   .filter-reset:hover {{ background: var(--accent-deep); border-color: var(--accent-deep); }}
@@ -584,13 +655,21 @@ def gen_html(client_data, properties):
     box-shadow: var(--shadow); transition: all 0.3s; display: flex; flex-direction: column; overflow: hidden;
   }}
   .card:hover {{ transform: translateY(-6px); box-shadow: var(--shadow-hover); border-color: var(--wood-light); }}
-  .card-image {{ width: 100%; height: 240px; background-size: cover; background-position: center; background-color: var(--bg-soft); border-bottom: 1px solid var(--border); position: relative; }}
-  .card-image::after {{ content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.15) 100%); }}
+  .card-image {{ width: 100%; height: 240px; background-color: var(--bg-soft); border-bottom: 1px solid var(--border); position: relative; overflow: hidden; }}
+  .card-image img {{ width: 100%; height: 100%; object-fit: cover; display: block; }}
+  .card-image::after {{ content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.15) 100%); pointer-events: none; }}
   .card-content {{ padding: 22px; display: flex; flex-direction: column; flex: 1; }}
   .card-tagline {{ font-size: 17px; font-weight: 600; color: var(--accent-deep); margin-bottom: 14px; line-height: 1.5; min-height: 50px; }}
   .card-price-row {{ display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--bg-soft); gap: 10px; flex-wrap: wrap; }}
   .card-price {{ font-size: 42px; font-weight: 900; color: var(--accent-deep); line-height: 1; letter-spacing: -0.5px; }}
   .card-price-unit {{ font-size: 16px; color: var(--text-muted); margin-left: 5px; font-weight: 400; }}
+  .card-unit-price {{
+    background: rgba(201,120,90,0.10); color: var(--accent-deep);
+    font-size: 15px; font-weight: 600; padding: 8px 14px; border-radius: 10px;
+    margin-bottom: 16px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;
+  }}
+  .card-unit-price strong {{ font-size: 19px; font-weight: 900; }}
+  .card-unit-price::before {{ content: '💎'; font-size: 14px; }}
   .card-floor {{ background: var(--bg-soft); color: var(--wood-deep); font-size: 17px; font-weight: 700; padding: 6px 14px; border-radius: 10px; }}
   .card-spec {{ display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; margin-bottom: 18px; }}
   .spec-item {{ display: flex; flex-direction: column; gap: 3px; }}
@@ -676,6 +755,7 @@ def gen_html(client_data, properties):
     <span class="nav-label">💰 預算</span>
     {price_filter_chips}
   </div>
+  {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🏠 屋齡</span>' + age_filter_chips + '</div>' if has_age_filter else ''}
   <div class="filter-summary" id="filter-summary" style="display:none"></div>
 </nav>
 
@@ -816,18 +896,21 @@ def gen_html(client_data, properties):
     el.addEventListener('click', function() {{ trackCta('line'); }});
   }});
 
-  // ============== 區域 + 預算 篩選邏輯 ==============
+  // ============== 區域 + 預算 + 屋齡 篩選邏輯 ==============
   var activeDistrict = null;
   var activePrice = null;
+  var activeAge = null;
 
   function applyFilters() {{
     var visibleCount = 0;
     document.querySelectorAll('.card').forEach(function(card) {{
       var d = card.dataset.district;
       var p = card.dataset.priceTier;
+      var a = card.dataset.ageTier;
       var match = (
         (!activeDistrict || activeDistrict === d) &&
-        (!activePrice || activePrice === p)
+        (!activePrice || activePrice === p) &&
+        (!activeAge || activeAge === a)
       );
       card.style.display = match ? '' : 'none';
       if (match) visibleCount++;
@@ -849,8 +932,11 @@ def gen_html(client_data, properties):
     document.querySelectorAll('[data-filter-price]').forEach(function(c) {{
       c.classList.toggle('active', c.dataset.filterPrice === activePrice);
     }});
+    document.querySelectorAll('[data-filter-age]').forEach(function(c) {{
+      c.classList.toggle('active', c.dataset.filterAge === activeAge);
+    }});
     // Reset 按鈕 + summary 顯示
-    var any = activeDistrict || activePrice;
+    var any = activeDistrict || activePrice || activeAge;
     var resetBtn = document.querySelector('[data-filter-reset]');
     if (resetBtn) resetBtn.style.display = any ? '' : 'none';
     var summary = document.getElementById('filter-summary');
@@ -861,6 +947,10 @@ def gen_html(client_data, properties):
         if (activePrice) {{
           var pchip = document.querySelector('[data-filter-price="' + activePrice + '"]');
           parts.push('預算：' + (pchip ? pchip.textContent.replace(/\\d+$/, '').trim() : activePrice));
+        }}
+        if (activeAge) {{
+          var achip = document.querySelector('[data-filter-age="' + activeAge + '"]');
+          parts.push('屋齡：' + (achip ? achip.textContent.replace(/\\d+$/, '').trim() : activeAge));
         }}
         summary.textContent = '🔍 ' + parts.join(' + ') + ' → ' + visibleCount + ' 戶符合';
         summary.style.display = '';
@@ -888,11 +978,21 @@ def gen_html(client_data, properties):
       window.scrollTo({{ top: 0, behavior: 'smooth' }});
     }});
   }});
+  document.querySelectorAll('[data-filter-age]').forEach(function(chip) {{
+    chip.addEventListener('click', function(e) {{
+      e.preventDefault();
+      var a = this.dataset.filterAge;
+      activeAge = activeAge === a ? null : a;
+      applyFilters();
+      window.scrollTo({{ top: 0, behavior: 'smooth' }});
+    }});
+  }});
   document.querySelectorAll('[data-filter-reset]').forEach(function(btn) {{
     btn.addEventListener('click', function(e) {{
       e.preventDefault();
       activeDistrict = null;
       activePrice = null;
+      activeAge = null;
       applyFilters();
     }});
   }});
