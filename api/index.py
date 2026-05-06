@@ -50,6 +50,13 @@ def _is_no_parking_text(value):
 
 
 def _parking_fields(area_str, parking_type_raw, parking_num_raw):
+    """車位判定 — 收緊：只有「明確證據」才算有車位，避免「無車位」物件誤標「含於主建」。
+
+    明確證據（任一）：
+    - area_str 含「含車位 X 坪」格式（parking_area_num > 0）
+    - area_str 含「含車位」字樣（雖無坪數但有明確標示）
+    parking_type / parking_num 欄位本身**不**作為「有車位」的依據（可能是雜訊或誤填）。
+    """
     parking_type_raw = (parking_type_raw or "").strip()
     parking_num = (parking_num_raw or "").strip()
     area_has_parking_text = bool(re.search(r"(?<!不)含車位", area_str or ""))
@@ -59,7 +66,7 @@ def _parking_fields(area_str, parking_type_raw, parking_num_raw):
     no_parking = _is_no_parking_text(parking_type_raw) or _is_no_parking_text(parking_num)
     has_parking = (
         not no_parking
-        and (parking_area_num > 0 or area_has_parking_text or bool(parking_type_raw) or bool(parking_num))
+        and (parking_area_num > 0 or area_has_parking_text)
     )
     if not has_parking:
         return False, "無車位", "無車位"
@@ -69,7 +76,12 @@ def _parking_fields(area_str, parking_type_raw, parking_num_raw):
         if x and not _is_no_parking_text(x)
     ]
     parking = " ".join(parking_parts) or "含車位"
-    parking_area = f"{parking_area_num:g} 坪" if parking_area_num else "含於主建"
+    if parking_area_num > 0:
+        parking_area = f"{parking_area_num:g} 坪"
+    elif area_has_parking_text:
+        parking_area = "含於主建"
+    else:
+        parking_area = "—"  # 安全網：理論不會 reach（has_parking 條件已保證）
     return True, parking, parking_area
 
 
