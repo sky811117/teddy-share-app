@@ -786,7 +786,8 @@ def gen_html(client_data, properties):
 
 <script>
 (function() {{
-  // 景泰本人排除 + 解除標記機制
+  // 景泰本人排除 + 解除標記機制（注意：admin 模式仍要讓 filter / 互動 JS 跑，只是不發追蹤）
+  var IS_ADMIN = false;
   try {{
     var params = new URLSearchParams(location.search);
 
@@ -796,7 +797,6 @@ def gen_html(client_data, properties):
       if (history.replaceState) {{
         history.replaceState(null, '', location.pathname);
       }}
-      // 不 return — 讓這次訪問被正常追蹤
     }}
 
     // ?admin=1 → 標記這台裝置為管理者
@@ -805,11 +805,9 @@ def gen_html(client_data, properties):
       if (history.replaceState) {{
         history.replaceState(null, '', location.pathname);
       }}
-      return;
     }}
 
-    // 已被標記 → 跳過追蹤
-    if (localStorage.getItem('teddy_admin') === '1') return;
+    IS_ADMIN = (localStorage.getItem('teddy_admin') === '1');
   }} catch (e) {{}}
 
   var SHARE_ID = {json.dumps(client_data["share_id"])};
@@ -819,6 +817,7 @@ def gen_html(client_data, properties):
   var visitSent = false;
 
   function postTrack(payload) {{
+    if (IS_ADMIN) return;  // admin 不發追蹤，但 filter / 互動 JS 仍正常運作
     try {{
       fetch(TRACK_API, {{
         method: 'POST',
