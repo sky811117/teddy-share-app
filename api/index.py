@@ -37,6 +37,42 @@ DEFAULT_CONTACT = {
 
 # ============== Parser ==============
 
+def _is_no_parking_text(value):
+    normalized = re.sub(r"[\s　:：/／,，.。()（）-]+", "", value or "")
+    return normalized in {
+        "無",
+        "無車位",
+        "無停車位",
+        "無汽車位",
+        "沒有車位",
+        "沒有停車位",
+    }
+
+
+def _parking_fields(area_str, parking_type_raw, parking_num_raw):
+    parking_type_raw = (parking_type_raw or "").strip()
+    parking_num = (parking_num_raw or "").strip()
+    area_has_parking_text = bool(re.search(r"(?<!不)含車位", area_str or ""))
+    pm = re.search(r"(?<!不)含車位\s*([\d.]+)\s*坪", area_str or "")
+    parking_area_num = float(pm.group(1)) if pm else 0.0
+
+    no_parking = _is_no_parking_text(parking_type_raw) or _is_no_parking_text(parking_num)
+    has_parking = (
+        not no_parking
+        and (parking_area_num > 0 or area_has_parking_text or bool(parking_type_raw) or bool(parking_num))
+    )
+    if not has_parking:
+        return False, "無車位", "無車位"
+
+    parking_parts = [
+        x for x in (parking_type_raw, parking_num)
+        if x and not _is_no_parking_text(x)
+    ]
+    parking = " ".join(parking_parts) or "含車位"
+    parking_area = f"{parking_area_num:g} 坪" if parking_area_num else "含於主建"
+    return True, parking, parking_area
+
+
 def parse_ycut_html(html, slug):
     def og(prop):
         m = re.search(rf'<meta property="{re.escape(prop)}" content="([^"]+)"', html)
@@ -63,8 +99,6 @@ def parse_ycut_html(html, slug):
     area_str = field("建物總坪") or field("建坪") or ""
     am = re.search(r"([\d.]+)\s*坪", area_str)
     area = float(am.group(1)) if am else 0.0
-    pm = re.search(r"含車位\s*([\d.]+)\s*坪", area_str)
-    parking_area_num = float(pm.group(1)) if pm else 0.0
 
     def num(v):
         if not v:
@@ -78,9 +112,9 @@ def parse_ycut_html(html, slug):
     age = num(field("屋齡"))
     community = field("社區") or ""
 
-    parking_type = (field("停車方式") or field("車位") or "坡道平面").replace("/", "")
+    parking_type = field("停車方式") or field("車位") or ""
     parking_num = field("車位編號") or ""
-    parking = f"{parking_type} {parking_num}".strip()
+    has_parking, parking, parking_area = _parking_fields(area_str, parking_type, parking_num)
 
     desc = og("og:description") or ""
     pm2 = re.search(r"([\d,]+)\s*萬", desc)
@@ -95,8 +129,9 @@ def parse_ycut_html(html, slug):
         "area": area,
         "main_area": main_area,
         "age": age,
+        "has_parking": has_parking,
         "parking": parking,
-        "parking_area": f"{parking_area_num} 坪" if parking_area_num else "含於主建",
+        "parking_area": parking_area,
         "address": address,
         "og_image": og("og:image"),
         "og_title": og("og:title"),
@@ -181,13 +216,20 @@ def card_html(p):
     district = parse_district(p.get("address", ""))
     tier_key = price_to_tier_key(p.get("price", 0))
     community = (p.get("community_display") or "").strip()
+    has_parking = p.get("has_parking")
+    if has_parking is None:
+        has_parking = not (
+            _is_no_parking_text(p.get("parking", ""))
+            or _is_no_parking_text(p.get("parking_area", ""))
+        )
+    price_unit = "萬 含車位" if has_parking else "萬"
     return f'''
     <div class="card" data-district="{district}" data-price-tier="{tier_key}" data-community="{community}">
       <div class="card-image" style="background-image: url('{img}');"></div>
       <div class="card-content">
         <div class="card-tagline">{tagline}</div>
         <div class="card-price-row">
-          <div><span class="card-price">{p["price"]:,}</span><span class="card-price-unit">萬 含車位</span></div>
+          <div><span class="card-price">{p["price"]:,}</span><span class="card-price-unit">{price_unit}</span></div>
           <div class="card-floor">{p["floor"]}F / {p["floor_total"]}F</div>
         </div>
         <div class="card-spec">
