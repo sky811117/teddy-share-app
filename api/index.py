@@ -245,8 +245,9 @@ def card_html(p):
         f'<img src="{img}" loading="lazy" decoding="async" alt="" />'
         if img else ''
     )
+    parking_attr = 'yes' if has_parking else 'no'
     return f'''
-    <div class="card" data-district="{district}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-community="{community}">
+    <div class="card" data-district="{district}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="{parking_attr}" data-community="{community}">
       <div class="card-image">{img_html}</div>
       <div class="card-content">
         <div class="card-tagline">{tagline}</div>
@@ -477,6 +478,21 @@ def gen_html(client_data, properties):
     age_filter_chips = "\n    ".join(all_age_chips)
     has_age_filter = len(all_age_chips) >= 2  # 只有 1 段就不顯示 filter（沒意義）
 
+    # 車位 chip 列（給 sticky-nav 第四行）
+    yes_count = sum(1 for d in districts.values() for c in d.values() for p in c if p.get("has_parking"))
+    no_count = sum(1 for d in districts.values() for c in d.values() for p in c if not p.get("has_parking"))
+    parking_chips_list = []
+    if yes_count > 0:
+        parking_chips_list.append(
+            f'<a class="nav-chip parking-nav-chip filter-chip" data-filter-parking="yes">有車位<span class="nav-chip-count">{yes_count}</span></a>'
+        )
+    if no_count > 0:
+        parking_chips_list.append(
+            f'<a class="nav-chip parking-nav-chip filter-chip" data-filter-parking="no">無車位<span class="nav-chip-count">{no_count}</span></a>'
+        )
+    parking_filter_chips = "\n    ".join(parking_chips_list)
+    has_parking_filter = len(parking_chips_list) >= 2  # 兩種都有才顯示 filter
+
     sections = "\n".join(
         district_section_html(d, districts[d], district_anchors[d])
         for d in district_order
@@ -597,6 +613,9 @@ def gen_html(client_data, properties):
   .age-nav-chip {{ background: rgba(139,115,85,0.06); border-color: rgba(139,115,85,0.4); color: var(--wood-deep); }}
   .age-nav-chip:hover {{ background: var(--wood-deep); color: #FFF; border-color: var(--wood-deep); }}
   .age-nav-chip.active {{ background: var(--wood-deep); color: #FFF; border-color: var(--wood-deep); }}
+  .parking-nav-chip {{ background: rgba(6,199,85,0.06); border-color: rgba(6,199,85,0.4); color: #1f8a4a; }}
+  .parking-nav-chip:hover {{ background: #1f8a4a; color: #FFF; border-color: #1f8a4a; }}
+  .parking-nav-chip.active {{ background: #1f8a4a; color: #FFF; border-color: #1f8a4a; }}
   .filter-chip {{ cursor: pointer; user-select: none; }}
   .filter-reset {{ background: var(--accent); color: #FFF; border-color: var(--accent); }}
   .filter-reset:hover {{ background: var(--accent-deep); border-color: var(--accent-deep); }}
@@ -768,6 +787,7 @@ def gen_html(client_data, properties):
     {price_filter_chips}
   </div>
   {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🏠 屋齡</span>' + age_filter_chips + '</div>' if has_age_filter else ''}
+  {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🚗 車位</span>' + parking_filter_chips + '</div>' if has_parking_filter else ''}
   <div class="filter-summary" id="filter-summary" style="display:none"></div>
 </nav>
 
@@ -907,10 +927,11 @@ def gen_html(client_data, properties):
     el.addEventListener('click', function() {{ trackCta('line'); }});
   }});
 
-  // ============== 區域 + 預算 + 屋齡 篩選邏輯 ==============
+  // ============== 區域 + 預算 + 屋齡 + 車位 篩選邏輯 ==============
   var activeDistrict = null;
   var activePrice = null;
   var activeAge = null;
+  var activeParking = null;
 
   function applyFilters() {{
     var visibleCount = 0;
@@ -918,10 +939,12 @@ def gen_html(client_data, properties):
       var d = card.dataset.district;
       var p = card.dataset.priceTier;
       var a = card.dataset.ageTier;
+      var pk = card.dataset.parking;
       var match = (
         (!activeDistrict || activeDistrict === d) &&
         (!activePrice || activePrice === p) &&
-        (!activeAge || activeAge === a)
+        (!activeAge || activeAge === a) &&
+        (!activeParking || activeParking === pk)
       );
       card.style.display = match ? '' : 'none';
       if (match) visibleCount++;
@@ -946,8 +969,11 @@ def gen_html(client_data, properties):
     document.querySelectorAll('[data-filter-age]').forEach(function(c) {{
       c.classList.toggle('active', c.dataset.filterAge === activeAge);
     }});
+    document.querySelectorAll('[data-filter-parking]').forEach(function(c) {{
+      c.classList.toggle('active', c.dataset.filterParking === activeParking);
+    }});
     // Reset 按鈕 + summary 顯示
-    var any = activeDistrict || activePrice || activeAge;
+    var any = activeDistrict || activePrice || activeAge || activeParking;
     var resetBtn = document.querySelector('[data-filter-reset]');
     if (resetBtn) resetBtn.style.display = any ? '' : 'none';
     var summary = document.getElementById('filter-summary');
@@ -962,6 +988,9 @@ def gen_html(client_data, properties):
         if (activeAge) {{
           var achip = document.querySelector('[data-filter-age="' + activeAge + '"]');
           parts.push('屋齡：' + (achip ? achip.textContent.replace(/\\d+$/, '').trim() : activeAge));
+        }}
+        if (activeParking) {{
+          parts.push('車位：' + (activeParking === 'yes' ? '有車位' : '無車位'));
         }}
         summary.textContent = '🔍 ' + parts.join(' + ') + ' → ' + visibleCount + ' 戶符合';
         summary.style.display = '';
@@ -998,12 +1027,22 @@ def gen_html(client_data, properties):
       window.scrollTo({{ top: 0, behavior: 'smooth' }});
     }});
   }});
+  document.querySelectorAll('[data-filter-parking]').forEach(function(chip) {{
+    chip.addEventListener('click', function(e) {{
+      e.preventDefault();
+      var pk = this.dataset.filterParking;
+      activeParking = activeParking === pk ? null : pk;
+      applyFilters();
+      window.scrollTo({{ top: 0, behavior: 'smooth' }});
+    }});
+  }});
   document.querySelectorAll('[data-filter-reset]').forEach(function(btn) {{
     btn.addEventListener('click', function(e) {{
       e.preventDefault();
       activeDistrict = null;
       activePrice = null;
       activeAge = null;
+      activeParking = null;
       applyFilters();
     }});
   }});
