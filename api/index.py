@@ -1772,7 +1772,8 @@ def compute_stats(rows):
                 "image": snap.get("image") or "",
             }
         click_counts[url]["count"] += 1
-    top_properties = sorted(click_counts.values(), key=lambda x: -x["count"])[:15]
+    # 不在這裡截斷 — render 時依「全部 vs 單篇模式」決定截 15 還是顯示全部
+    top_properties = sorted(click_counts.values(), key=lambda x: -x["count"])
 
     # 各貼文表現（按 share_id 聚合）— 只算真實客戶事件 (visit / click / cta)
     # 排除 snapshot / backfill / publish 等系統紀錄
@@ -1905,11 +1906,13 @@ def render_stats_html(stats):
     from datetime import datetime, timezone, timedelta
     tw_now = (datetime.now(timezone.utc) + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
 
-    # 物件熱度榜
-    if stats["top_properties"]:
-        max_count = stats["top_properties"][0]["count"]
+    # 物件熱度榜：全部模式截 15，單篇模式顯示全部 (景泰要看單篇所有點擊明細)
+    is_single = bool(stats.get("share_id_filter"))
+    top_props_to_show = stats["top_properties"] if is_single else stats["top_properties"][:15]
+    if top_props_to_show:
+        max_count = top_props_to_show[0]["count"]
         top_html = ""
-        for i, p in enumerate(stats["top_properties"]):
+        for i, p in enumerate(top_props_to_show):
             pct = int(p["count"] / max_count * 100) if max_count else 0
             slug = _slug_from_url(p["url"])
             # 名稱優先順序：物件摘要 → 物件 {slug}（避免顯示成代碼）
@@ -2120,7 +2123,7 @@ def render_stats_html(stats):
 </section>
 
 <section class="card">
-  <h2>🔥 物件熱度榜（總點擊 TOP 15）</h2>
+  <h2>🔥 {'客人點過的物件（這篇全部）' if stats.get("share_id_filter") else '物件熱度榜（總點擊 TOP 15）'}</h2>
   {top_html}
 </section>
 
