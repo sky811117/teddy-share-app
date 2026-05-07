@@ -1617,8 +1617,10 @@ def track_endpoint():
 
 # ============== Stats Dashboard ==============
 
-def notion_query_all(limit=1000):
-    """Fetch all rows from Notion DB, paginated. Returns raw page objects."""
+def notion_query_all(limit=None):
+    """Fetch all rows from Notion DB, paginated. Returns raw page objects.
+    limit=None → 跑到 has_more=false 為止（拿全部資料）
+    limit=N → 拿到 N 筆就停（給有需要 quick query 的 caller 用）"""
     if not NOTION_TOKEN or not NOTION_DB_ID:
         return []
     results = []
@@ -1644,10 +1646,12 @@ def notion_query_all(limit=1000):
             print(f"Notion query failed: {e}")
             break
         results.extend(data.get("results", []))
-        if len(results) >= limit or not data.get("has_more"):
+        if not data.get("has_more"):
+            break
+        if limit is not None and len(results) >= limit:
             break
         cursor = data.get("next_cursor")
-    return results[:limit]
+    return results[:limit] if limit is not None else results
 
 
 def _row_field(row, prop_name, kind):
@@ -1941,7 +1945,7 @@ def render_stats_html(stats):
                 top_label = f'<a href="{p["top_property_url"]}" target="_blank">{top_label}</a> ({p["top_property_count"]})'
             posts_html += f'''
             <tr>
-              <td><strong>{p["client"]}</strong><div class="sub">{p["share_id"]}</div></td>
+              <td><strong>{p["client"]}</strong><div class="sub"><a href="/stats?share_id={p["share_id"]}">{p["share_id"]} →</a></div></td>
               <td class="num">{p["visits"]}</td>
               <td class="num">{p["clicks"]}</td>
               <td>{top_label}</td>
@@ -2053,9 +2057,9 @@ def render_stats_html(stats):
 <div class="wrap">
 
 <header>
-  <h1>📊 統計儀表板</h1>
+  <h1>📊 統計儀表板{f' — {stats["share_id_filter"]} 單筆' if stats.get("share_id_filter") else ''}</h1>
   <div class="updated">最後更新：{tw_now}（台北時間）</div>
-  <a class="back-link" href="/">← 回表單</a>
+  {f'<a class="back-link" href="/stats">← 回全部統計</a>' if stats.get("share_id_filter") else '<a class="back-link" href="/">← 回表單</a>'}
 </header>
 
 <div class="stats-grid">
@@ -2365,15 +2369,14 @@ def _write_backfill_snapshot(slug, parsed):
 
 @app.route("/stats", methods=["GET"])
 def stats_endpoint():
-    # 接 ?limit=XXX query param，預設 4000（vercel hobby plan 10 秒 timeout 內安全值）
-    # 5000+ 可能 timeout — 升 pro 才能撈更多
-    try:
-        limit = int(request.args.get("limit", "4000"))
-    except (TypeError, ValueError):
-        limit = 4000
-    limit = max(100, min(limit, 50000))  # clamp [100, 50000]
-    rows = notion_query_all(limit=limit)
+    # ?share_id=XXX 只看該筆 stats；沒帶 → 全部 share_id 一覽（每筆一行）
+    share_id_filter = (request.args.get("share_id") or "").strip()
+    rows = notion_query_all(limit=None)  # 抓全部資料 paginate 到完
+    if share_id_filter:
+        rows = [r for r in rows
+                if _row_field(r, "share_id", "rich_text") == share_id_filter]
     stats = compute_stats(rows)
+    stats["share_id_filter"] = share_id_filter or None
     return render_stats_html(stats), 200, {"Content-Type": "text/html; charset=utf-8"}
 
 
