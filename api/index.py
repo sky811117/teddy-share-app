@@ -1774,11 +1774,14 @@ def compute_stats(rows):
         click_counts[url]["count"] += 1
     top_properties = sorted(click_counts.values(), key=lambda x: -x["count"])[:15]
 
-    # 各貼文表現（按 share_id 聚合）
+    # 各貼文表現（按 share_id 聚合）— 只算真實客戶事件 (visit / click / cta)
+    # 排除 snapshot / backfill / publish 等系統紀錄
+    REAL_EVENTS = {"visit", "click", "cta"}
     posts = {}
     for v in parsed:
         sid = v["share_id"]
-        if not sid or infer_type(v) == "snapshot":
+        et = infer_type(v)
+        if not sid or et not in REAL_EVENTS:
             continue
         if sid not in posts:
             posts[sid] = {
@@ -1789,15 +1792,17 @@ def compute_stats(rows):
                 "latest": v["time"],
                 "click_counts": {},
             }
-        if infer_type(v) == "click":
+        if et == "click":
             posts[sid]["clicks"] += 1
             url = v["clicked_url"]
             posts[sid]["click_counts"][url] = posts[sid]["click_counts"].get(url, 0) + 1
-        else:
+        elif et == "visit":
             posts[sid]["visits"] += 1
+        # cta 不增加 visits 也不增加 clicks，但會更新 latest
         if v["time"] > posts[sid]["latest"]:
             posts[sid]["latest"] = v["time"]
-    posts_list = list(posts.values())
+    # 過濾「沒任何客戶互動」的 share_id（visits=0 且 clicks=0 不該出現在 stats）
+    posts_list = [p for p in posts.values() if p["visits"] > 0 or p["clicks"] > 0]
     for p in posts_list:
         if p["click_counts"]:
             top_url, top_count = max(p["click_counts"].items(), key=lambda x: x[1])
