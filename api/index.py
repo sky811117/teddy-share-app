@@ -678,8 +678,8 @@ def gen_html(client_data, properties):
   .age-nav-chip.active {{ background: var(--wood-deep); color: #FFF; border-color: var(--wood-deep); }}
   /* 車位 chip 沿用基底 .nav-chip 樣式（沒選=米色底，選了=橘紅 active）— 不再用綠色，跟其他一致 */
   .filter-chip {{ cursor: pointer; user-select: none; }}
-  .filter-reset {{ background: var(--accent); color: #FFF; border-color: var(--accent); }}
-  .filter-reset:hover {{ background: var(--accent-deep); border-color: var(--accent-deep); }}
+  .filter-reset {{ background: #d9534f !important; color: #FFF !important; border-color: #d9534f !important; font-weight: 700 !important; }}
+  .filter-reset:hover {{ background: #c9302c !important; border-color: #c9302c !important; }}
   .filter-summary {{
     text-align: center; padding: 10px 16px; font-size: 14px; color: var(--accent-deep);
     background: var(--bg-soft); border-radius: 12px; margin: 10px 20px 0;
@@ -850,6 +850,7 @@ def gen_html(client_data, properties):
 <nav class="sticky-nav" id="sticky-nav">
   <div class="nav-scroll">
     <span class="nav-label">🏷️ 區域</span>
+    <a class="nav-chip filter-chip filter-reset" data-filter-reset="1" style="display:none">✕ 清除篩選</a>
     {nav_chips}
   </div>
   <div class="nav-scroll" style="margin-top: 8px;">
@@ -1057,8 +1058,10 @@ def gen_html(client_data, properties):
     document.querySelectorAll('[data-filter-parking]').forEach(function(c) {{
       c.classList.toggle('active', c.dataset.filterParking === activeParking);
     }});
-    // summary 顯示（清除靠「再點同個 chip 取消」即可，不需 reset 按鈕）
+    // 篩選 summary + 清除按鈕顯示
     var any = activeDistrict || activePrice || activeAge || activeType || activeParking;
+    var resetBtn = document.querySelector('[data-filter-reset]');
+    if (resetBtn) resetBtn.style.display = any ? '' : 'none';
     var summary = document.getElementById('filter-summary');
     if (summary) {{
       if (any) {{
@@ -1144,7 +1147,19 @@ def gen_html(client_data, properties):
       scrollToFilterNav();
     }});
   }});
-  // (移除清除按鈕：客人「再點同個 chip」即可取消該 chip 篩選)
+  // 清除全部篩選按鈕（只在有 filter active 時顯示）
+  document.querySelectorAll('[data-filter-reset]').forEach(function(btn) {{
+    btn.addEventListener('click', function(e) {{
+      e.preventDefault();
+      activeDistrict = null;
+      activePrice = null;
+      activeAge = null;
+      activeType = null;
+      activeParking = null;
+      applyFilters();
+      scrollToFilterNav();
+    }});
+  }});
 
   // sticky-nav 維持永遠顯示（景泰決策：不 auto-hide 容易困惑）
   // 客人要回頂部看 chip → 點右下「↑」按鈕
