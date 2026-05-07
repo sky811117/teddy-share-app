@@ -651,40 +651,40 @@ def gen_html(client_data, properties):
     letter-spacing: 0.5px; font-weight: 500;
   }}
   .sticky-nav {{
-    position: sticky; top: 0; z-index: 100; padding: 14px 0;
+    position: sticky; top: 0; z-index: 100; padding: 6px 0 8px;
     background: rgba(250,247,242,0.97); backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border);
-    transition: transform 0.28s ease;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }}
   /* 往下滑時自動收起 chip 條（讓物件佔滿畫面）；往上滑/在頂部會回來 */
   .sticky-nav.nav-hidden {{ transform: translateY(-100%); }}
   /* 浮動「篩選」召喚鈕（chip 收起後出現） */
   .filter-recall {{
-    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
     z-index: 99; background: var(--accent-deep); color: #FFF;
-    padding: 8px 18px; border-radius: 20px; font-size: 14px; font-weight: 600;
+    padding: 6px 14px; border-radius: 16px; font-size: 13px; font-weight: 600;
     box-shadow: 0 4px 14px rgba(0,0,0,0.18); cursor: pointer;
-    opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
     letter-spacing: 0.5px;
   }}
   .filter-recall.show {{ opacity: 1; pointer-events: auto; }}
-  .nav-scroll {{ display: flex; gap: 10px; overflow-x: auto; padding: 0 20px; scrollbar-width: none; }}
+  .nav-scroll {{ display: flex; gap: 6px; overflow-x: auto; padding: 0 16px; scrollbar-width: none; }}
   .nav-scroll::-webkit-scrollbar {{ display: none; }}
   .nav-chip {{
     flex-shrink: 0; background: var(--card); border: 1px solid var(--border);
-    color: var(--text-soft); font-size: 16px; font-weight: 500;
-    padding: 10px 18px; border-radius: 22px; text-decoration: none;
+    color: var(--text-soft); font-size: 13px; font-weight: 500;
+    padding: 5px 12px; border-radius: 16px; text-decoration: none;
     transition: all 0.2s; white-space: nowrap;
   }}
   .nav-chip:hover {{ background: var(--wood-deep); color: #FFF; border-color: var(--wood-deep); }}
   .nav-chip-count {{
     display: inline-block; background: var(--wood-light); color: var(--wood-deep);
-    font-size: 14px; font-weight: 700; padding: 2px 9px; border-radius: 12px; margin-left: 8px;
+    font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 9px; margin-left: 5px;
   }}
   .nav-chip:hover .nav-chip-count {{ background: rgba(255,255,255,0.25); color: #FFF; }}
   .nav-chip.active {{ background: var(--accent-deep); color: #FFF; border-color: var(--accent-deep); }}
   .nav-chip.active .nav-chip-count {{ background: rgba(255,255,255,0.3); color: #FFF; }}
-  .nav-label {{ font-size: 13px; color: var(--text-muted); letter-spacing: 1.5px; padding: 10px 4px; flex-shrink: 0; font-weight: 600; }}
+  .nav-label {{ font-size: 11px; color: var(--text-muted); letter-spacing: 1px; padding: 5px 4px; flex-shrink: 0; font-weight: 600; }}
   .price-nav-chip {{ background: rgba(201,120,90,0.06); border-color: rgba(201,120,90,0.4); }}
   .age-nav-chip {{ background: rgba(139,115,85,0.06); border-color: rgba(139,115,85,0.4); color: var(--wood-deep); }}
   .age-nav-chip:hover {{ background: var(--wood-deep); color: #FFF; border-color: var(--wood-deep); }}
@@ -868,13 +868,13 @@ def gen_html(client_data, properties):
     <span class="nav-label">🏷️ 區域</span>
     {nav_chips}
   </div>
-  <div class="nav-scroll" style="margin-top: 8px;">
+  <div class="nav-scroll" style="margin-top: 3px;">
     <span class="nav-label">💰 預算</span>
     {price_filter_chips}
   </div>
-  {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🏠 屋齡</span>' + age_filter_chips + '</div>' if has_age_filter else ''}
-  {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🏢 類型</span>' + type_filter_chips + '</div>' if has_type_filter else ''}
-  {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🚗 車位</span>' + parking_filter_chips + '</div>' if has_parking_filter else ''}
+  {'<div class="nav-scroll" style="margin-top: 3px;"><span class="nav-label">🏠 屋齡</span>' + age_filter_chips + '</div>' if has_age_filter else ''}
+  {'<div class="nav-scroll" style="margin-top: 3px;"><span class="nav-label">🏢 類型</span>' + type_filter_chips + '</div>' if has_type_filter else ''}
+  {'<div class="nav-scroll" style="margin-top: 3px;"><span class="nav-label">🚗 車位</span>' + parking_filter_chips + '</div>' if has_parking_filter else ''}
   <div class="filter-summary" id="filter-summary" style="display:none"></div>
 </nav>
 
@@ -1165,30 +1165,37 @@ def gen_html(client_data, properties):
   // (移除清除按鈕：客人「再點同個 chip」即可取消該 chip 篩選)
 
   // ============== sticky-nav auto-hide on scroll down ==============
-  // 往下滑（看物件）→ 收起 chip；往上滑/在頂部 → chip 出現
-  // chip 收起時露出「🔍 篩選條件」浮動鈕，點擊召喚 chip 回來
+  // 往下滑超過 50px 累積 → 收起 chip；往上滑超過 30px → 展開
+  // 用累積位移避免微抖動，動畫順
   (function() {{
     var stickyNav = document.getElementById('sticky-nav');
     var recallBtn = document.getElementById('filter-recall');
     if (!stickyNav || !recallBtn) return;
     var lastY = window.scrollY;
+    var accDown = 0;  // 累積往下位移
+    var accUp = 0;    // 累積往上位移
     var ticking = false;
 
     function update() {{
       var y = window.scrollY;
       var dy = y - lastY;
-      var top = y < 120;  // 接近頂部一律顯示
+      var top = y < 100;  // 接近頂部一律顯示
       if (top) {{
         stickyNav.classList.remove('nav-hidden');
         recallBtn.classList.remove('show');
-      }} else if (dy > 6) {{
-        // 往下滑超過 6px → 收起
-        stickyNav.classList.add('nav-hidden');
-        recallBtn.classList.add('show');
-      }} else if (dy < -6) {{
-        // 往上滑 → 展開
-        stickyNav.classList.remove('nav-hidden');
-        recallBtn.classList.remove('show');
+        accDown = 0; accUp = 0;
+      }} else if (dy > 0) {{
+        accDown += dy; accUp = 0;
+        if (accDown > 50) {{
+          stickyNav.classList.add('nav-hidden');
+          recallBtn.classList.add('show');
+        }}
+      }} else if (dy < 0) {{
+        accUp += -dy; accDown = 0;
+        if (accUp > 30) {{
+          stickyNav.classList.remove('nav-hidden');
+          recallBtn.classList.remove('show');
+        }}
       }}
       lastY = y;
       ticking = false;
@@ -1205,6 +1212,7 @@ def gen_html(client_data, properties):
     recallBtn.addEventListener('click', function() {{
       stickyNav.classList.remove('nav-hidden');
       recallBtn.classList.remove('show');
+      accDown = 0; accUp = 0;
     }});
   }})();
 
