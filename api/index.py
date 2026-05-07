@@ -651,27 +651,27 @@ def gen_html(client_data, properties):
     letter-spacing: 0.5px; font-weight: 500;
   }}
   .sticky-nav {{
-    position: sticky; top: 0; z-index: 100; padding: 4px 0 5px;
+    padding: 14px 0;
     background: rgba(250,247,242,0.97); backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border);
   }}
-  .nav-scroll {{ display: flex; gap: 4px; overflow-x: auto; padding: 0 12px; scrollbar-width: none; }}
+  .nav-scroll {{ display: flex; gap: 10px; overflow-x: auto; padding: 0 20px; scrollbar-width: none; }}
   .nav-scroll::-webkit-scrollbar {{ display: none; }}
   .nav-chip {{
     flex-shrink: 0; background: var(--card); border: 1px solid var(--border);
-    color: var(--text-soft); font-size: 12px; font-weight: 500;
-    padding: 3px 10px; border-radius: 14px; text-decoration: none;
+    color: var(--text-soft); font-size: 16px; font-weight: 500;
+    padding: 10px 18px; border-radius: 22px; text-decoration: none;
     transition: all 0.2s; white-space: nowrap;
   }}
   .nav-chip:hover {{ background: var(--wood-deep); color: #FFF; border-color: var(--wood-deep); }}
   .nav-chip-count {{
     display: inline-block; background: var(--wood-light); color: var(--wood-deep);
-    font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 8px; margin-left: 4px;
+    font-size: 14px; font-weight: 700; padding: 2px 9px; border-radius: 12px; margin-left: 8px;
   }}
   .nav-chip:hover .nav-chip-count {{ background: rgba(255,255,255,0.25); color: #FFF; }}
   .nav-chip.active {{ background: var(--accent-deep); color: #FFF; border-color: var(--accent-deep); }}
   .nav-chip.active .nav-chip-count {{ background: rgba(255,255,255,0.3); color: #FFF; }}
-  .nav-label {{ font-size: 10px; color: var(--text-muted); letter-spacing: 0.5px; padding: 3px 3px; flex-shrink: 0; font-weight: 600; }}
+  .nav-label {{ font-size: 13px; color: var(--text-muted); letter-spacing: 1.5px; padding: 10px 4px; flex-shrink: 0; font-weight: 600; }}
   .price-nav-chip {{ background: rgba(201,120,90,0.06); border-color: rgba(201,120,90,0.4); }}
   .age-nav-chip {{ background: rgba(139,115,85,0.06); border-color: rgba(139,115,85,0.4); color: var(--wood-deep); }}
   .age-nav-chip:hover {{ background: var(--wood-deep); color: #FFF; border-color: var(--wood-deep); }}
@@ -852,13 +852,13 @@ def gen_html(client_data, properties):
     <span class="nav-label">🏷️ 區域</span>
     {nav_chips}
   </div>
-  <div class="nav-scroll" style="margin-top: 2px;">
+  <div class="nav-scroll" style="margin-top: 8px;">
     <span class="nav-label">💰 預算</span>
     {price_filter_chips}
   </div>
-  {'<div class="nav-scroll" style="margin-top: 2px;"><span class="nav-label">🏠 屋齡</span>' + age_filter_chips + '</div>' if has_age_filter else ''}
-  {'<div class="nav-scroll" style="margin-top: 2px;"><span class="nav-label">🏢 類型</span>' + type_filter_chips + '</div>' if has_type_filter else ''}
-  {'<div class="nav-scroll" style="margin-top: 2px;"><span class="nav-label">🚗 車位</span>' + parking_filter_chips + '</div>' if has_parking_filter else ''}
+  {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🏠 屋齡</span>' + age_filter_chips + '</div>' if has_age_filter else ''}
+  {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🏢 類型</span>' + type_filter_chips + '</div>' if has_type_filter else ''}
+  {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🚗 車位</span>' + parking_filter_chips + '</div>' if has_parking_filter else ''}
   <div class="filter-summary" id="filter-summary" style="display:none"></div>
 </nav>
 
@@ -1086,13 +1086,11 @@ def gen_html(client_data, properties):
     }}
   }}
 
-  // 點 chip 後：scroll 到 sticky-nav 位置（不要全頂掉到 hero）
+  // scroll 到 chip 篩選條那一段（chip 條已不 sticky，永遠在頁面固定位置）
   function scrollToFilterNav() {{
     var nav = document.querySelector('.sticky-nav');
     if (!nav) return;
-    var rect = nav.getBoundingClientRect();
-    if (rect.top <= 0) return;  // 已經 sticky 在頂部就不動
-    var targetY = rect.top + window.scrollY;
+    var targetY = nav.getBoundingClientRect().top + window.scrollY;
     window.scrollTo({{ top: targetY, behavior: 'smooth' }});
   }}
 
@@ -1162,7 +1160,7 @@ def gen_html(client_data, properties):
       }}
     }});
     backBtn.addEventListener('click', function() {{
-      window.scrollTo({{ top: 0, behavior: 'smooth' }});
+      scrollToFilterNav();  // 回到 chip 篩選條（不是頁面最頂的 hero）
     }});
   }}
 
