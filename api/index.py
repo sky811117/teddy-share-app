@@ -1044,6 +1044,11 @@ def gen_html(client_data, properties):
       var v = s.querySelectorAll('.card[style=""], .card:not([style])').length;
       s.style.display = v > 0 ? '' : 'none';
     }});
+    // 隱藏空的 type-group（住宅 / 透天分組）— 沒這層會留住「🏢 住宅」空標題造成大塊空白
+    document.querySelectorAll('.type-group').forEach(function(g) {{
+      var v = g.querySelectorAll('.card[style=""], .card:not([style])').length;
+      g.style.display = v > 0 ? '' : 'none';
+    }});
     // 隱藏空的區段
     document.querySelectorAll('.district-section').forEach(function(s) {{
       var v = s.querySelectorAll('.card[style=""], .card:not([style])').length;
