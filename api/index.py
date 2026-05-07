@@ -478,6 +478,9 @@ def gen_html(client_data, properties):
     theme = (client_data.get("theme") or "景泰精選").strip()
     signature = (client_data.get("signature") or contact.get("agent_name") or "陳景泰").strip()
 
+    # 過濾屋齡 > 30 年（首購族不該看老物件，景泰需求）
+    properties = [p for p in properties if (p.get("age") or 0) <= 30]
+
     # 兩層分組：行政區 → 社區
     districts = {}
     for p in properties:
