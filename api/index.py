@@ -50,12 +50,15 @@ def _is_no_parking_text(value):
 
 
 def _parking_fields(area_str, parking_type_raw, parking_num_raw):
-    """車位判定 — 收緊：只有「明確證據」才算有車位，避免「無車位」物件誤標「含於主建」。
+    """車位判定 — 客人推薦頁要 chip 篩有/無車位，所以放寬：
 
-    明確證據（任一）：
-    - area_str 含「含車位 X 坪」格式（parking_area_num > 0）
-    - area_str 含「含車位」字樣（雖無坪數但有明確標示）
-    parking_type / parking_num 欄位本身**不**作為「有車位」的依據（可能是雜訊或誤填）。
+    判 has_parking=True 條件（任一即算有車位）:
+    - area_str 含「含車位 X 坪」格式
+    - area_str 含「含車位」字樣
+    - parking_type 或 parking_num 有值且非「無車位」字眼
+    判 has_parking=False 條件：
+    - parking_type 或 parking_num 明確寫「無車位」
+    - 或上述條件全不滿足
     """
     parking_type_raw = (parking_type_raw or "").strip()
     parking_num = (parking_num_raw or "").strip()
@@ -64,9 +67,10 @@ def _parking_fields(area_str, parking_type_raw, parking_num_raw):
     parking_area_num = float(pm.group(1)) if pm else 0.0
 
     no_parking = _is_no_parking_text(parking_type_raw) or _is_no_parking_text(parking_num)
+    parking_field_has_value = bool(parking_type_raw or parking_num) and not no_parking
     has_parking = (
         not no_parking
-        and (parking_area_num > 0 or area_has_parking_text)
+        and (parking_area_num > 0 or area_has_parking_text or parking_field_has_value)
     )
     if not has_parking:
         return False, "無車位", "無車位"
@@ -127,6 +131,7 @@ def parse_ycut_html(html, slug):
     parking_type = field("停車方式") or field("車位") or ""
     parking_num = field("車位編號") or ""
     has_parking, parking, parking_area = _parking_fields(area_str, parking_type, parking_num)
+    building_type = (field("型態") or "").strip()
 
     desc = og("og:description") or ""
     pm2 = re.search(r"([\d,]+)\s*萬", desc)
@@ -144,6 +149,7 @@ def parse_ycut_html(html, slug):
         "has_parking": has_parking,
         "parking": parking,
         "parking_area": parking_area,
+        "building_type": building_type,
         "address": address,
         "og_image": og("og:image"),
         "og_title": og("og:title"),
@@ -246,8 +252,10 @@ def card_html(p):
         if img else ''
     )
     parking_attr = 'yes' if has_parking else 'no'
+    building_type = (p.get("building_type") or "").strip()
+    type_attr = building_type if building_type else "其他"
     return f'''
-    <div class="card" data-district="{district}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="{parking_attr}" data-community="{community}">
+    <div class="card" data-district="{district}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="{parking_attr}" data-type="{type_attr}" data-community="{community}">
       <div class="card-image">{img_html}</div>
       <div class="card-content">
         <div class="card-tagline">{tagline}</div>
@@ -491,7 +499,28 @@ def gen_html(client_data, properties):
             f'<a class="nav-chip parking-nav-chip filter-chip" data-filter-parking="no">無車位<span class="nav-chip-count">{no_count}</span></a>'
         )
     parking_filter_chips = "\n    ".join(parking_chips_list)
-    has_parking_filter = len(parking_chips_list) >= 2  # 兩種都有才顯示 filter
+    has_parking_filter = len(parking_chips_list) >= 1  # 永遠顯示車位 chip（即使全部同邊）
+
+    # 物件類型 chip（大樓 / 華廈 / 透天 / 別墅 / 公寓 / 其他）
+    TYPE_ORDER = ['大樓', '華廈', '透天', '別墅', '公寓', '其他']
+    type_counts = {t: 0 for t in TYPE_ORDER}
+    for d in districts.values():
+        for c in d.values():
+            for p in c:
+                bt = (p.get('building_type') or '').strip() or '其他'
+                # 把 ycut 變體歸類進主類別
+                if bt not in TYPE_ORDER:
+                    bt = '其他'
+                type_counts[bt] += 1
+    type_chips_list = []
+    for t in TYPE_ORDER:
+        n = type_counts.get(t, 0)
+        if n > 0:
+            type_chips_list.append(
+                f'<a class="nav-chip type-nav-chip filter-chip" data-filter-type="{t}">{t}<span class="nav-chip-count">{n}</span></a>'
+            )
+    type_filter_chips = "\n    ".join(type_chips_list)
+    has_type_filter = len(type_chips_list) >= 1
 
     sections = "\n".join(
         district_section_html(d, districts[d], district_anchors[d])
@@ -787,6 +816,7 @@ def gen_html(client_data, properties):
     {price_filter_chips}
   </div>
   {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🏠 屋齡</span>' + age_filter_chips + '</div>' if has_age_filter else ''}
+  {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🏢 類型</span>' + type_filter_chips + '</div>' if has_type_filter else ''}
   {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🚗 車位</span>' + parking_filter_chips + '</div>' if has_parking_filter else ''}
   <div class="filter-summary" id="filter-summary" style="display:none"></div>
 </nav>
@@ -927,10 +957,11 @@ def gen_html(client_data, properties):
     el.addEventListener('click', function() {{ trackCta('line'); }});
   }});
 
-  // ============== 區域 + 預算 + 屋齡 + 車位 篩選邏輯 ==============
+  // ============== 區域 + 預算 + 屋齡 + 類型 + 車位 篩選邏輯 ==============
   var activeDistrict = null;
   var activePrice = null;
   var activeAge = null;
+  var activeType = null;
   var activeParking = null;
 
   function applyFilters() {{
@@ -939,11 +970,13 @@ def gen_html(client_data, properties):
       var d = card.dataset.district;
       var p = card.dataset.priceTier;
       var a = card.dataset.ageTier;
+      var ty = card.dataset.type;
       var pk = card.dataset.parking;
       var match = (
         (!activeDistrict || activeDistrict === d) &&
         (!activePrice || activePrice === p) &&
         (!activeAge || activeAge === a) &&
+        (!activeType || activeType === ty) &&
         (!activeParking || activeParking === pk)
       );
       card.style.display = match ? '' : 'none';
@@ -969,11 +1002,14 @@ def gen_html(client_data, properties):
     document.querySelectorAll('[data-filter-age]').forEach(function(c) {{
       c.classList.toggle('active', c.dataset.filterAge === activeAge);
     }});
+    document.querySelectorAll('[data-filter-type]').forEach(function(c) {{
+      c.classList.toggle('active', c.dataset.filterType === activeType);
+    }});
     document.querySelectorAll('[data-filter-parking]').forEach(function(c) {{
       c.classList.toggle('active', c.dataset.filterParking === activeParking);
     }});
     // Reset 按鈕 + summary 顯示
-    var any = activeDistrict || activePrice || activeAge || activeParking;
+    var any = activeDistrict || activePrice || activeAge || activeType || activeParking;
     var resetBtn = document.querySelector('[data-filter-reset]');
     if (resetBtn) resetBtn.style.display = any ? '' : 'none';
     var summary = document.getElementById('filter-summary');
@@ -988,6 +1024,9 @@ def gen_html(client_data, properties):
         if (activeAge) {{
           var achip = document.querySelector('[data-filter-age="' + activeAge + '"]');
           parts.push('屋齡：' + (achip ? achip.textContent.replace(/\\d+$/, '').trim() : activeAge));
+        }}
+        if (activeType) {{
+          parts.push('類型：' + activeType);
         }}
         if (activeParking) {{
           parts.push('車位：' + (activeParking === 'yes' ? '有車位' : '無車位'));
@@ -1027,6 +1066,15 @@ def gen_html(client_data, properties):
       window.scrollTo({{ top: 0, behavior: 'smooth' }});
     }});
   }});
+  document.querySelectorAll('[data-filter-type]').forEach(function(chip) {{
+    chip.addEventListener('click', function(e) {{
+      e.preventDefault();
+      var ty = this.dataset.filterType;
+      activeType = activeType === ty ? null : ty;
+      applyFilters();
+      window.scrollTo({{ top: 0, behavior: 'smooth' }});
+    }});
+  }});
   document.querySelectorAll('[data-filter-parking]').forEach(function(chip) {{
     chip.addEventListener('click', function(e) {{
       e.preventDefault();
@@ -1042,6 +1090,7 @@ def gen_html(client_data, properties):
       activeDistrict = null;
       activePrice = null;
       activeAge = null;
+      activeType = null;
       activeParking = null;
       applyFilters();
     }});
