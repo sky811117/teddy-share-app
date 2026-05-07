@@ -254,8 +254,9 @@ def card_html(p):
     parking_attr = 'yes' if has_parking else 'no'
     building_type = (p.get("building_type") or "").strip()
     type_attr = building_type if building_type else "其他"
+    unit_tier_key = unit_price_to_tier_key(unit_price)
     return f'''
-    <div class="card" data-district="{district}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="{parking_attr}" data-type="{type_attr}" data-community="{community}">
+    <div class="card" data-district="{district}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="{parking_attr}" data-type="{type_attr}" data-unit-price-tier="{unit_tier_key}" data-community="{community}">
       <div class="card-image">{img_html}</div>
       <div class="card-content">
         <div class="card-tagline">{tagline}</div>
@@ -309,6 +310,25 @@ AGE_TIERS = [
     ("gt30", "> 30 年", 30, 999),
 ]
 
+# 單坪價段 — 給客人按「主建坪單價」分段選
+UNIT_PRICE_TIERS = [
+    ("lt25", "< 25 萬/坪", 0, 25),
+    ("25-30", "25-30 萬/坪", 25, 30),
+    ("30-35", "30-35 萬/坪", 30, 35),
+    ("35-45", "35-45 萬/坪", 35, 45),
+    ("gt45", "> 45 萬/坪", 45, 9999),
+]
+
+
+def unit_price_to_tier_key(unit_price):
+    """單坪價 → tier key"""
+    if unit_price is None or unit_price <= 0:
+        return "unknown"
+    for key, _, lo, hi in UNIT_PRICE_TIERS:
+        if lo <= unit_price < hi:
+            return key
+    return "unknown"
+
 
 def price_to_tier_key(price):
     """價格 → tier key (給 data-price-tier 用)"""
@@ -347,8 +367,12 @@ def unit_price_per_main(price, main_area):
 
 
 def community_subsection_html(community, items):
-    """單一社區的 sub-section（在區裡面）"""
-    items_sorted = sorted(items, key=lambda x: x["price"])
+    """單一社區的 sub-section（在區裡面）— 物件按單坪價低到高（fallback: 總價低到高）"""
+    def _sort_key(x):
+        up = unit_price_per_main(x.get("price"), x.get("main_area"))
+        # 算得出單坪價的優先按單坪價排，算不出的用大數字推到後面再用總價排
+        return (0, up) if up is not None else (1, x.get("price", 0))
+    items_sorted = sorted(items, key=_sort_key)
     prices = [x["price"] for x in items_sorted]
     c_range = f"{prices[0]:,} 萬" if len(prices) == 1 else f"{prices[0]:,} ~ {prices[-1]:,} 萬"
     cards = "\n".join(card_html(p) for p in items_sorted)
@@ -517,6 +541,24 @@ def gen_html(client_data, properties):
             )
     age_filter_chips = "\n    ".join(all_age_chips)
     has_age_filter = len(all_age_chips) >= 2  # 只有 1 段就不顯示 filter（沒意義）
+
+    # 單坪價段 chip — 給客人按主建坪單價分段篩
+    all_unit_chips = []
+    for key, label, lo, hi in UNIT_PRICE_TIERS:
+        n = 0
+        for d in districts.values():
+            for c in d.values():
+                for p in c:
+                    up = unit_price_per_main(p.get("price"), p.get("main_area"))
+                    if up is not None and lo <= up < hi:
+                        n += 1
+        if n > 0:
+            all_unit_chips.append(
+                f'<a class="nav-chip unit-nav-chip filter-chip" data-filter-unit="{key}">'
+                f'{label}<span class="nav-chip-count">{n}</span></a>'
+            )
+    unit_filter_chips = "\n    ".join(all_unit_chips)
+    has_unit_filter = len(all_unit_chips) >= 2
 
     # 車位 chip 列（給 sticky-nav 第四行）
     yes_count = sum(1 for d in districts.values() for c in d.values() for p in c if p.get("has_parking"))
@@ -862,6 +904,7 @@ def gen_html(client_data, properties):
     {price_filter_chips}
   </div>
   {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🏠 屋齡</span>' + age_filter_chips + '</div>' if has_age_filter else ''}
+  {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">💎 單坪</span>' + unit_filter_chips + '</div>' if has_unit_filter else ''}
   {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🏢 類型</span>' + type_filter_chips + '</div>' if has_type_filter else ''}
   {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🚗 車位</span>' + parking_filter_chips + '</div>' if has_parking_filter else ''}
   <div class="filter-summary" id="filter-summary" style="display:none"></div>
@@ -1003,10 +1046,11 @@ def gen_html(client_data, properties):
     el.addEventListener('click', function() {{ trackCta('line'); }});
   }});
 
-  // ============== 區域 + 預算 + 屋齡 + 類型 + 車位 篩選邏輯 ==============
+  // ============== 區域 + 預算 + 屋齡 + 單坪 + 類型 + 車位 篩選邏輯 ==============
   var activeDistrict = null;
   var activePrice = null;
   var activeAge = null;
+  var activeUnit = null;
   var activeType = null;
   var activeParking = null;
 
@@ -1016,12 +1060,14 @@ def gen_html(client_data, properties):
       var d = card.dataset.district;
       var p = card.dataset.priceTier;
       var a = card.dataset.ageTier;
+      var u = card.dataset.unitPriceTier;
       var ty = card.dataset.type;
       var pk = card.dataset.parking;
       var match = (
         (!activeDistrict || activeDistrict === d) &&
         (!activePrice || activePrice === p) &&
         (!activeAge || activeAge === a) &&
+        (!activeUnit || activeUnit === u) &&
         (!activeType || activeType === ty) &&
         (!activeParking || activeParking === pk)
       );
@@ -1053,6 +1099,9 @@ def gen_html(client_data, properties):
     document.querySelectorAll('[data-filter-age]').forEach(function(c) {{
       c.classList.toggle('active', c.dataset.filterAge === activeAge);
     }});
+    document.querySelectorAll('[data-filter-unit]').forEach(function(c) {{
+      c.classList.toggle('active', c.dataset.filterUnit === activeUnit);
+    }});
     document.querySelectorAll('[data-filter-type]').forEach(function(c) {{
       // 「全部」chip 在 activeType=null（沒選任何類型）時 active
       var isAll = c.dataset.filterType === '__all__';
@@ -1063,7 +1112,7 @@ def gen_html(client_data, properties):
       c.classList.toggle('active', c.dataset.filterParking === activeParking);
     }});
     // 篩選 summary + 清除按鈕顯示
-    var any = activeDistrict || activePrice || activeAge || activeType || activeParking;
+    var any = activeDistrict || activePrice || activeAge || activeUnit || activeType || activeParking;
     var resetBtn = document.querySelector('[data-filter-reset]');
     if (resetBtn) resetBtn.style.display = any ? '' : 'none';
     var summary = document.getElementById('filter-summary');
@@ -1078,6 +1127,10 @@ def gen_html(client_data, properties):
         if (activeAge) {{
           var achip = document.querySelector('[data-filter-age="' + activeAge + '"]');
           parts.push('屋齡：' + (achip ? achip.textContent.replace(/\\d+$/, '').trim() : activeAge));
+        }}
+        if (activeUnit) {{
+          var uchip = document.querySelector('[data-filter-unit="' + activeUnit + '"]');
+          parts.push('單坪：' + (uchip ? uchip.textContent.replace(/\\d+$/, '').trim() : activeUnit));
         }}
         if (activeType) {{
           parts.push('類型：' + activeType);
@@ -1128,6 +1181,15 @@ def gen_html(client_data, properties):
       scrollToFilterNav();
     }});
   }});
+  document.querySelectorAll('[data-filter-unit]').forEach(function(chip) {{
+    chip.addEventListener('click', function(e) {{
+      e.preventDefault();
+      var u = this.dataset.filterUnit;
+      activeUnit = activeUnit === u ? null : u;
+      applyFilters();
+      scrollToFilterNav();
+    }});
+  }});
   document.querySelectorAll('[data-filter-type]').forEach(function(chip) {{
     chip.addEventListener('click', function(e) {{
       e.preventDefault();
@@ -1158,6 +1220,7 @@ def gen_html(client_data, properties):
       activeDistrict = null;
       activePrice = null;
       activeAge = null;
+      activeUnit = null;
       activeType = null;
       activeParking = null;
       applyFilters();
