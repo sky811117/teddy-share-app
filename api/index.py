@@ -654,20 +654,7 @@ def gen_html(client_data, properties):
     position: sticky; top: 0; z-index: 100; padding: 4px 0 5px;
     background: rgba(250,247,242,0.97); backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border);
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }}
-  /* 往下滑時自動收起 chip 條（讓物件佔滿畫面）；往上滑/在頂部會回來 */
-  .sticky-nav.nav-hidden {{ transform: translateY(-100%); }}
-  /* 浮動「篩選」召喚鈕（chip 收起後出現） */
-  .filter-recall {{
-    position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
-    z-index: 99; background: var(--accent-deep); color: #FFF;
-    padding: 6px 14px; border-radius: 16px; font-size: 13px; font-weight: 600;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.18); cursor: pointer;
-    opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
-    letter-spacing: 0.5px;
-  }}
-  .filter-recall.show {{ opacity: 1; pointer-events: auto; }}
   .nav-scroll {{ display: flex; gap: 4px; overflow-x: auto; padding: 0 12px; scrollbar-width: none; }}
   .nav-scroll::-webkit-scrollbar {{ display: none; }}
   .nav-chip {{
@@ -862,7 +849,6 @@ def gen_html(client_data, properties):
   </div>
 </section>
 
-<div class="filter-recall" id="filter-recall">🔍 篩選條件</div>
 <nav class="sticky-nav" id="sticky-nav">
   <div class="nav-scroll">
     <span class="nav-label">🏷️ 區域</span>
@@ -1164,57 +1150,8 @@ def gen_html(client_data, properties):
   }});
   // (移除清除按鈕：客人「再點同個 chip」即可取消該 chip 篩選)
 
-  // ============== sticky-nav auto-hide on scroll down ==============
-  // 往下滑超過 50px 累積 → 收起 chip；往上滑超過 30px → 展開
-  // 用累積位移避免微抖動，動畫順
-  (function() {{
-    var stickyNav = document.getElementById('sticky-nav');
-    var recallBtn = document.getElementById('filter-recall');
-    if (!stickyNav || !recallBtn) return;
-    var lastY = window.scrollY;
-    var accDown = 0;  // 累積往下位移
-    var accUp = 0;    // 累積往上位移
-    var ticking = false;
-
-    function update() {{
-      var y = window.scrollY;
-      var dy = y - lastY;
-      var top = y < 100;  // 接近頂部一律顯示
-      if (top) {{
-        stickyNav.classList.remove('nav-hidden');
-        recallBtn.classList.remove('show');
-        accDown = 0; accUp = 0;
-      }} else if (dy > 0) {{
-        accDown += dy; accUp = 0;
-        if (accDown > 50) {{
-          stickyNav.classList.add('nav-hidden');
-          recallBtn.classList.add('show');
-        }}
-      }} else if (dy < 0) {{
-        accUp += -dy; accDown = 0;
-        if (accUp > 30) {{
-          stickyNav.classList.remove('nav-hidden');
-          recallBtn.classList.remove('show');
-        }}
-      }}
-      lastY = y;
-      ticking = false;
-    }}
-
-    window.addEventListener('scroll', function() {{
-      if (!ticking) {{
-        window.requestAnimationFrame(update);
-        ticking = true;
-      }}
-    }}, {{ passive: true }});
-
-    // 點召喚鈕 → chip 出現
-    recallBtn.addEventListener('click', function() {{
-      stickyNav.classList.remove('nav-hidden');
-      recallBtn.classList.remove('show');
-      accDown = 0; accUp = 0;
-    }});
-  }})();
+  // sticky-nav 維持永遠顯示（景泰決策：不 auto-hide 容易困惑）
+  // 客人要回頂部看 chip → 點右下「↑」按鈕
 
   // 回到頂部按鈕
   var backBtn = document.getElementById('back-to-top');
@@ -1227,7 +1164,7 @@ def gen_html(client_data, properties):
       }}
     }});
     backBtn.addEventListener('click', function() {{
-      scrollToFilterNav();
+      window.scrollTo({{ top: 0, behavior: 'smooth' }});
     }});
   }}
 
