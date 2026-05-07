@@ -2365,12 +2365,13 @@ def _write_backfill_snapshot(slug, parsed):
 
 @app.route("/stats", methods=["GET"])
 def stats_endpoint():
-    # 接 ?limit=XXX query param，預設 5000（Notion 累積多時看更完整）
+    # 接 ?limit=XXX query param，預設 4000（vercel hobby plan 10 秒 timeout 內安全值）
+    # 5000+ 可能 timeout — 升 pro 才能撈更多
     try:
-        limit = int(request.args.get("limit", "5000"))
+        limit = int(request.args.get("limit", "4000"))
     except (TypeError, ValueError):
-        limit = 5000
-    limit = max(100, min(limit, 20000))  # clamp [100, 20000]
+        limit = 4000
+    limit = max(100, min(limit, 50000))  # clamp [100, 50000]
     rows = notion_query_all(limit=limit)
     stats = compute_stats(rows)
     return render_stats_html(stats), 200, {"Content-Type": "text/html; charset=utf-8"}
