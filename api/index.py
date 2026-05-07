@@ -365,7 +365,9 @@ def community_subsection_html(community, items):
 
 
 def district_section_html(district, communities_dict, anchor):
-    """單一行政區的 section，內含多個社區 sub-section"""
+    """單一行政區的 section，內含多個社區 sub-section
+    分兩組：住宅（大樓/華廈/公寓/未知）+ 透天/別墅
+    （透天獨立拉出來避免壓掉其他類型）"""
     all_props = [p for comm in communities_dict.values() for p in comm]
     total_count = len(all_props)
     prices = sorted(p["price"] for p in all_props)
@@ -375,13 +377,39 @@ def district_section_html(district, communities_dict, anchor):
     if ages:
         age_text = f"屋齡 {ages[0]} 年" if len(ages) == 1 else f"屋齡 {ages[0]}~{ages[-1]} 年"
 
-    # 社區按該社區最低價排序
+    # 分兩組：住宅 vs 透天/別墅
+    TOWNHOUSE = {'透天', '別墅'}
+    residential_props = [p for p in all_props if (p.get('building_type') or '').strip() not in TOWNHOUSE]
+    townhouse_props = [p for p in all_props if (p.get('building_type') or '').strip() in TOWNHOUSE]
+
+    def group_by_community(props):
+        d = {}
+        for p in props:
+            c = (p.get('community_display') or '').strip() or '其他'
+            d.setdefault(c, []).append(p)
+        return d
+
+    def render_group(props, label, emoji):
+        if not props:
+            return ''
+        comm_dict = group_by_community(props)
+        order = sorted(comm_dict.keys(), key=lambda c: min(p["price"] for p in comm_dict[c]))
+        subs = "\n".join(community_subsection_html(c, comm_dict[c]) for c in order)
+        return f'''
+  <div class="type-group">
+    <div class="type-group-header">{emoji} {label}（{len(props)} 戶）</div>
+    {subs}
+  </div>'''
+
+    sub_sections = (
+        render_group(residential_props, '住宅', '🏢') +
+        render_group(townhouse_props, '透天 / 別墅', '🏠')
+    )
+
+    # community_order 用全部物件（給 chip 預覽用）
     community_order = sorted(
         communities_dict.keys(),
         key=lambda c: min(p["price"] for p in communities_dict[c])
-    )
-    sub_sections = "\n".join(
-        community_subsection_html(c, communities_dict[c]) for c in community_order
     )
 
     meta_parts = [f"<strong>{total_count} 戶</strong>", price_range]
@@ -693,6 +721,16 @@ def gen_html(client_data, properties):
     font-weight: 500; line-height: 1.7;
   }}
   .district-price-tiers strong {{ color: var(--accent-deep); font-weight: 800; }}
+
+  /* 類型分組（住宅 vs 透天/別墅）— 避免透天壓掉其他類型 */
+  .type-group {{ margin-top: 18px; }}
+  .type-group-header {{
+    font-size: 18px; font-weight: 700; color: var(--accent-deep);
+    margin: 14px 4px 8px 4px; padding: 10px 16px;
+    background: linear-gradient(90deg, rgba(201,120,90,0.12), rgba(201,120,90,0.04));
+    border-left: 4px solid var(--accent-deep);
+    border-radius: 6px; letter-spacing: 1px;
+  }}
 
   /* 社區 (sub-section under district) */
   .community-sub {{ padding: 22px 0 14px; }}
