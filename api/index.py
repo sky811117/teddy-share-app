@@ -1077,13 +1077,23 @@ def gen_html(client_data, properties):
     }}
   }}
 
+  // 點 chip 後：scroll 到 sticky-nav 位置（不要全頂掉到 hero）
+  function scrollToFilterNav() {{
+    var nav = document.querySelector('.sticky-nav');
+    if (!nav) return;
+    var rect = nav.getBoundingClientRect();
+    if (rect.top <= 0) return;  // 已經 sticky 在頂部就不動
+    var targetY = rect.top + window.scrollY;
+    window.scrollTo({{ top: targetY, behavior: 'smooth' }});
+  }}
+
   document.querySelectorAll('[data-filter-district]').forEach(function(chip) {{
     chip.addEventListener('click', function(e) {{
       e.preventDefault();
       var d = this.dataset.filterDistrict;
       activeDistrict = activeDistrict === d ? null : d;
       applyFilters();
-      window.scrollTo({{ top: 0, behavior: 'smooth' }});
+      scrollToFilterNav();
     }});
   }});
   document.querySelectorAll('[data-filter-price]').forEach(function(chip) {{
@@ -1092,7 +1102,7 @@ def gen_html(client_data, properties):
       var p = this.dataset.filterPrice;
       activePrice = activePrice === p ? null : p;
       applyFilters();
-      window.scrollTo({{ top: 0, behavior: 'smooth' }});
+      scrollToFilterNav();
     }});
   }});
   document.querySelectorAll('[data-filter-age]').forEach(function(chip) {{
@@ -1101,7 +1111,7 @@ def gen_html(client_data, properties):
       var a = this.dataset.filterAge;
       activeAge = activeAge === a ? null : a;
       applyFilters();
-      window.scrollTo({{ top: 0, behavior: 'smooth' }});
+      scrollToFilterNav();
     }});
   }});
   document.querySelectorAll('[data-filter-type]').forEach(function(chip) {{
@@ -1110,7 +1120,7 @@ def gen_html(client_data, properties):
       var ty = this.dataset.filterType;
       activeType = activeType === ty ? null : ty;
       applyFilters();
-      window.scrollTo({{ top: 0, behavior: 'smooth' }});
+      scrollToFilterNav();
     }});
   }});
   document.querySelectorAll('[data-filter-parking]').forEach(function(chip) {{
@@ -1119,7 +1129,7 @@ def gen_html(client_data, properties):
       var pk = this.dataset.filterParking;
       activeParking = activeParking === pk ? null : pk;
       applyFilters();
-      window.scrollTo({{ top: 0, behavior: 'smooth' }});
+      scrollToFilterNav();
     }});
   }});
   document.querySelectorAll('[data-filter-reset]').forEach(function(btn) {{
@@ -1145,7 +1155,7 @@ def gen_html(client_data, properties):
       }}
     }});
     backBtn.addEventListener('click', function() {{
-      window.scrollTo({{ top: 0, behavior: 'smooth' }});
+      scrollToFilterNav();
     }});
   }}
 
