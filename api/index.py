@@ -2365,7 +2365,13 @@ def _write_backfill_snapshot(slug, parsed):
 
 @app.route("/stats", methods=["GET"])
 def stats_endpoint():
-    rows = notion_query_all(limit=1000)
+    # 接 ?limit=XXX query param，預設 5000（Notion 累積多時看更完整）
+    try:
+        limit = int(request.args.get("limit", "5000"))
+    except (TypeError, ValueError):
+        limit = 5000
+    limit = max(100, min(limit, 20000))  # clamp [100, 20000]
+    rows = notion_query_all(limit=limit)
     stats = compute_stats(rows)
     return render_stats_html(stats), 200, {"Content-Type": "text/html; charset=utf-8"}
 
