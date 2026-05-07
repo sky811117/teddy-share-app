@@ -477,6 +477,9 @@ def gen_html(client_data, properties):
     contact = client_data.get("contact", DEFAULT_CONTACT)
     theme = (client_data.get("theme") or "景泰精選").strip()
     signature = (client_data.get("signature") or contact.get("agent_name") or "陳景泰").strip()
+    gen_date = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime("%Y-%m-%d")
+    theme = f"{theme} · {gen_date}"
+    signature = f"{signature} · {gen_date}"
 
     # 過濾屋齡：只留 0 < age <= 30 年（景泰：含 30 年 OK，31+ 排除）
     # 排除 age=0（vercel 抓不到屋齡的 unknown，多半是老物件 ycut 沒填）
