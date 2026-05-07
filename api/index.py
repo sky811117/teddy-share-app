@@ -846,7 +846,6 @@ def gen_html(client_data, properties):
 <nav class="sticky-nav">
   <div class="nav-scroll">
     <span class="nav-label">🏷️ 區域</span>
-    <a class="nav-chip filter-chip filter-reset" data-filter-reset="1" style="display:none">✕ 清除</a>
     {nav_chips}
   </div>
   <div class="nav-scroll" style="margin-top: 8px;">
@@ -1046,10 +1045,8 @@ def gen_html(client_data, properties):
     document.querySelectorAll('[data-filter-parking]').forEach(function(c) {{
       c.classList.toggle('active', c.dataset.filterParking === activeParking);
     }});
-    // Reset 按鈕 + summary 顯示
+    // summary 顯示（清除靠「再點同個 chip 取消」即可，不需 reset 按鈕）
     var any = activeDistrict || activePrice || activeAge || activeType || activeParking;
-    var resetBtn = document.querySelector('[data-filter-reset]');
-    if (resetBtn) resetBtn.style.display = any ? '' : 'none';
     var summary = document.getElementById('filter-summary');
     if (summary) {{
       if (any) {{
@@ -1132,17 +1129,7 @@ def gen_html(client_data, properties):
       scrollToFilterNav();
     }});
   }});
-  document.querySelectorAll('[data-filter-reset]').forEach(function(btn) {{
-    btn.addEventListener('click', function(e) {{
-      e.preventDefault();
-      activeDistrict = null;
-      activePrice = null;
-      activeAge = null;
-      activeType = null;
-      activeParking = null;
-      applyFilters();
-    }});
-  }});
+  // (移除清除按鈕：客人「再點同個 chip」即可取消該 chip 篩選)
 
   // 回到頂部按鈕
   var backBtn = document.getElementById('back-to-top');
