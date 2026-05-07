@@ -541,6 +541,12 @@ def gen_html(client_data, properties):
                     bt = '其他'
                 type_counts[bt] += 1
     type_chips_list = []
+    type_total = sum(type_counts.values())
+    if type_total > 0:
+        # 「全部」chip 放最前 — 客人篩到 0 筆時可一鍵回全部類型
+        type_chips_list.append(
+            f'<a class="nav-chip type-nav-chip filter-chip type-all-chip" data-filter-type="__all__">全部<span class="nav-chip-count">{type_total}</span></a>'
+        )
     for t in TYPE_ORDER:
         n = type_counts.get(t, 0)
         if n > 0:
@@ -548,7 +554,7 @@ def gen_html(client_data, properties):
                 f'<a class="nav-chip type-nav-chip filter-chip" data-filter-type="{t}">{t}<span class="nav-chip-count">{n}</span></a>'
             )
     type_filter_chips = "\n    ".join(type_chips_list)
-    has_type_filter = len(type_chips_list) >= 1
+    has_type_filter = len(type_chips_list) >= 2  # 全部 + 至少 1 種類型才顯示
 
     sections = "\n".join(
         district_section_html(d, districts[d], district_anchors[d])
@@ -1054,7 +1060,10 @@ def gen_html(client_data, properties):
       c.classList.toggle('active', c.dataset.filterAge === activeAge);
     }});
     document.querySelectorAll('[data-filter-type]').forEach(function(c) {{
-      c.classList.toggle('active', c.dataset.filterType === activeType);
+      // 「全部」chip 在 activeType=null（沒選任何類型）時 active
+      var isAll = c.dataset.filterType === '__all__';
+      var isActive = isAll ? (activeType === null) : (c.dataset.filterType === activeType);
+      c.classList.toggle('active', isActive);
     }});
     document.querySelectorAll('[data-filter-parking]').forEach(function(c) {{
       c.classList.toggle('active', c.dataset.filterParking === activeParking);
@@ -1129,7 +1138,12 @@ def gen_html(client_data, properties):
     chip.addEventListener('click', function(e) {{
       e.preventDefault();
       var ty = this.dataset.filterType;
-      activeType = activeType === ty ? null : ty;
+      // 「全部」chip 直接清空 activeType（不是 toggle）
+      if (ty === '__all__') {{
+        activeType = null;
+      }} else {{
+        activeType = activeType === ty ? null : ty;
+      }}
       applyFilters();
       scrollToFilterNav();
     }});
