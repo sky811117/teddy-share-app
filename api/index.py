@@ -676,9 +676,7 @@ def gen_html(client_data, properties):
   .age-nav-chip {{ background: rgba(139,115,85,0.06); border-color: rgba(139,115,85,0.4); color: var(--wood-deep); }}
   .age-nav-chip:hover {{ background: var(--wood-deep); color: #FFF; border-color: var(--wood-deep); }}
   .age-nav-chip.active {{ background: var(--wood-deep); color: #FFF; border-color: var(--wood-deep); }}
-  .parking-nav-chip {{ background: rgba(6,199,85,0.06); border-color: rgba(6,199,85,0.4); color: #1f8a4a; }}
-  .parking-nav-chip:hover {{ background: #1f8a4a; color: #FFF; border-color: #1f8a4a; }}
-  .parking-nav-chip.active {{ background: #1f8a4a; color: #FFF; border-color: #1f8a4a; }}
+  /* 車位 chip 沿用基底 .nav-chip 樣式（沒選=米色底，選了=橘紅 active）— 不再用綠色，跟其他一致 */
   .filter-chip {{ cursor: pointer; user-select: none; }}
   .filter-reset {{ background: var(--accent); color: #FFF; border-color: var(--accent); }}
   .filter-reset:hover {{ background: var(--accent-deep); border-color: var(--accent-deep); }}
