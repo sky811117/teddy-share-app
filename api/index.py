@@ -465,11 +465,15 @@ def gen_html(client_data, properties):
             districts[district][community] = []
         districts[district][community].append(p)
 
-    # 行政區按該區最低價排序
-    district_order = sorted(
-        districts.keys(),
-        key=lambda d: min(p["price"] for comm in districts[d].values() for p in comm)
-    )
+    # 行政區順序（景泰指定）：北屯 太平 北區 西屯 南屯 南區 東區 大里 烏日 後面隨意按最低價
+    PRIORITY_ORDER = ['北屯區', '太平區', '北區', '西屯區', '南屯區', '南區', '東區', '大里區', '烏日區']
+    def district_sort_key(d):
+        if d in PRIORITY_ORDER:
+            return (0, PRIORITY_ORDER.index(d))
+        # 不在優先列表的（西區/潭子等）按該區最低價排
+        min_price = min(p["price"] for comm in districts[d].values() for p in comm)
+        return (1, min_price)
+    district_order = sorted(districts.keys(), key=district_sort_key)
     district_anchors = {}
     for i, d in enumerate(district_order):
         anchor_id = "d-" + re.sub(r"[^a-z0-9一-龥]", "", d.lower()) + str(i)
