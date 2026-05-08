@@ -242,9 +242,9 @@ def card_html(p):
             or _is_no_parking_text(p.get("parking_area", ""))
         )
     price_unit = "萬 含車位" if has_parking else "萬"
-    unit_price = unit_price_per_main(p.get("price"), p.get("main_area"))
+    unit_price = unit_price_per_area(p.get("price"), p.get("area"))
     unit_price_html = (
-        f'<div class="card-unit-price">單坪 <strong>{unit_price:g}</strong> 萬 / 主建坪</div>'
+        f'<div class="card-unit-price">單坪 <strong>{unit_price:g}</strong> 萬 / 權狀坪</div>'
         if unit_price else ''
     )
     img_html = (
@@ -310,7 +310,7 @@ AGE_TIERS = [
     ("gt30", "> 30 年", 30, 999),
 ]
 
-# 單坪價段 — 給客人按「主建坪單價」分段選
+# 單坪價段 — 給客人按「權狀坪單價」分段選
 UNIT_PRICE_TIERS = [
     ("lt25", "< 25 萬/坪", 0, 25),
     ("25-30", "25-30 萬/坪", 25, 30),
@@ -354,13 +354,13 @@ def age_to_tier_key(age):
     return "unknown"
 
 
-def unit_price_per_main(price, main_area):
-    """單坪價（主建）= 總價 / 主建坪。回傳 None 表示無法計算。"""
+def unit_price_per_area(price, area):
+    """單坪價（權狀）= 總價 / 權狀坪數。回傳 None 表示無法計算。"""
     try:
         p = float(price or 0)
-        m = float(main_area or 0)
-        if p > 0 and m > 0:
-            return round(p / m, 2)
+        a = float(area or 0)
+        if p > 0 and a > 0:
+            return round(p / a, 2)
     except (TypeError, ValueError):
         pass
     return None
@@ -369,7 +369,7 @@ def unit_price_per_main(price, main_area):
 def community_subsection_html(community, items):
     """單一社區的 sub-section（在區裡面）— 物件按單坪價低到高（fallback: 總價低到高）"""
     def _sort_key(x):
-        up = unit_price_per_main(x.get("price"), x.get("main_area"))
+        up = unit_price_per_area(x.get("price"), x.get("area"))
         # 算得出單坪價的優先按單坪價排，算不出的用大數字推到後面再用總價排
         return (0, up) if up is not None else (1, x.get("price", 0))
     items_sorted = sorted(items, key=_sort_key)
@@ -549,14 +549,14 @@ def gen_html(client_data, properties):
     age_filter_chips = "\n    ".join(all_age_chips)
     has_age_filter = len(all_age_chips) >= 2  # 只有 1 段就不顯示 filter（沒意義）
 
-    # 單坪價段 chip — 給客人按主建坪單價分段篩
+    # 單坪價段 chip — 給客人按權狀坪單價分段篩
     all_unit_chips = []
     for key, label, lo, hi in UNIT_PRICE_TIERS:
         n = 0
         for d in districts.values():
             for c in d.values():
                 for p in c:
-                    up = unit_price_per_main(p.get("price"), p.get("main_area"))
+                    up = unit_price_per_area(p.get("price"), p.get("area"))
                     if up is not None and lo <= up < hi:
                         n += 1
         if n > 0:
