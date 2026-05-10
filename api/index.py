@@ -1388,7 +1388,7 @@ def publish_endpoint():
 
 @app.route("/api/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "ts": datetime.datetime.now().isoformat()})
+    return jsonify({"status": "ok", "ts": datetime.datetime.now().isoformat(), "build": "2026-05-10-quanzhuang"})
 
 
 # ============== Notion 訪問追蹤 ==============
