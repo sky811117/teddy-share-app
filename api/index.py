@@ -481,10 +481,6 @@ def gen_html(client_data, properties):
     theme = f"{theme} · {gen_date}"
     signature = f"{signature} · {gen_date}"
 
-    # 過濾屋齡：只留 0 < age <= 30 年（景泰：含 30 年 OK，31+ 排除）
-    # 排除 age=0（vercel 抓不到屋齡的 unknown，多半是老物件 ycut 沒填）
-    properties = [p for p in properties if 0 < (p.get("age") or 0) <= 30]
-
     # 兩層分組：行政區 → 社區
     districts = {}
     for p in properties:
