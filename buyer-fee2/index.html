@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>買房總費用試算 ─ 一品不動產．有巢氏台中世界之心加盟店</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#C8A574">
+<meta name="description" content="買房總費用試算：成交時要付什麼、每月繳多少。含新青安 vs 一般房貸對照。">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="買房試算">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+
+<meta property="og:title" content="買房總費用試算">
+<meta property="og:description" content="成交時要付什麼、每月繳多少（新青安 vs 一般房貸對照）">
+<meta property="og:image" content="icon-512.png">
+<meta property="og:type" content="website">
+<style>
+  :root {
+    --bg: #FAF7F2;
+    --card: #FFFFFF;
+    --card-tint: #F5EFE3;
+    --wood: #C8A574;
+    --wood-deep: #8B6F4B;
+    --text: #3A3530;
+    --text-soft: #6B6259;
+    --line: #E8DECB;
+    --num: #2C4A2E;
+    --warn: #C75A3C;
+    --warn-bg: #FBE9DE;
+  }
+  * { box-sizing: border-box; }
+  html { font-size: 17px; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 28px 20px 80px;
+  }
+  header {
+    text-align: center;
+    padding: 28px 0 18px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 28px;
+  }
+  header .brand {
+    font-size: 15px;
+    color: var(--wood-deep);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  header h1 {
+    font-size: 32px;
+    margin: 6px 0 8px;
+    color: var(--text);
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  header .sub {
+    color: var(--text-soft);
+    font-size: 17px;
+  }
+  .disclaimer-top {
+    background: var(--warn-bg);
+    border-left: 4px solid var(--warn);
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-size: 15px;
+    color: #6B3925;
+    margin: 18px 0 24px;
+    line-height: 1.7;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+    margin-bottom: 22px;
+  }
+  @media (max-width: 880px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: 0 2px 14px rgba(139, 111, 75, 0.07);
+    border: 1px solid var(--line);
+  }
+  .card h2 {
+    font-size: 22px;
+    margin: 0 0 14px;
+    color: var(--wood-deep);
+    border-bottom: 2px solid var(--wood);
+    padding-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h2 .step {
+    background: var(--wood);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .field {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px dashed #F0E6D0;
+  }
+  .field:last-child { border-bottom: none; }
+  .field label {
+    font-size: 17px;
+    color: var(--text);
+  }
+  .field label .hint {
+    display: block;
+    font-size: 13px;
+    color: var(--text-soft);
+    margin-top: 2px;
+  }
+  .field input[type="number"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 18px;
+    text-align: right;
+    background: #FDFCF7;
+    color: var(--text);
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+  }
+  .field input:focus {
+    outline: none;
+    border-color: var(--wood);
+    background: #FFFEF8;
+  }
+  .field .unit {
+    font-size: 14px;
+    color: var(--text-soft);
+    margin-left: 6px;
+  }
+  .field-inline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .checkbox-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    cursor: pointer;
+  }
+  .checkbox-row input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin-top: 2px;
+    accent-color: var(--wood);
+    flex-shrink: 0;
+  }
+  .checkbox-row .ckbox-text {
+    font-size: 16px;
+    color: var(--text);
+  }
+  .checkbox-row .ckbox-text small {
+    display: block;
+    color: var(--text-soft);
+    font-size: 13px;
+    margin-top: 2px;
+  }
+  .note-box {
+    background: #FFF8E8;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: #7A5D2E;
+    margin-top: 10px;
+    line-height: 1.6;
+  }
+  .result-card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 24px;
+    border: 1px solid var(--line);
+    box-shadow: 0 2px 14px rgba(139, 111, 75, 0.07);
+  }
+  .result-card h2 {
+    font-size: 22px;
+    color: var(--wood-deep);
+    margin: 0 0 16px;
+    border-bottom: 2px solid var(--wood);
+    padding-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  table.fee-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 16px;
+  }
+  table.fee-table th, table.fee-table td {
+    text-align: left;
+    padding: 11px 8px;
+    border-bottom: 1px solid #F0E6D0;
+    vertical-align: top;
+  }
+  table.fee-table th {
+    background: var(--card-tint);
+    font-size: 15px;
+    color: var(--wood-deep);
+    font-weight: 600;
+  }
+  table.fee-table td.num {
+    text-align: right;
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    color: var(--num);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  table.fee-table td .formula {
+    display: block;
+    font-size: 13px;
+    color: var(--text-soft);
+    margin-top: 2px;
+  }
+  table.fee-table tr.total {
+    background: #F5EFE3;
+    font-size: 18px;
+  }
+  table.fee-table tr.total td {
+    border-bottom: none;
+    padding: 14px 8px;
+    color: var(--wood-deep);
+    font-weight: 700;
+  }
+  table.fee-table tr.total td.num {
+    color: var(--num);
+    font-size: 22px;
+  }
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 8px;
+  }
+  @media (max-width: 720px) {
+    .compare-grid { grid-template-columns: 1fr; }
+  }
+  .compare-col {
+    background: var(--card-tint);
+    border-radius: 12px;
+    padding: 18px;
+    border: 1px solid var(--line);
+  }
+  .compare-col.qa {
+    background: #EEF4EC;
+    border-color: #C7DBC2;
+  }
+  .compare-col h3 {
+    margin: 0 0 12px;
+    font-size: 19px;
+    color: var(--wood-deep);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .compare-col.qa h3 { color: #2C4A2E; }
+  .compare-col .tag {
+    font-size: 12px;
+    background: var(--wood);
+    color: white;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-weight: 500;
+  }
+  .compare-col.qa .tag {
+    background: #4F7549;
+  }
+  .pay-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 8px 0;
+    border-bottom: 1px dashed #DCD2BB;
+    font-size: 16px;
+  }
+  .pay-row:last-child { border-bottom: none; }
+  .pay-row .lbl {
+    color: var(--text-soft);
+  }
+  .pay-row .val {
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    color: var(--num);
+    font-weight: 600;
+    font-size: 18px;
+  }
+  .pay-row.big .val {
+    font-size: 24px;
+    color: var(--wood-deep);
+  }
+  .alert-line {
+    background: var(--warn-bg);
+    border-left: 4px solid var(--warn);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: #6B3925;
+    margin-top: 12px;
+    line-height: 1.6;
+  }
+  .summary-banner {
+    background: linear-gradient(135deg, #F5EFE3 0%, #FDFCF7 100%);
+    border: 1px solid var(--wood);
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin: 22px 0;
+    text-align: center;
+  }
+  .summary-banner .label {
+    font-size: 15px;
+    color: var(--wood-deep);
+    margin-bottom: 6px;
+  }
+  .summary-banner .big-num {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--num);
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    letter-spacing: 1px;
+  }
+  .summary-banner .pct {
+    font-size: 16px;
+    color: var(--text-soft);
+    margin-top: 4px;
+  }
+  footer {
+    margin-top: 50px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+  }
+  footer .legal {
+    background: #F5EFE3;
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-size: 13px;
+    color: var(--text-soft);
+    line-height: 1.8;
+    text-align: left;
+    margin-bottom: 24px;
+  }
+  footer .legal strong { color: var(--wood-deep); }
+  footer .contact {
+    font-size: 15px;
+    color: var(--text);
+    line-height: 1.8;
+  }
+  footer .contact .agent-name {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--wood-deep);
+    display: block;
+    margin-bottom: 4px;
+  }
+  footer .contact a {
+    color: var(--wood-deep);
+    text-decoration: none;
+  }
+  footer .contact a:hover { text-decoration: underline; }
+  footer .cert {
+    font-size: 13px;
+    color: var(--text-soft);
+    margin-top: 8px;
+  }
+  .print-btn {
+    background: var(--wood);
+    color: white;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    margin: 20px auto;
+    display: block;
+    font-family: inherit;
+  }
+  .print-btn:hover { background: var(--wood-deep); }
+  @media print {
+    .print-btn { display: none; }
+    body { background: white; }
+    .card, .result-card { box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">一品不動產．有巢氏台中世界之心加盟店</div>
+  <h1>買房總費用試算</h1>
+  <div class="sub">看清楚成交時要付什麼．每個月要繳多少</div>
+</header>
+
+<div class="disclaimer-top">
+  ⚠️ <strong>使用前請看：</strong>本工具依現行法規與市場行情試算，僅供參考。實際金額以代書、銀行核定為準。土地申報地價、房屋核定契價請以最新「土地謄本」、「房屋稅單」為準（不等於市價）。新青安方案以現行條件試算，<strong>2026/07/31 後改新青安 2.0，條件可能變動</strong>。
+</div>
+
+<!-- 輸入區 -->
+<div class="grid">
+  <div class="card">
+    <h2><span class="step">1</span>交易條件</h2>
+    <div class="field">
+      <label>成交總價
+        <span class="hint">買賣合約上的金額</span>
+      </label>
+      <div class="field-inline">
+        <input type="number" id="price" value="1000" min="0" step="10">
+        <span class="unit">萬</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>貸款成數
+        <span class="hint">向銀行借多少比例</span>
+      </label>
+      <div class="field-inline">
+        <input type="number" id="loanRatio" value="80" min="0" max="100" step="1">
+        <span class="unit">%</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>貸款金額
+        <span class="hint">自動帶入（可手動調整）</span>
+      </label>
+      <div class="field-inline">
+        <input type="number" id="loanAmount" value="800" min="0" step="10">
+        <span class="unit">萬</span>
+      </div>
+    </div>
+
+    <h2 style="margin-top:22px;"><span class="step">2</span>稅基資料（必填）</h2>
+    <div class="field">
+      <label>土地申報地價總額
+        <span class="hint">土地謄本／地價稅單可查</span>
+      </label>
+      <div class="field-inline">
+        <input type="number" id="landValue" value="" min="0" step="1" placeholder="例 200">
+        <span class="unit">萬</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>房屋核定契價
+        <span class="hint">房屋稅單／房屋現值</span>
+      </label>
+      <div class="field-inline">
+        <input type="number" id="houseValue" value="" min="0" step="1" placeholder="例 80">
+        <span class="unit">萬</span>
+      </div>
+    </div>
+    <label class="checkbox-row">
+      <input type="checkbox" id="useEstimate">
+      <span class="ckbox-text">
+        我不知道精確值，使用保守估算
+        <small>土地申報地價 ≈ 成交價 × 20%、房屋契價 ≈ 成交價 × 8%（實務常見比例，誤差可能大）</small>
+      </span>
+    </label>
+  </div>
+
+  <div class="card">
+    <h2><span class="step">3</span>房貸方案設定</h2>
+    <div style="margin-bottom:6px;padding:8px 0;border-bottom:2px solid #F0E6D0;color:var(--wood-deep);font-weight:600;">一般房貸</div>
+    <div class="field">
+      <label>利率
+        <span class="hint">央行公布 2026/03 五大行庫平均 2.306%（實際依個人信用與銀行談判）</span>
+      </label>
+      <div class="field-inline">
+        <input type="number" id="rateGeneral" value="2.306" min="0" step="0.005">
+        <span class="unit">%</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>年限</label>
+      <div class="field-inline">
+        <input type="number" id="yearsGeneral" value="30" min="1" max="40" step="1">
+        <span class="unit">年</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>寬限期</label>
+      <div class="field-inline">
+        <input type="number" id="graceGeneral" value="0" min="0" max="5" step="1">
+        <span class="unit">年</span>
+      </div>
+    </div>
+
+    <div style="margin:18px 0 6px;padding:8px 0;border-bottom:2px solid #F0E6D0;color:#2C4A2E;font-weight:600;">新青安貸款（2026/07/31 前申請）</div>
+    <label class="checkbox-row">
+      <input type="checkbox" id="qaEligible" checked>
+      <span class="ckbox-text">
+        我符合資格
+        <small>本人、配偶、未成年子女名下皆無自有住宅，且已成年</small>
+      </span>
+    </label>
+    <div class="field">
+      <label>利率
+        <span class="hint">補貼期 1.775%（一段式）</span>
+      </label>
+      <div class="field-inline">
+        <input type="number" id="rateQA" value="1.775" min="0" step="0.005">
+        <span class="unit">%</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>年限</label>
+      <div class="field-inline">
+        <input type="number" id="yearsQA" value="40" min="1" max="40" step="1">
+        <span class="unit">年</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>寬限期
+        <span class="hint">期內只繳利息</span>
+      </label>
+      <div class="field-inline">
+        <input type="number" id="graceQA" value="5" min="0" max="5" step="1">
+        <span class="unit">年</span>
+      </div>
+    </div>
+    <div class="note-box">
+      💡 新青安最高貸款額度 1,000 萬，超出部分依一般房貸利率計算（本試算如貸款 > 1,000 萬會自動分流）。
+    </div>
+  </div>
+</div>
+
+<!-- 一次性費用 -->
+<div class="result-card">
+  <h2><span class="step">4</span>成交時要付的一次性費用</h2>
+  <table class="fee-table">
+    <thead>
+      <tr>
+        <th style="width:38%;">費用項目</th>
+        <th style="width:42%;">計算方式</th>
+        <th style="width:20%;text-align:right;">金額</th>
+      </tr>
+    </thead>
+    <tbody id="feeTableBody">
+      <!-- JS render -->
+    </tbody>
+  </table>
+</div>
+
+<div class="summary-banner">
+  <div class="label">買方一次性費用合計</div>
+  <div class="big-num" id="totalFee">─</div>
+  <div class="pct" id="totalPct">─</div>
+</div>
+
+<!-- 每月房貸 -->
+<div class="result-card">
+  <h2><span class="step">5</span>每月房貸月付金</h2>
+  <div class="compare-grid">
+    <div class="compare-col">
+      <h3>一般房貸 <span class="tag">市場利率</span></h3>
+      <div id="generalDetail"></div>
+    </div>
+    <div class="compare-col qa">
+      <h3>新青安 <span class="tag">補貼利率</span></h3>
+      <div id="qaDetail"></div>
+    </div>
+  </div>
+  <div class="alert-line">
+    ⚠️ 新青安「寬限期 5 年」期間只繳利息、不還本金，寬限期一到月付金會大幅跳升（依公股銀行統計，可能跳升 2~3 倍）。請審慎評估長期還款能力。
+  </div>
+</div>
+
+<button class="print-btn" onclick="window.print()">📄 列印 / 存成 PDF</button>
+
+<footer>
+  <div class="legal">
+    <strong>法定揭露與免責聲明</strong><br>
+    1. 本工具依下列法規與市場行情建構：契稅條例、印花稅法、土地登記規費標準、不動產仲介經紀業報酬計收標準規定、現行新青安貸款（青年安心成家購屋優惠貸款）條件。<br>
+    2. 各項稅費以稅捐機關核定為準；代書費、銀行火險地震險、履約保證費依個案調整，金額僅為市場常見區間。<br>
+    3. 仲介服務費依《不動產仲介經紀業報酬計收標準規定》，買賣雙方合計上限為成交價 6%，<strong>實際比例由雙方議定</strong>，本表預設買方 2% 為市場慣例非強制。<br>
+    4. 新青安現行條件適用至 2026/07/31，後續改新青安 2.0，利率、寬限期、年限均可能調整。<br>
+    5. 本試算結果<strong>不構成任何具體財務、稅務或法律建議</strong>，買方應於簽約前洽詢代書、稅務人員、貸款銀行確認實際金額。<br>
+    6. 本表由有巢氏房屋台中世界之心加盟店景泰提供，僅作為買方初步評估參考。
+  </div>
+  <div class="contact">
+    <span class="agent-name">陳景泰（Teddy）</span>
+    一品不動產．有巢氏房屋台中世界之心加盟店<br>
+    📞 <a href="tel:0920118756">0920-118-756</a>
+    💬 LINE：<a href="https://line.me/ti/p/~sky811117">sky811117</a>
+    📷 IG：<a href="https://instagram.com/nov__817">@nov__817</a>
+    <div class="cert">
+      不動產經紀人：黃永隆（113彰縣字第324號）<br>
+      不動產營業員：陳景泰（114登字第488296號）
+    </div>
+  </div>
+</footer>
+
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+const INPUTS = ['price','loanRatio','loanAmount','landValue','houseValue','useEstimate','rateGeneral','yearsGeneral','graceGeneral','qaEligible','rateQA','yearsQA','graceQA'];
+
+let isUserEditingLoan = false;
+
+INPUTS.forEach(id => {
+  const el = $(id);
+  if (!el) return;
+  const evt = (el.type === 'checkbox') ? 'change' : 'input';
+  el.addEventListener(evt, () => {
+    if (id === 'loanAmount') isUserEditingLoan = true;
+    if (id === 'price' || id === 'loanRatio') {
+      if (!isUserEditingLoan) {
+        $('loanAmount').value = Math.round((+$('price').value * +$('loanRatio').value) / 100);
+      } else {
+        $('loanAmount').value = Math.round((+$('price').value * +$('loanRatio').value) / 100);
+        isUserEditingLoan = false;
+      }
+    }
+    if (id === 'useEstimate') applyEstimate();
+    if (id === 'price' && $('useEstimate').checked) applyEstimate();
+    render();
+  });
+});
+
+function applyEstimate() {
+  const price = +$('price').value;
+  if ($('useEstimate').checked) {
+    $('landValue').value = Math.round(price * 0.20);
+    $('houseValue').value = Math.round(price * 0.08);
+    $('landValue').readOnly = true;
+    $('houseValue').readOnly = true;
+  } else {
+    $('landValue').readOnly = false;
+    $('houseValue').readOnly = false;
+  }
+}
+
+function fmt(n) {
+  if (!isFinite(n) || n < 0) return '─';
+  return Math.round(n).toLocaleString('zh-TW');
+}
+
+// 本息平均攤還月付金
+function pmt(principal, annualRate, totalMonths) {
+  if (principal <= 0 || totalMonths <= 0) return 0;
+  const r = annualRate / 100 / 12;
+  if (r === 0) return principal / totalMonths;
+  return principal * r * Math.pow(1+r, totalMonths) / (Math.pow(1+r, totalMonths) - 1);
+}
+
+// 寬限期月付（只繳息）
+function interestOnly(principal, annualRate) {
+  return principal * (annualRate / 100) / 12;
+}
+
+// 計算貸款總期月付 + 總利息（含寬限期）
+function loanCalc(principal, annualRate, years, graceYears) {
+  const totalMonths = years * 12;
+  const graceMonths = graceYears * 12;
+  const amortMonths = totalMonths - graceMonths;
+  const monthlyDuringGrace = graceMonths > 0 ? interestOnly(principal, annualRate) : 0;
+  const monthlyAfterGrace = pmt(principal, annualRate, amortMonths);
+  const totalInterestDuringGrace = monthlyDuringGrace * graceMonths;
+  const totalPaidAfterGrace = monthlyAfterGrace * amortMonths;
+  const totalInterestAfterGrace = totalPaidAfterGrace - principal;
+  const totalInterest = totalInterestDuringGrace + totalInterestAfterGrace;
+  const totalPaid = principal + totalInterest;
+  return {
+    monthlyDuringGrace,
+    monthlyAfterGrace,
+    totalInterest,
+    totalPaid,
+    graceMonths
+  };
+}
+
+function render() {
+  const priceWan = +$('price').value || 0;
+  const price = priceWan * 10000;
+  const loanRatio = +$('loanRatio').value || 0;
+  const loanWan = +$('loanAmount').value || 0;
+  const loanAmount = loanWan * 10000;
+  const landWan = +$('landValue').value || 0;
+  const houseWan = +$('houseValue').value || 0;
+  const land = landWan * 10000;
+  const house = houseWan * 10000;
+
+  // === 一次性費用 ===
+  const fees = [
+    {
+      name: '簽約手續費',
+      formula: '代書簽約處理費（行情 1,000~2,000）',
+      amount: 1500
+    },
+    {
+      name: '過戶代書費',
+      formula: '土地一筆 + 建物一幢（行情 12,000~21,500）',
+      amount: 14000
+    },
+    {
+      name: '實價登錄費',
+      formula: '代書申報登錄成交資訊',
+      amount: 2000
+    },
+    {
+      name: '設定代書費',
+      formula: '抵押權設定登記（有貸款才需要）',
+      amount: loanAmount > 0 ? 5000 : 0
+    },
+    {
+      name: '謄本費',
+      formula: '土地+建物謄本工本費（估算）',
+      amount: 200
+    },
+    {
+      name: '書狀費',
+      formula: '每張 80 元 × 2 張（建物+土地）',
+      amount: 160
+    },
+    {
+      name: '契稅',
+      formula: '房屋核定契價 × 6%',
+      amount: house * 0.06
+    },
+    {
+      name: '買賣登記規費',
+      formula: '(土地申報地價 + 房屋契價) × 1/1000',
+      amount: (land + house) * 0.001
+    },
+    {
+      name: '設定登記規費',
+      formula: '貸款金額 × 1.2 × 1/1000',
+      amount: loanAmount * 1.2 * 0.001
+    },
+    {
+      name: '印花稅',
+      formula: '(土地公告現值 + 房屋契價) × 1/1000',
+      amount: (land + house) * 0.001
+    },
+    {
+      name: '火險地震險',
+      formula: '依貸款銀行規定，年繳估算',
+      amount: loanAmount > 0 ? 4000 : 0
+    },
+    {
+      name: '履約保證費',
+      formula: '成交價 × 萬分之 3（買方負擔一半）',
+      amount: price * 0.0003
+    },
+    {
+      name: '仲介服務費',
+      formula: '成交價 × 2%（依雙方議定，買賣合計上限 6%）',
+      amount: price * 0.02
+    }
+  ];
+
+  const tbody = $('feeTableBody');
+  tbody.innerHTML = fees.map(f => `
+    <tr>
+      <td>${f.name}</td>
+      <td><span class="formula">${f.formula}</span></td>
+      <td class="num">${fmt(f.amount)} 元</td>
+    </tr>
+  `).join('');
+
+  const total = fees.reduce((s,f) => s + f.amount, 0);
+  $('totalFee').textContent = fmt(total) + ' 元';
+  if (price > 0) {
+    $('totalPct').textContent = `約佔成交價 ${(total / price * 100).toFixed(2)}%`;
+  } else {
+    $('totalPct').textContent = '─';
+  }
+
+  // === 房貸試算 ===
+  const rGen = +$('rateGeneral').value;
+  const yGen = +$('yearsGeneral').value;
+  const gGen = +$('graceGeneral').value;
+  const rQA = +$('rateQA').value;
+  const yQA = +$('yearsQA').value;
+  const gQA = +$('graceQA').value;
+  const qaEligible = $('qaEligible').checked;
+
+  // 一般房貸（全額用一般利率）
+  const gen = loanCalc(loanAmount, rGen, yGen, gGen);
+  $('generalDetail').innerHTML = renderLoanDetail(gen, loanAmount, rGen, yGen, gGen, false);
+
+  // 新青安（額度 1000 萬上限，超出走一般）
+  if (!qaEligible) {
+    $('qaDetail').innerHTML = `<div style="padding:18px 0;color:var(--text-soft);font-size:15px;text-align:center;">未勾選資格符合，無法試算新青安方案</div>`;
+  } else {
+    const QA_CAP = 1000 * 10000;
+    const qaPart = Math.min(loanAmount, QA_CAP);
+    const extraPart = Math.max(0, loanAmount - QA_CAP);
+    const qaCalc = loanCalc(qaPart, rQA, yQA, gQA);
+    let extraHTML = '';
+    if (extraPart > 0) {
+      const extraCalc = loanCalc(extraPart, rGen, yGen, gGen);
+      qaCalc.monthlyDuringGrace += extraCalc.monthlyDuringGrace || pmt(extraPart, rGen, yGen * 12);
+      qaCalc.monthlyAfterGrace += extraCalc.monthlyAfterGrace;
+      qaCalc.totalInterest += extraCalc.totalInterest;
+      extraHTML = `<div class="alert-line" style="margin-top:10px;">貸款超出新青安 1,000 萬上限的 ${fmt(extraPart)} 元，超出部分以一般房貸利率 ${rGen}% / ${yGen} 年 試算後加總</div>`;
+    }
+    $('qaDetail').innerHTML = renderLoanDetail(qaCalc, loanAmount, rQA, yQA, gQA, true) + extraHTML;
+  }
+}
+
+function renderLoanDetail(calc, principal, rate, years, grace, isQA) {
+  const hasGrace = grace > 0;
+  return `
+    <div class="pay-row">
+      <span class="lbl">貸款金額</span>
+      <span class="val">${fmt(principal)} 元</span>
+    </div>
+    <div class="pay-row">
+      <span class="lbl">利率 / 年限</span>
+      <span class="val">${rate}% / ${years} 年</span>
+    </div>
+    ${hasGrace ? `
+      <div class="pay-row big">
+        <span class="lbl">前 ${grace} 年（寬限期）</span>
+        <span class="val">${fmt(calc.monthlyDuringGrace)} 元/月</span>
+      </div>
+      <div class="pay-row big">
+        <span class="lbl">寬限期後 ${years - grace} 年</span>
+        <span class="val">${fmt(calc.monthlyAfterGrace)} 元/月</span>
+      </div>
+    ` : `
+      <div class="pay-row big">
+        <span class="lbl">每月月付</span>
+        <span class="val">${fmt(calc.monthlyAfterGrace)} 元/月</span>
+      </div>
+    `}
+    <div class="pay-row">
+      <span class="lbl">${years} 年總利息</span>
+      <span class="val">${fmt(calc.totalInterest)} 元</span>
+    </div>
+    <div class="pay-row">
+      <span class="lbl">${years} 年本息合計</span>
+      <span class="val">${fmt(principal + calc.totalInterest)} 元</span>
+    </div>
+  `;
+}
+
+render();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(r => console.log('SW registered:', r.scope))
+      .catch(e => console.warn('SW failed:', e));
+  });
+}
+</script>
+</body>
+</html>
