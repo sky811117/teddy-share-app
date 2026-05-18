@@ -1,0 +1,8 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    { "source": "/buyer-fee", "destination": "/buyer-fee/index.html" },
+    { "source": "/buyer-fee/", "destination": "/buyer-fee/index.html" }
+  ]
+}
