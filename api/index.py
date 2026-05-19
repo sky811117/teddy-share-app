@@ -284,7 +284,13 @@ def card_html(p):
           <div class="spec-item"><span class="spec-label">車位坪數</span><span class="spec-value">{p["parking_area"]}</span></div>
         </div>
         <div class="card-address">{p["address"]}</div>
-        <a class="card-cta" href="https://x.ychouse.tw/{p["slug"]}" target="_blank" rel="noopener">看完整資訊 與 全部照片 <span class="card-cta-arrow">→</span></a>
+        <div class="card-actions">
+          <a class="card-cta" href="https://x.ychouse.tw/{p["slug"]}" target="_blank" rel="noopener">看完整資訊 與 全部照片 <span class="card-cta-arrow">→</span></a>
+          <button class="card-like" data-slug="{p["slug"]}" data-name="{tagline}" aria-label="我喜歡這間" type="button">
+            <span class="card-like-icon">♡</span>
+            <span class="card-like-text">我喜歡</span>
+          </button>
+        </div>
       </div>
     </div>'''
 
@@ -839,10 +845,22 @@ def gen_html(client_data, properties):
   .spec-value.highlight {{ color: var(--wood-deep); font-weight: 700; }}
   .card-address {{ font-size: 16px; color: var(--text-soft); margin-bottom: 18px; padding-top: 16px; border-top: 1px solid var(--bg-soft); display: flex; align-items: flex-start; gap: 7px; line-height: 1.6; }}
   .card-address::before {{ content: '📍'; flex-shrink: 0; }}
-  .card-cta {{ margin-top: auto; background: var(--wood-deep); color: #FFF; text-align: center; text-decoration: none; padding: 14px 18px; border-radius: 12px; font-size: 17px; font-weight: 700; letter-spacing: 1.5px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }}
+  .card-actions {{ display: flex; gap: 8px; margin-top: auto; }}
+  .card-cta {{ flex: 1; background: var(--wood-deep); color: #FFF; text-align: center; text-decoration: none; padding: 14px 18px; border-radius: 12px; font-size: 17px; font-weight: 700; letter-spacing: 1.5px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }}
   .card-cta:hover {{ background: var(--accent); transform: translateY(-1px); }}
   .card-cta-arrow {{ transition: transform 0.2s; }}
   .card-cta:hover .card-cta-arrow {{ transform: translateX(4px); }}
+  .card-like {{ flex-shrink: 0; background: #FFF; border: 2px solid var(--wood-deep); color: var(--wood-deep); border-radius: 12px; padding: 12px 14px; font-size: 16px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s; font-family: inherit; }}
+  .card-like:hover {{ background: var(--bg-soft); }}
+  .card-like.liked {{ background: #FFEDED; border-color: #E74C3C; color: #E74C3C; cursor: default; }}
+  .card-like-icon {{ font-size: 20px; line-height: 1; transition: transform 0.2s; }}
+  .card-like.liked .card-like-icon {{ transform: scale(1.2); }}
+  @media (max-width: 640px) {{
+    .card-actions {{ flex-direction: column; }}
+    .card-like {{ width: 100%; justify-content: center; padding: 13px 18px; }}
+  }}
+  .teddy-toast {{ position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(120px); background: rgba(44,38,32,0.96); color: #FFF; padding: 14px 22px; border-radius: 28px; font-size: 16px; font-weight: 500; z-index: 9999; opacity: 0; transition: all 0.3s ease; box-shadow: 0 8px 28px rgba(0,0,0,0.28); max-width: calc(100vw - 40px); text-align: center; pointer-events: none; }}
+  .teddy-toast.show {{ transform: translateX(-50%) translateY(0); opacity: 1; }}
   .footer {{ background: linear-gradient(135deg, #2C2620 0%, #3D352D 100%); color: #E8DFD2; padding: 60px 20px 36px; margin-top: 50px; }}
   .footer-content {{ max-width: 1200px; margin: 0 auto; text-align: center; }}
   .footer-title {{ font-size: 30px; font-weight: 700; color: #FFF; margin-bottom: 8px; letter-spacing: 6px; }}
@@ -1057,6 +1075,59 @@ def gen_html(client_data, properties):
   }});
   document.querySelectorAll('.top-cta.line, .card-cta-line').forEach(function(el) {{
     el.addEventListener('click', function() {{ trackCta('line'); }});
+  }});
+
+  // ============== 愛心按鈕 ── 客戶按下就推 TG 給景泰 ==============
+  function trackLike(slug, name) {{
+    var elapsedSec = Math.round((Date.now() - startTime) / 1000);
+    postTrack({{
+      client: CLIENT_NAME,
+      share_id: SHARE_ID,
+      like_slug: slug,
+      like_name: name,
+      duration: elapsedSec,
+      url: location.href,
+      referrer: document.referrer || ''
+    }});
+  }}
+
+  function showTeddyToast(msg) {{
+    var t = document.createElement('div');
+    t.className = 'teddy-toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    requestAnimationFrame(function() {{ t.classList.add('show'); }});
+    setTimeout(function() {{
+      t.classList.remove('show');
+      setTimeout(function() {{ t.remove(); }}, 320);
+    }}, 2800);
+  }}
+
+  document.querySelectorAll('.card-like').forEach(function(btn) {{
+    var slug = btn.getAttribute('data-slug') || '';
+    var likeKey = 'teddy_like_' + SHARE_ID + '_' + slug;
+    var iconEl = btn.querySelector('.card-like-icon');
+    var textEl = btn.querySelector('.card-like-text');
+
+    // 已按過 — 顯示已喜歡狀態（換裝置會重置，這是 OK 的）
+    try {{
+      if (localStorage.getItem(likeKey) === '1') {{
+        btn.classList.add('liked');
+        if (iconEl) iconEl.textContent = '❤';
+        if (textEl) textEl.textContent = '已喜歡';
+      }}
+    }} catch (e) {{}}
+
+    btn.addEventListener('click', function() {{
+      if (btn.classList.contains('liked')) return;
+      btn.classList.add('liked');
+      if (iconEl) iconEl.textContent = '❤';
+      if (textEl) textEl.textContent = '已喜歡';
+      try {{ localStorage.setItem(likeKey, '1'); }} catch (e) {{}}
+      var name = btn.getAttribute('data-name') || '';
+      trackLike(slug, name);
+      showTeddyToast('已通知景泰 ❤️ 他會盡快與你聯絡');
+    }});
   }});
 
   // ============== 區域 + 預算 + 屋齡 + 單坪 + 類型 + 車位 篩選邏輯 ==============
@@ -1530,9 +1601,10 @@ def notion_log_snapshot(share_id, client_name, properties_list):
     return written
 
 
-def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer, clicked_slug="", clicked_url="", clicked_name="", cta_type=""):
+def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer, clicked_slug="", clicked_url="", clicked_name="", cta_type="", like_slug="", like_name=""):
     """寫一筆訪問記錄到 Notion DB（失敗就靜默吃掉，不影響客戶體驗）
 
+    like_slug 有值 → 客戶按愛心（最強訊號，會推 TG）
     cta_type 有值 → 客戶點 CTA 按鈕（phone/line）
     clicked_slug 有值 → 客戶點某個物件去看完整資訊（click 事件）
     都沒有 → 客戶開了客戶頁本身（visit 事件）
@@ -1543,9 +1615,14 @@ def notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_u
     def text_prop(s):
         return {"rich_text": [{"text": {"content": (s or "")[:1900]}}]} if s else {"rich_text": []}
 
-    # 事件類型優先順序：cta > click > visit
+    # 事件類型優先順序：like > cta > click > visit
     summary = ""
-    if cta_type:
+    if like_slug:
+        event_type = "like"
+        target_url = f"https://x.ychouse.tw/{like_slug}"[:1900]
+        clicked_prop = {"url": target_url}
+        summary = f"❤️ 客戶按愛心：{like_name}" if like_name else "❤️ 客戶按愛心"
+    elif cta_type:
         event_type = "cta"
         if cta_type == "phone":
             summary = "📞 電話 CTA 點擊"
@@ -1611,6 +1688,8 @@ def track_endpoint():
         clicked_url = (body.get("clicked_url") or "").strip()
         clicked_name = (body.get("clicked_name") or "").strip()
         cta_type = (body.get("cta_type") or "").strip()
+        like_slug = (body.get("like_slug") or "").strip()
+        like_name = (body.get("like_name") or "").strip()
 
         # 從 Vercel 自動 header 拿訪客 IP 粗略地理位置
         city = request.headers.get("X-Vercel-IP-City", "")
@@ -1618,10 +1697,72 @@ def track_endpoint():
         ip_geo = parse_geo(city, country)
         user_agent = parse_ua(request.headers.get("User-Agent", "")[:300])
 
-        ok = notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer, clicked_slug, clicked_url, clicked_name, cta_type)
+        ok = notion_log_visit(client_name, share_id, user_agent, ip_geo, duration, page_url, referrer, clicked_slug, clicked_url, clicked_name, cta_type, like_slug, like_name)
+
+        # 客戶按愛心 → 立刻推 TG 給景泰（強訊號）
+        if like_slug:
+            telegram_notify_like(client_name, like_slug, like_name, page_url, duration, ip_geo, user_agent)
+
         return jsonify({"ok": ok})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+def telegram_notify_like(client_name, like_slug, like_name, page_url, duration, ip_geo, user_agent):
+    """客戶按愛心 → 推 TG「泰迪的小聲音」（環境變數沒設就 silent skip）"""
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+    if not token or not chat_id:
+        return False
+
+    try:
+        dur = int(duration or 0)
+    except Exception:
+        dur = 0
+    if dur >= 60:
+        duration_text = f"{dur // 60} 分 {dur % 60} 秒"
+    else:
+        duration_text = f"{dur} 秒"
+
+    safe_name = (client_name or "客戶").replace("<", "").replace(">", "")
+    safe_obj = (like_name or "某物件").replace("<", "").replace(">", "")
+    lines = [
+        f"❤️ <b>{safe_name}</b> 對下面這間按了愛心",
+        "",
+        f"📌 <b>{safe_obj}</b>",
+        f"🔗 https://x.ychouse.tw/{like_slug}",
+        "",
+        f"⏱️ 看了 {duration_text} 才按下",
+    ]
+    if ip_geo:
+        lines.append(f"📍 {ip_geo}")
+    if user_agent:
+        lines.append(f"📱 {user_agent}")
+    if page_url:
+        lines.append("")
+        lines.append(f"📋 從這個推薦頁：{page_url}")
+    lines.append("")
+    lines.append("💡 趁熱聯絡客戶")
+    msg = "\n".join(lines)
+
+    body = {
+        "chat_id": chat_id,
+        "text": msg,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+    req = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        data=json.dumps(body).encode("utf-8"),
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return r.status == 200
+    except Exception as e:
+        print(f"TG like notify failed: {type(e).__name__}: {e}")
+        return False
 
 
 # ============== Stats Dashboard ==============
