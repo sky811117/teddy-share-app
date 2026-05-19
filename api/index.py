@@ -133,6 +133,15 @@ def parse_ycut_html(html, slug):
     has_parking, parking, parking_area = _parking_fields(area_str, parking_type, parking_num)
     building_type = (field("型態") or "").strip()
 
+    # 格局 HTML 結構跟其他欄位不一樣：<span tit_gray>格局</span><div tit_red>5房(室)3廳5衛</div>
+    layout_m = re.search(
+        r'<span[^>]*tit_gray[^>]*>\s*格局\s*</span>\s*<div[^>]*tit_red[^>]*>\s*([^<]+?)\s*</div>',
+        html, re.DOTALL,
+    )
+    layout = layout_m.group(1).strip() if layout_m else ""
+    layout = re.sub(r"\(室\)", "", layout)
+    layout = re.sub(r"\s+", "", layout)
+
     desc = og("og:description") or ""
     pm2 = re.search(r"([\d,]+)\s*萬", desc)
     price = int(pm2.group(1).replace(",", "")) if pm2 else 0
@@ -151,6 +160,7 @@ def parse_ycut_html(html, slug):
         "parking_area": parking_area,
         "building_type": building_type,
         "address": address,
+        "layout": layout,
         "og_image": og("og:image"),
         "og_title": og("og:title"),
         "og_description": desc,
@@ -268,7 +278,7 @@ def card_html(p):
         <div class="card-spec">
           <div class="spec-item"><span class="spec-label">權狀坪數</span><span class="spec-value highlight">{p["area"]} 坪</span></div>
           <div class="spec-item"><span class="spec-label">主+附</span><span class="spec-value">{p["main_area"]} 坪</span></div>
-          <div class="spec-item"><span class="spec-label">格局</span><span class="spec-value">3房2廳2衛</span></div>
+          <div class="spec-item"><span class="spec-label">格局</span><span class="spec-value">{p.get("layout") or "—"}</span></div>
           <div class="spec-item"><span class="spec-label">屋齡</span><span class="spec-value">{p["age"]} 年</span></div>
           <div class="spec-item"><span class="spec-label">車位</span><span class="spec-value">{p["parking"]}</span></div>
           <div class="spec-item"><span class="spec-label">車位坪數</span><span class="spec-value">{p["parking_area"]}</span></div>
