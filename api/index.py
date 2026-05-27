@@ -1399,6 +1399,28 @@ def add_cors_headers(response):
     return response
 
 
+def build_contact(body):
+    """從 publish payload 組出 contact dict — 留空欄位 fallback 到 DEFAULT_CONTACT"""
+    contact = dict(DEFAULT_CONTACT)
+    agent_name = (body.get("agent_name") or "").strip()
+    agent_license = (body.get("agent_license") or "").strip()
+    phone = (body.get("phone") or "").strip()
+    line = (body.get("line") or "").strip()
+
+    if agent_name:
+        contact["agent_name"] = agent_name
+    if agent_license:
+        contact["agent_license"] = agent_license
+    if phone:
+        contact["phone"] = phone
+        contact["phone_raw"] = re.sub(r"[^\d+]", "", phone) or phone
+    if line:
+        line_id = line.lstrip("@").strip()
+        contact["line"] = line_id
+        contact["line_url"] = f"https://line.me/ti/p/~{line_id}"
+    return contact
+
+
 @app.route("/api/publish", methods=["POST", "OPTIONS"])
 def publish_endpoint():
     if request.method == "OPTIONS":
@@ -1412,6 +1434,7 @@ def publish_endpoint():
         text = body.get("urls_text", "")
         theme = (body.get("theme") or "").strip()
         signature = (body.get("signature") or "").strip()
+        contact = build_contact(body)
 
         slugs = extract_urls(text)
         if not slugs:
@@ -1426,7 +1449,7 @@ def publish_endpoint():
             "name": name,
             "need": need,
             "share_id": share_id,
-            "contact": DEFAULT_CONTACT,
+            "contact": contact,
             "theme": theme,
             "signature": signature,
         }

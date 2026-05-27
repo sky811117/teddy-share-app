@@ -326,6 +326,38 @@
     <input type="text" id="signature" placeholder="陳景泰" autocomplete="off">
   </div>
 
+  <div style="margin: 28px 0 16px; padding: 14px 16px; background: var(--bg-soft); border-radius: 10px; border-left: 3px solid var(--accent);">
+    <div style="font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: 1px;">📇 聯絡資訊（全部可選）</div>
+    <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.6;">
+      留空 = 用景泰自己的資料（電話 0920-118-756 / LINE sky811117 / 證號 488296）。<br>
+      要換給其他同事的客戶用就填下面 4 欄，4 個一起改才符合法規揭露。
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="agent_name">業務員姓名（可選）</label>
+    <div class="field-hint">會印在頁面頂部 + 頁尾證號區。留空 = 陳景泰</div>
+    <input type="text" id="agent_name" placeholder="陳景泰" autocomplete="off">
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="agent_license">營業員證號（可選）</label>
+    <div class="field-hint">法定揭露用，會印在頁尾。留空 = 114年登字第488296號</div>
+    <input type="text" id="agent_license" placeholder="114年登字第488296號" autocomplete="off">
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="phone">電話（可選）</label>
+    <div class="field-hint">客戶按「📞」按鈕會撥這支。可填 0912-345-678 或 0912345678 都行。留空 = 0920-118-756</div>
+    <input type="text" id="phone" placeholder="0920-118-756" autocomplete="off">
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="line">LINE ID（可選）</label>
+    <div class="field-hint">客戶按「💬 LINE 我」會加這個 ID。只填 ID 不用整串網址。留空 = sky811117</div>
+    <input type="text" id="line" placeholder="sky811117" autocomplete="off">
+  </div>
+
   <button class="submit" id="submit-btn">製 作 網 頁</button>
 
   <div class="error" id="error"></div>
@@ -411,6 +443,10 @@ $('submit-btn').addEventListener('click', async () => {
   const urls_text = $('urls').value;
   const theme = $('theme').value.trim();
   const signature = $('signature').value.trim();
+  const agent_name = $('agent_name').value.trim();
+  const agent_license = $('agent_license').value.trim();
+  const phone = $('phone').value.trim();
+  const line = $('line').value.trim();
 
   $('error').classList.remove('show');
 
@@ -427,7 +463,7 @@ $('submit-btn').addEventListener('click', async () => {
     const r = await fetch('/api/publish', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, need, urls_text, theme, signature })
+      body: JSON.stringify({ name, need, urls_text, theme, signature, agent_name, agent_license, phone, line })
     });
 
     const data = await r.json();
@@ -475,6 +511,10 @@ function resetForm() {
   $('urls').value = '';
   $('theme').value = '';
   $('signature').value = '';
+  $('agent_name').value = '';
+  $('agent_license').value = '';
+  $('phone').value = '';
+  $('line').value = '';
   $('error').classList.remove('show');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
