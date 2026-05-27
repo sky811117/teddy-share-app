@@ -294,6 +294,16 @@
 </header>
 
 <div class="card" id="form-card">
+  <div id="edit-banner" style="display:none; background:linear-gradient(135deg, #FFF4E5 0%, #FFE8CC 100%); border:1.5px solid var(--accent); border-radius:12px; padding:14px 16px; margin-bottom:20px;">
+    <div style="font-size:15px; font-weight:700; color:var(--accent-deep); margin-bottom:4px;">
+      ✎ 修改模式 · 會覆蓋原連結
+    </div>
+    <div style="font-size:13px; color:var(--text-soft); line-height:1.6;">
+      原連結 <code id="edit-banner-id" style="background:#FFF;padding:2px 8px;border-radius:6px;color:var(--accent-deep);font-weight:600;"></code> 不會變，再按「製作網頁」會直接更新內容（已傳給客戶的不用重發）。
+      <a href="#" onclick="cancelEdit(); return false;" style="color:var(--accent-deep);text-decoration:underline;margin-left:6px;">× 改開新連結</a>
+    </div>
+  </div>
+
   <div class="field">
     <label class="field-label" for="name">客戶稱呼</label>
     <div class="field-hint">例：黃小姐 / 陳先生</div>
@@ -442,6 +452,35 @@ async function copyToClipboard(text) {
 
 const FORM_FIELDS = ['name','need','urls','theme','signature','agent_name','agent_license','phone','line'];
 const LAST_FORM_KEY = 'teddy_share_last_form';
+const LAST_SHARE_ID_KEY = 'teddy_share_last_id';
+
+// 修改模式 state：null = 全新製作；有值 = 帶 share_id 給後端覆蓋
+let editingShareId = null;
+// 上次製作成功的 share_id（給「回去修改」抓回來覆蓋）
+let lastShareId = null;
+try {
+  lastShareId = localStorage.getItem(LAST_SHARE_ID_KEY) || null;
+} catch (e) {}
+
+function setEditMode(shareId) {
+  editingShareId = shareId;
+  const banner = $('edit-banner');
+  const btn = $('submit-btn');
+  if (shareId) {
+    $('edit-banner-id').textContent = shareId;
+    banner.style.display = '';
+    btn.textContent = '✎ 更 新 原 連 結';
+    btn.style.background = 'var(--accent-deep)';
+  } else {
+    banner.style.display = 'none';
+    btn.textContent = '製 作 網 頁';
+    btn.style.background = '';
+  }
+}
+
+function cancelEdit() {
+  setEditMode(null);
+}
 
 function saveFormSnapshot() {
   try {
@@ -487,11 +526,14 @@ $('submit-btn').addEventListener('click', async () => {
   setStep('解析物件 URL...');
 
   try {
-    setStep('抓 ycut 物件資料 + 產生網頁...');
+    const wasEditing = !!editingShareId;
+    setStep(wasEditing ? '更新原連結內容...' : '抓 ycut 物件資料 + 產生網頁...');
+    const payload = { name, need, urls_text, theme, signature, agent_name, agent_license, phone, line };
+    if (editingShareId) payload.share_id = editingShareId;
     const r = await fetch('/api/publish', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, need, urls_text, theme, signature, agent_name, agent_license, phone, line })
+      body: JSON.stringify(payload)
     });
 
     const data = await r.json();
@@ -499,9 +541,16 @@ $('submit-btn').addEventListener('click', async () => {
 
     setStep('完成！');
 
+    // 記下 share_id 給下次「回去修改」用
+    lastShareId = data.share_id || null;
+    try { if (lastShareId) localStorage.setItem(LAST_SHARE_ID_KEY, lastShareId); } catch (e) {}
+    // 製作完一律退出修改模式（下次按「製作網頁」會是新的；按「回去修改」會重新進）
+    setEditMode(null);
+
     // 顯示結果
     $('loading').classList.remove('show');
-    $('result-meta').textContent = `${data.client} · ${data.count} 個物件`;
+    const modeLabel = (data.mode === 'updated') ? '🔄 已更新' : '🎉 完成';
+    $('result-meta').textContent = `${modeLabel} · ${data.client} · ${data.count} 個物件`;
     $('result-url').textContent = data.url;
     $('open-btn').href = data.url + '?admin=1';
     $('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(data.url)}&size=200x200&margin=8`;
@@ -536,18 +585,25 @@ function resetForm() {
   $('form-card').style.display = '';
   FORM_FIELDS.forEach(k => { $(k).value = ''; });
   $('error').classList.remove('show');
-  // 全新一筆 → 清掉 localStorage 備份
-  try { localStorage.removeItem(LAST_FORM_KEY); } catch (e) {}
+  // 全新一筆 → 清空所有 state + localStorage 備份
+  lastShareId = null;
+  setEditMode(null);
+  try {
+    localStorage.removeItem(LAST_FORM_KEY);
+    localStorage.removeItem(LAST_SHARE_ID_KEY);
+  } catch (e) {}
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function editAgain() {
-  // 回去修改 — 保留所有欄位內容（input 值原本就沒清）
+  // 回去修改 — 保留所有欄位內容（input 值原本就沒清）+ 進入修改模式覆蓋同 share_id
   $('result').classList.remove('show');
   $('form-card').style.display = '';
   $('error').classList.remove('show');
   // 保險：萬一某些 input 被清空（重整、re-render），從 localStorage 救回
   restoreFormSnapshot();
+  // 進入修改模式 — 下次按「製作網頁」會帶 share_id 給後端覆蓋原檔
+  if (lastShareId) setEditMode(lastShareId);
   window.scrollTo({ top: 0, behavior: 'smooth' });
   // 把焦點移到第一個有可能要改的欄位（客戶稱呼）
   setTimeout(() => $('name').focus(), 300);

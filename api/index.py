@@ -1514,7 +1514,15 @@ def publish_endpoint():
         if not properties:
             return jsonify({"error": "全部物件抓取失敗（可能 URL 已失效）"}), 400
 
-        share_id = gen_share_id()
+        # 「回去修改」模式 — 前端帶 share_id 過來就覆蓋既有檔案，不開新連結
+        incoming_share_id = (body.get("share_id") or "").strip()
+        is_update = False
+        if incoming_share_id and re.fullmatch(r"[A-Za-z0-9]{1,16}", incoming_share_id):
+            share_id = incoming_share_id
+            is_update = True
+        else:
+            share_id = gen_share_id()
+
         client_data = {
             "name": name,
             "need": need,
@@ -1533,8 +1541,11 @@ def publish_endpoint():
             github_push(
                 f"{share_id}/index.html",
                 html,
-                f"add: {name} {len(properties)} 戶 ({share_id})",
+                (f"update: {name} {len(properties)} 戶 ({share_id})"
+                    if is_update else
+                    f"add: {name} {len(properties)} 戶 ({share_id})"),
                 token,
+                update=is_update,
             )
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", errors="ignore")[:300]
@@ -1551,6 +1562,7 @@ def publish_endpoint():
             "share_id": share_id,
             "count": len(properties),
             "client": name,
+            "mode": "updated" if is_update else "created",
         })
     except Exception as e:
         return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
