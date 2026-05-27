@@ -396,7 +396,10 @@
     </div>
   </div>
 
-  <button class="submit" style="margin-top:16px;background:var(--bg-soft);color:var(--wood-deep)" onclick="resetForm()">↻ 再做一個</button>
+  <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
+    <button class="submit" style="flex:1; min-width:180px; background:var(--card); color:var(--wood-deep); border:1.5px solid var(--wood-deep);" onclick="editAgain()">✎ 回去修改</button>
+    <button class="submit" style="flex:1; min-width:180px; background:var(--bg-soft); color:var(--wood-deep);" onclick="resetForm()">↻ 再做一個</button>
+  </div>
 </div>
 
 <div style="text-align:center; margin-top:24px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
@@ -437,6 +440,28 @@ async function copyToClipboard(text) {
   }
 }
 
+const FORM_FIELDS = ['name','need','urls','theme','signature','agent_name','agent_license','phone','line'];
+const LAST_FORM_KEY = 'teddy_share_last_form';
+
+function saveFormSnapshot() {
+  try {
+    const snap = {};
+    FORM_FIELDS.forEach(k => snap[k] = $(k).value);
+    localStorage.setItem(LAST_FORM_KEY, JSON.stringify(snap));
+  } catch (e) {}
+}
+
+function restoreFormSnapshot() {
+  // 只在欄位是空時填回（input 預設保留值的話就不動）
+  try {
+    const saved = JSON.parse(localStorage.getItem(LAST_FORM_KEY) || 'null');
+    if (!saved) return;
+    FORM_FIELDS.forEach(k => {
+      if (saved[k] !== undefined && !$(k).value) $(k).value = saved[k];
+    });
+  } catch (e) {}
+}
+
 $('submit-btn').addEventListener('click', async () => {
   const name = $('name').value.trim();
   const need = $('need').value.trim();
@@ -452,6 +477,9 @@ $('submit-btn').addEventListener('click', async () => {
 
   if (!name) { $('name').focus(); return showError('請填客戶稱呼'); }
   if (!urls_text.trim()) { $('urls').focus(); return showError('請貼物件清單'); }
+
+  // 送出前存 snapshot — 給「回去修改」按鈕用
+  saveFormSnapshot();
 
   // 切到 loading
   $('form-card').style.display = 'none';
@@ -506,17 +534,23 @@ function showError(msg) {
 function resetForm() {
   $('result').classList.remove('show');
   $('form-card').style.display = '';
-  $('name').value = '';
-  $('need').value = '';
-  $('urls').value = '';
-  $('theme').value = '';
-  $('signature').value = '';
-  $('agent_name').value = '';
-  $('agent_license').value = '';
-  $('phone').value = '';
-  $('line').value = '';
+  FORM_FIELDS.forEach(k => { $(k).value = ''; });
   $('error').classList.remove('show');
+  // 全新一筆 → 清掉 localStorage 備份
+  try { localStorage.removeItem(LAST_FORM_KEY); } catch (e) {}
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function editAgain() {
+  // 回去修改 — 保留所有欄位內容（input 值原本就沒清）
+  $('result').classList.remove('show');
+  $('form-card').style.display = '';
+  $('error').classList.remove('show');
+  // 保險：萬一某些 input 被清空（重整、re-render），從 localStorage 救回
+  restoreFormSnapshot();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  // 把焦點移到第一個有可能要改的欄位（客戶稱呼）
+  setTimeout(() => $('name').focus(), 300);
 }
 </script>
 </body>
