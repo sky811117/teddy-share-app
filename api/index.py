@@ -265,8 +265,9 @@ def card_html(p):
     building_type = (p.get("building_type") or "").strip()
     type_attr = building_type if building_type else "其他"
     unit_tier_key = unit_price_to_tier_key(unit_price)
+    rooms_key = layout_to_rooms_key(p.get("layout"))
     return f'''
-    <div class="card" data-district="{district}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="{parking_attr}" data-type="{type_attr}" data-unit-price-tier="{unit_tier_key}" data-community="{community}">
+    <div class="card" data-district="{district}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="{parking_attr}" data-type="{type_attr}" data-unit-price-tier="{unit_tier_key}" data-rooms="{rooms_key}" data-community="{community}">
       <div class="card-image">{img_html}</div>
       <div class="card-content">
         <div class="card-tagline">{tagline}</div>
@@ -334,6 +335,30 @@ UNIT_PRICE_TIERS = [
     ("35-45", "35-45 萬/坪", 35, 45),
     ("gt45", "> 45 萬/坪", 45, 9999),
 ]
+
+# 房數段 — 從 layout 字串 "3房2廳2衛" 抽第一個數字
+ROOMS_TIERS = [
+    ("1", "1 房", 1, 2),
+    ("2", "2 房", 2, 3),
+    ("3", "3 房", 3, 4),
+    ("4", "4 房", 4, 5),
+    ("gt5", "5 房以上", 5, 99),
+]
+
+
+def layout_to_rooms_key(layout):
+    """格局字串 → rooms tier key。'3房2廳2衛' → '3'；'6房...' → 'gt5'；空/解析失敗 → 'unknown'"""
+    if not layout:
+        return "unknown"
+    m = re.match(r"(\d+)\s*房", layout)
+    if not m:
+        return "unknown"
+    n = int(m.group(1))
+    if n <= 0:
+        return "unknown"
+    if n >= 5:
+        return "gt5"
+    return str(n)
 
 
 def unit_price_to_tier_key(unit_price):
@@ -578,6 +603,30 @@ def gen_html(client_data, properties):
             )
     unit_filter_chips = "\n    ".join(all_unit_chips)
     has_unit_filter = len(all_unit_chips) >= 2
+
+    # 房數 chip — 給客人按「幾房」篩
+    all_rooms_chips = []
+    for key, label, lo, hi in ROOMS_TIERS:
+        n = 0
+        for d in districts.values():
+            for c in d.values():
+                for p in c:
+                    rk = layout_to_rooms_key(p.get("layout"))
+                    if rk == "unknown":
+                        continue
+                    # gt5 一律 hi=99；其他 key 是純數字
+                    if key == "gt5":
+                        if rk == "gt5":
+                            n += 1
+                    elif rk == key:
+                        n += 1
+        if n > 0:
+            all_rooms_chips.append(
+                f'<a class="nav-chip rooms-nav-chip filter-chip" data-filter-rooms="{key}">'
+                f'{label}<span class="nav-chip-count">{n}</span></a>'
+            )
+    rooms_filter_chips = "\n    ".join(all_rooms_chips)
+    has_rooms_filter = len(all_rooms_chips) >= 2
 
     # 車位 chip 列（給 sticky-nav 第四行）
     yes_count = sum(1 for d in districts.values() for c in d.values() for p in c if p.get("has_parking"))
@@ -936,6 +985,7 @@ def gen_html(client_data, properties):
   </div>
   {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🏠 屋齡</span>' + age_filter_chips + '</div>' if has_age_filter else ''}
   {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">💎 單坪</span>' + unit_filter_chips + '</div>' if has_unit_filter else ''}
+  {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🛏️ 房數</span>' + rooms_filter_chips + '</div>' if has_rooms_filter else ''}
   {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🏢 類型</span>' + type_filter_chips + '</div>' if has_type_filter else ''}
   {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🚗 車位</span>' + parking_filter_chips + '</div>' if has_parking_filter else ''}
   <div class="filter-summary" id="filter-summary" style="display:none"></div>
@@ -1130,11 +1180,12 @@ def gen_html(client_data, properties):
     }});
   }});
 
-  // ============== 區域 + 預算 + 屋齡 + 單坪 + 類型 + 車位 篩選邏輯 ==============
+  // ============== 區域 + 預算 + 屋齡 + 單坪 + 房數 + 類型 + 車位 篩選邏輯 ==============
   var activeDistrict = null;
   var activePrice = null;
   var activeAge = null;
   var activeUnit = null;
+  var activeRooms = null;
   var activeType = null;
   var activeParking = null;
 
@@ -1145,6 +1196,7 @@ def gen_html(client_data, properties):
       var p = card.dataset.priceTier;
       var a = card.dataset.ageTier;
       var u = card.dataset.unitPriceTier;
+      var rm = card.dataset.rooms;
       var ty = card.dataset.type;
       var pk = card.dataset.parking;
       var match = (
@@ -1152,6 +1204,7 @@ def gen_html(client_data, properties):
         (!activePrice || activePrice === p) &&
         (!activeAge || activeAge === a) &&
         (!activeUnit || activeUnit === u) &&
+        (!activeRooms || activeRooms === rm) &&
         (!activeType || activeType === ty) &&
         (!activeParking || activeParking === pk)
       );
@@ -1186,6 +1239,9 @@ def gen_html(client_data, properties):
     document.querySelectorAll('[data-filter-unit]').forEach(function(c) {{
       c.classList.toggle('active', c.dataset.filterUnit === activeUnit);
     }});
+    document.querySelectorAll('[data-filter-rooms]').forEach(function(c) {{
+      c.classList.toggle('active', c.dataset.filterRooms === activeRooms);
+    }});
     document.querySelectorAll('[data-filter-type]').forEach(function(c) {{
       // 「全部」chip 在 activeType=null（沒選任何類型）時 active
       var isAll = c.dataset.filterType === '__all__';
@@ -1196,7 +1252,7 @@ def gen_html(client_data, properties):
       c.classList.toggle('active', c.dataset.filterParking === activeParking);
     }});
     // 篩選 summary + 清除按鈕顯示
-    var any = activeDistrict || activePrice || activeAge || activeUnit || activeType || activeParking;
+    var any = activeDistrict || activePrice || activeAge || activeUnit || activeRooms || activeType || activeParking;
     var resetBtn = document.querySelector('[data-filter-reset]');
     if (resetBtn) resetBtn.style.display = any ? '' : 'none';
     var summary = document.getElementById('filter-summary');
@@ -1215,6 +1271,10 @@ def gen_html(client_data, properties):
         if (activeUnit) {{
           var uchip = document.querySelector('[data-filter-unit="' + activeUnit + '"]');
           parts.push('單坪：' + (uchip ? uchip.textContent.replace(/\\d+$/, '').trim() : activeUnit));
+        }}
+        if (activeRooms) {{
+          var rchip = document.querySelector('[data-filter-rooms="' + activeRooms + '"]');
+          parts.push('房數：' + (rchip ? rchip.textContent.replace(/\\d+$/, '').trim() : activeRooms));
         }}
         if (activeType) {{
           parts.push('類型：' + activeType);
@@ -1274,6 +1334,15 @@ def gen_html(client_data, properties):
       scrollToFilterNav();
     }});
   }});
+  document.querySelectorAll('[data-filter-rooms]').forEach(function(chip) {{
+    chip.addEventListener('click', function(e) {{
+      e.preventDefault();
+      var rm = this.dataset.filterRooms;
+      activeRooms = activeRooms === rm ? null : rm;
+      applyFilters();
+      scrollToFilterNav();
+    }});
+  }});
   document.querySelectorAll('[data-filter-type]').forEach(function(chip) {{
     chip.addEventListener('click', function(e) {{
       e.preventDefault();
@@ -1305,6 +1374,7 @@ def gen_html(client_data, properties):
       activePrice = null;
       activeAge = null;
       activeUnit = null;
+      activeRooms = null;
       activeType = null;
       activeParking = null;
       applyFilters();
