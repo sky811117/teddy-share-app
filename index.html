@@ -401,7 +401,7 @@
 
     <div class="build-note">
       ⏳ GitHub Pages 約 30-60 秒後 build 完成，URL 即可開啟<br>
-      📋 已複製到剪貼簿（純連結，傳給客戶會被追蹤）<br>
+      📋 已複製到剪貼簿（已自動加版本碼繞過快取，傳給客戶保證看到最新版、會被追蹤）<br>
       💡「我先預覽」會把這台裝置標記為管理者，**之後永遠不會被追蹤**（每台你用的裝置點一次即可）
     </div>
   </div>
@@ -551,12 +551,20 @@ $('submit-btn').addEventListener('click', async () => {
     $('loading').classList.remove('show');
     const modeLabel = (data.mode === 'updated') ? '🔄 已更新' : '🎉 完成';
     $('result-meta').textContent = `${modeLabel} · ${data.client} · ${data.count} 個物件`;
-    $('result-url').textContent = data.url;
-    $('open-btn').href = data.url + '?admin=1';
-    $('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(data.url)}&size=200x200&margin=8`;
+
+    // cache-buster：每次發佈用當下時間做版本碼，繞過 GitHub Pages 的 10 分鐘瀏覽器快取。
+    // 不加這個，更新後同一條網址會被瀏覽器/手機吃舊快取 → 看起來像「沒更新」（景泰 2026-05-30 踩到）。
+    const ver = Date.now().toString(36);
+    const sep = data.url.includes('?') ? '&' : '?';
+    const clientUrl = data.url + sep + 'v=' + ver;          // 給客戶：繞快取，保證看到最新版
+    const adminUrl  = data.url + sep + 'admin=1&v=' + ver;  // 給景泰預覽：繞快取 + 標記管理者不追蹤
+
+    $('result-url').textContent = clientUrl;
+    $('open-btn').href = adminUrl;
+    $('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(clientUrl)}&size=200x200&margin=8`;
 
     // 自動複製到剪貼簿
-    await copyToClipboard(data.url);
+    await copyToClipboard(clientUrl);
 
     $('result').classList.add('show');
     window.scrollTo({ top: 0, behavior: 'smooth' });
