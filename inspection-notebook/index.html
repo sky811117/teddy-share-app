@@ -1,0 +1,1929 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>看屋筆記本 ─ 一品不動產．有巢氏台中世界之心加盟店</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#C8A574">
+<meta name="description" content="買房看屋筆記本：6 大區 SOP 逐項記錄、多物件比較、一鍵輸出 PDF。手機現場填、看完帶回家比較。">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="看屋筆記本">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+
+<meta property="og:title" content="看屋筆記本">
+<meta property="og:description" content="買房看屋 SOP 筆記本，6 區檢核表 + 多物件比較表，一鍵輸出 PDF">
+<meta property="og:image" content="icon-512.png">
+<meta property="og:type" content="website">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<style>
+  :root {
+    --bg: #FAF7F2;
+    --card: #FFFFFF;
+    --card-tint: #F5EFE3;
+    --wood: #C8A574;
+    --wood-deep: #8B6F4B;
+    --text: #3A3530;
+    --text-soft: #6B6259;
+    --line: #E8DECB;
+    --num: #2C4A2E;
+    --warn: #C75A3C;
+    --warn-bg: #FBE9DE;
+    --ok: #4F7549;
+    --ok-bg: #EEF4EC;
+    --accent: #5B7C8F;
+    --accent-bg: #E8EEF2;
+  }
+  * { box-sizing: border-box; }
+  html { font-size: 17px; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 24px 18px 120px;
+  }
+  header {
+    text-align: center;
+    padding: 20px 0 16px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 22px;
+  }
+  header .brand {
+    font-size: 14px;
+    color: var(--wood-deep);
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+  header h1 {
+    font-size: 28px;
+    margin: 4px 0 6px;
+    color: var(--text);
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  header .sub {
+    color: var(--text-soft);
+    font-size: 15px;
+  }
+  .intro-card {
+    background: linear-gradient(135deg, #F5EFE3 0%, #FDFCF7 100%);
+    border: 1px solid var(--wood);
+    border-radius: 14px;
+    padding: 18px 20px;
+    font-size: 15px;
+    color: #6B5D3F;
+    line-height: 1.7;
+    margin-bottom: 22px;
+  }
+  .intro-card strong { color: var(--wood-deep); }
+
+  /* ====== 物件清單 list 視圖 ====== */
+  .list-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .list-toolbar h2 {
+    font-size: 22px;
+    color: var(--wood-deep);
+    margin: 0;
+  }
+  .list-toolbar .count {
+    color: var(--text-soft);
+    font-size: 14px;
+    margin-left: 6px;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--text-soft);
+    font-size: 16px;
+    background: var(--card);
+    border: 1px dashed var(--line);
+    border-radius: 14px;
+    margin: 16px 0;
+  }
+  .empty-state .big-emoji {
+    font-size: 48px;
+    margin-bottom: 8px;
+    opacity: 0.6;
+  }
+  .property-card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: 0 2px 14px rgba(139, 111, 75, 0.07);
+    border: 1px solid var(--line);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .property-card .seq {
+    background: var(--wood);
+    color: white;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .property-card .info {
+    flex: 1;
+    min-width: 0;
+  }
+  .property-card .name {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .property-card .meta {
+    font-size: 13px;
+    color: var(--text-soft);
+    line-height: 1.5;
+  }
+  .property-card .meta .price-tag {
+    color: var(--wood-deep);
+    font-weight: 600;
+    margin-right: 6px;
+  }
+  .property-card .actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .property-card .actions button {
+    background: var(--card-tint);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .property-card .actions button:hover {
+    background: var(--wood);
+    color: white;
+  }
+  .property-card .actions button.danger:hover {
+    background: var(--warn);
+    color: white;
+  }
+
+  .action-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  @media (max-width: 720px) {
+    .action-bar { grid-template-columns: 1fr; }
+  }
+  .btn {
+    background: var(--wood);
+    color: white;
+    border: none;
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-size: 17px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .btn:hover { background: var(--wood-deep); }
+  .btn.secondary {
+    background: white;
+    color: var(--wood-deep);
+    border: 1px solid var(--wood);
+  }
+  .btn.secondary:hover {
+    background: var(--card-tint);
+  }
+  .btn.danger {
+    background: var(--warn);
+  }
+  .btn.danger:hover {
+    background: #A04830;
+  }
+  .btn.small {
+    padding: 10px 16px;
+    font-size: 15px;
+  }
+
+  /* ====== 物件 detail 視圖 ====== */
+  .detail-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .back-btn {
+    background: transparent;
+    color: var(--wood-deep);
+    border: 1px solid var(--wood);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .back-btn:hover { background: var(--card-tint); }
+  .detail-header h2 {
+    font-size: 20px;
+    color: var(--wood-deep);
+    margin: 0;
+    flex: 1;
+  }
+
+  .region {
+    background: var(--card);
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    box-shadow: 0 2px 10px rgba(139, 111, 75, 0.05);
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .region-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    cursor: pointer;
+    background: var(--card-tint);
+    border-bottom: 1px solid var(--line);
+  }
+  .region-head .title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .region-head .step {
+    background: var(--wood);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .region-head h3 {
+    font-size: 19px;
+    color: var(--wood-deep);
+    margin: 0;
+  }
+  .region-head .arrow {
+    color: var(--wood-deep);
+    font-size: 18px;
+    transition: transform 0.2s;
+  }
+  .region.collapsed .arrow {
+    transform: rotate(-90deg);
+  }
+  .region.collapsed .region-body {
+    display: none;
+  }
+  .region-body {
+    padding: 18px 20px;
+  }
+  .region-tip {
+    background: #FFF8E8;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: #7A5D2E;
+    line-height: 1.6;
+    margin-bottom: 14px;
+  }
+
+  /* ====== 表單欄位 ====== */
+  .field {
+    display: grid;
+    grid-template-columns: 1.1fr 1.4fr;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px dashed #F0E6D0;
+  }
+  .field:last-child { border-bottom: none; }
+  @media (max-width: 720px) {
+    .field { grid-template-columns: 1fr; gap: 6px; padding: 12px 0; }
+  }
+  .field label {
+    font-size: 16px;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .field label .hint {
+    display: block;
+    font-size: 13px;
+    color: var(--text-soft);
+    margin-top: 2px;
+    font-weight: 400;
+  }
+  .field input[type="text"],
+  .field input[type="number"],
+  .field input[type="date"],
+  .field select,
+  .field textarea {
+    width: 100%;
+    padding: 11px 13px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 17px;
+    background: #FDFCF7;
+    color: var(--text);
+    font-family: inherit;
+  }
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus {
+    outline: none;
+    border-color: var(--wood);
+    background: #FFFEF8;
+  }
+  .field textarea {
+    resize: vertical;
+    min-height: 60px;
+    line-height: 1.6;
+  }
+  .field-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .field-inline input { flex: 1; }
+  .field-inline .unit {
+    font-size: 14px;
+    color: var(--text-soft);
+    white-space: nowrap;
+  }
+  .field-full {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+  .field-full label { margin-bottom: 4px; }
+
+  /* checkbox 列 */
+  .check-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .check-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    background: #FDFCF7;
+    border: 1px solid #F0E6D0;
+    transition: all 0.15s;
+  }
+  .check-row:hover { background: #FFFEF8; }
+  .check-row input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    accent-color: var(--wood);
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .check-row .ckbox-text {
+    font-size: 16px;
+    color: var(--text);
+    flex: 1;
+  }
+  .check-row .ckbox-text small {
+    display: block;
+    color: var(--text-soft);
+    font-size: 13px;
+    margin-top: 2px;
+  }
+  .check-row.checked {
+    background: #FFF6E0;
+    border-color: var(--wood);
+  }
+
+  /* radio 三段 */
+  .radio-group {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .radio-group label {
+    flex: 1;
+    min-width: 100px;
+    text-align: center;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #FDFCF7;
+    cursor: pointer;
+    font-size: 15px;
+    color: var(--text);
+    transition: all 0.15s;
+  }
+  .radio-group input[type="radio"] {
+    display: none;
+  }
+  .radio-group label.active {
+    background: var(--wood);
+    color: white;
+    border-color: var(--wood);
+  }
+
+  /* 距離 5 段 */
+  .distance-group {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+  }
+  @media (max-width: 480px) {
+    .distance-group { grid-template-columns: repeat(5, 1fr); gap: 3px; }
+  }
+  .distance-group label {
+    text-align: center;
+    padding: 9px 4px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #FDFCF7;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text);
+    transition: all 0.15s;
+  }
+  .distance-group input[type="radio"] { display: none; }
+  .distance-group label.active.lvl-0 { background: #E5F0E5; color: #2C4A2E; border-color: #A5C8A5; }
+  .distance-group label.active.lvl-1 { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
+  .distance-group label.active.lvl-2 { background: #FAE3CC; color: #B66B2B; border-color: #B66B2B; }
+  .distance-group label.active.lvl-3 { background: #FFF1D5; color: #9C7B30; border-color: #C8A574; }
+  .distance-group label.active.lvl-4 { background: #ECF0E6; color: #5C7B3A; border-color: #8FA86C; }
+  .nearby-row {
+    display: grid;
+    grid-template-columns: 1.3fr 2fr;
+    gap: 10px;
+    align-items: center;
+    padding: 9px 0;
+    border-bottom: 1px dashed #F0E6D0;
+  }
+  .nearby-row:last-child { border-bottom: none; }
+  .nearby-row .nb-label {
+    font-size: 15px;
+    color: var(--text);
+  }
+  @media (max-width: 720px) {
+    .nearby-row { grid-template-columns: 1fr; gap: 6px; }
+  }
+
+  /* 星評分 */
+  .star-rate {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .star-rate .star {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: #DDD3BB;
+    cursor: pointer;
+    transition: color 0.15s;
+    user-select: none;
+  }
+  .star-rate .star.active {
+    color: #E8B547;
+  }
+  .star-rate .label {
+    font-size: 14px;
+    color: var(--text-soft);
+    margin-left: 8px;
+  }
+
+  /* sticky 底部 */
+  .sticky-bottom {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 1px solid var(--line);
+    padding: 12px 18px;
+    box-shadow: 0 -4px 14px rgba(139, 111, 75, 0.08);
+    z-index: 50;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+  .sticky-bottom .btn {
+    flex: 1;
+    max-width: 260px;
+  }
+  @media (min-width: 720px) {
+    .sticky-bottom { padding: 14px 24px; }
+  }
+
+  /* 比較表 modal */
+  .modal-mask {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 18px;
+  }
+  .modal-box {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 500px;
+    width: 100%;
+    max-height: 88vh;
+    overflow-y: auto;
+  }
+  .modal-box h3 {
+    font-size: 20px;
+    color: var(--wood-deep);
+    margin: 0 0 14px;
+  }
+  .modal-box .sub {
+    color: var(--text-soft);
+    font-size: 14px;
+    margin-bottom: 18px;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .modal-actions .btn { flex: 1; }
+
+  /* PDF render area */
+  #pdfRender {
+    position: fixed;
+    top: -10000px;
+    left: 0;
+    width: 794px;
+    background: white;
+    padding: 50px 60px;
+    font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+    color: #3A3530;
+  }
+  #pdfRender h1 {
+    font-size: 26px;
+    color: var(--wood-deep);
+    margin: 0 0 6px;
+    border-bottom: 3px solid var(--wood);
+    padding-bottom: 10px;
+  }
+  #pdfRender .pdf-sub {
+    color: var(--text-soft);
+    font-size: 13px;
+    margin-bottom: 24px;
+  }
+  #pdfRender .pdf-region {
+    margin-bottom: 22px;
+    page-break-inside: avoid;
+  }
+  #pdfRender .pdf-region h2 {
+    font-size: 17px;
+    color: var(--wood-deep);
+    background: var(--card-tint);
+    padding: 8px 14px;
+    border-left: 4px solid var(--wood);
+    margin: 0 0 12px;
+  }
+  #pdfRender table.pdf-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  #pdfRender table.pdf-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #EAE4D3;
+    vertical-align: top;
+  }
+  #pdfRender table.pdf-table td.k {
+    width: 32%;
+    color: var(--text-soft);
+    background: #FBF7EE;
+  }
+  #pdfRender table.pdf-table td.v {
+    color: var(--text);
+    font-weight: 500;
+  }
+  #pdfRender .pdf-foot {
+    margin-top: 30px;
+    padding-top: 18px;
+    border-top: 2px solid var(--wood);
+    page-break-inside: avoid;
+  }
+  #pdfRender .pdf-foot .agent {
+    font-size: 18px;
+    color: var(--wood-deep);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  #pdfRender .pdf-foot .brand-line {
+    font-size: 14px;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  #pdfRender .pdf-foot .contact-line {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.9;
+  }
+  #pdfRender .pdf-foot .cert-line {
+    font-size: 11px;
+    color: var(--text-soft);
+    margin-top: 8px;
+    line-height: 1.6;
+  }
+  #pdfRender .pdf-foot .disclaim {
+    background: #FFF8E8;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 11px;
+    color: #7A5D2E;
+    margin-top: 10px;
+    line-height: 1.5;
+  }
+  #pdfRender table.cmp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    table-layout: fixed;
+  }
+  #pdfRender table.cmp-table th,
+  #pdfRender table.cmp-table td {
+    padding: 6px 8px;
+    border: 1px solid #EAE4D3;
+    vertical-align: top;
+    word-wrap: break-word;
+  }
+  #pdfRender table.cmp-table th {
+    background: var(--card-tint);
+    color: var(--wood-deep);
+    font-weight: 600;
+    text-align: left;
+  }
+  #pdfRender table.cmp-table th.row-head {
+    width: 22%;
+  }
+  #pdfRender table.cmp-table td {
+    color: var(--text);
+  }
+  #pdfRender table.cmp-table tr.section td,
+  #pdfRender table.cmp-table tr.section th {
+    background: #F5EFE3;
+    color: var(--wood-deep);
+    font-weight: 600;
+    font-size: 13px;
+  }
+
+  /* footer */
+  footer.main-footer {
+    margin-top: 36px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+  }
+  footer.main-footer .contact {
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.8;
+  }
+  footer.main-footer .contact .agent-name {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--wood-deep);
+    display: block;
+    margin-bottom: 4px;
+  }
+  footer.main-footer .contact a {
+    color: var(--wood-deep);
+    text-decoration: none;
+  }
+  footer.main-footer .cert {
+    font-size: 12px;
+    color: var(--text-soft);
+    margin-top: 8px;
+    line-height: 1.7;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--num);
+    color: white;
+    padding: 12px 22px;
+    border-radius: 28px;
+    font-size: 15px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+    z-index: 200;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">一品不動產．有巢氏房屋台中世界之心加盟店</div>
+  <h1>看屋筆記本</h1>
+  <div class="sub">看 5 間、看 10 間都不忘 — 一次比清楚</div>
+</header>
+
+<!-- ===== 物件清單視圖 ===== -->
+<div id="listView">
+  <div class="intro-card">
+    <strong>給看屋中的買方</strong><br>
+    一次填一間，6 區檢核全照房仲業 SOP 走。資料自動存在手機（關掉再打開還在）。看完 2 間以上可以一鍵<strong>產生並排比較表 PDF</strong>，自己看、傳給家人、傳給仲介都很方便。
+  </div>
+
+  <div class="list-toolbar">
+    <h2>我的看屋清單<span class="count" id="listCount"></span></h2>
+  </div>
+
+  <div id="propertyList"></div>
+
+  <div class="action-bar">
+    <button class="btn" onclick="newProperty()">+ 新增物件</button>
+    <button class="btn secondary" onclick="openCompareModal()">📋 匯出比較表 PDF</button>
+  </div>
+
+  <div style="text-align:center; margin-top:14px;">
+    <button class="btn secondary small" onclick="confirmClearAll()" style="color:var(--warn); border-color:var(--warn);">🗑 清空全部筆記</button>
+  </div>
+</div>
+
+<!-- ===== 物件填寫 detail 視圖 ===== -->
+<div id="detailView" hidden>
+  <div class="detail-header">
+    <button class="back-btn" onclick="showList()">← 返回</button>
+    <h2 id="detailTitle">填寫物件</h2>
+  </div>
+
+  <!-- 區 1：基本資料 -->
+  <div class="region" data-region="r1">
+    <div class="region-head" onclick="toggleRegion(this)">
+      <div class="title"><span class="step">1</span><h3>基本資料</h3></div>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="region-body">
+      <div class="field"><label>看屋日期</label>
+        <input type="date" data-field="visitDate"></div>
+      <div class="field"><label>看屋時段<span class="hint">影響採光判斷</span></label>
+        <select data-field="visitTime">
+          <option value="">請選擇</option>
+          <option>早上 (06-11)</option>
+          <option>中午 (11-14)</option>
+          <option>下午 (14-17)</option>
+          <option>傍晚 (17-19)</option>
+          <option>晚上 (19 後)</option>
+        </select></div>
+      <div class="field"><label>社區名稱</label>
+        <input type="text" data-field="communityName" placeholder="例：太子雲世紀"></div>
+      <div class="field"><label>區段 / 路名<span class="hint">先不寫巷弄號隱私</span></label>
+        <input type="text" data-field="address" placeholder="例：北屯區崇德路四段"></div>
+      <div class="field"><label>樓層 / 總樓層</label>
+        <div class="field-inline">
+          <input type="text" data-field="floor" placeholder="例：5">
+          <span class="unit">/</span>
+          <input type="text" data-field="totalFloor" placeholder="例：15">
+          <span class="unit">F</span>
+        </div></div>
+      <div class="field"><label>朝向（座向）</label>
+        <select data-field="orientation">
+          <option value="">請選擇</option>
+          <option>坐北朝南</option>
+          <option>坐南朝北</option>
+          <option>坐東朝西</option>
+          <option>坐西朝東</option>
+          <option>坐東北朝西南</option>
+          <option>坐西南朝東北</option>
+          <option>坐東南朝西北</option>
+          <option>坐西北朝東南</option>
+        </select></div>
+      <div class="field"><label>格局<span class="hint">幾房幾廳幾衛</span></label>
+        <div class="field-inline">
+          <input type="text" data-field="rooms" placeholder="3" style="max-width:64px;text-align:center;">
+          <span class="unit">房</span>
+          <input type="text" data-field="halls" placeholder="2" style="max-width:64px;text-align:center;">
+          <span class="unit">廳</span>
+          <input type="text" data-field="baths" placeholder="2" style="max-width:64px;text-align:center;">
+          <span class="unit">衛</span>
+        </div></div>
+      <div class="field"><label>陽台數</label>
+        <input type="text" data-field="balconies" placeholder="例：2"></div>
+      <div class="field"><label>權狀坪數</label>
+        <div class="field-inline">
+          <input type="number" data-field="totalArea" step="0.01" placeholder="例：38.5">
+          <span class="unit">坪</span>
+        </div></div>
+      <div class="field"><label>主建物坪數<span class="hint">不含公設</span></label>
+        <div class="field-inline">
+          <input type="number" data-field="mainArea" step="0.01">
+          <span class="unit">坪</span>
+        </div></div>
+      <div class="field"><label>公設比<span class="hint">合理 30-34% 為宜</span></label>
+        <div class="field-inline">
+          <input type="number" data-field="publicRatio" step="0.1" placeholder="例：32">
+          <span class="unit">%</span>
+        </div></div>
+      <div class="field"><label>開價</label>
+        <div class="field-inline">
+          <input type="number" data-field="askingPrice" step="1" placeholder="例：1280">
+          <span class="unit">萬</span>
+        </div></div>
+      <div class="field"><label>每坪單價<span class="hint">自動計算</span></label>
+        <div class="field-inline">
+          <input type="text" data-field="pricePerPing" readonly style="background:#F0EAD8;">
+          <span class="unit">萬/坪</span>
+        </div></div>
+      <div class="field"><label>屋齡</label>
+        <div class="field-inline">
+          <input type="number" data-field="age" step="1" placeholder="例：18">
+          <span class="unit">年</span>
+        </div></div>
+      <div class="field"><label>車位類型</label>
+        <select data-field="parkingType">
+          <option value="">請選擇</option>
+          <option>無車位</option>
+          <option>平面式</option>
+          <option>機械式</option>
+          <option>坡平式</option>
+          <option>子母車位</option>
+        </select></div>
+      <div class="field"><label>車位產權<span class="hint">影響貸款與過戶</span></label>
+        <select data-field="parkingOwn">
+          <option value="">請選擇</option>
+          <option>獨立產權</option>
+          <option>公設持分</option>
+          <option>使用權</option>
+        </select></div>
+      <div class="field"><label>仲介公司 / 仲介姓名</label>
+        <input type="text" data-field="agent" placeholder="例：○○仲介 王先生"></div>
+    </div>
+  </div>
+
+  <!-- 區 2：屋況檢查 -->
+  <div class="region" data-region="r2">
+    <div class="region-head" onclick="toggleRegion(this)">
+      <div class="title"><span class="step">2</span><h3>屋況檢查</h3></div>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="region-body">
+      <div class="region-tip">💡 漏水 5 招現場照著看：天花板、踢腳板、窗框、廚房水管、陽台外牆。看到狀況就勾起來、補一句現場觀察。</div>
+
+      <div style="font-weight:600; color:var(--wood-deep); margin:8px 0 10px;">漏水 5 招</div>
+      <div class="check-list">
+        <label class="check-row"><input type="checkbox" data-field="leak1"><span class="ckbox-text">浴室天花板有油漆起泡 / 龜裂 / 霉斑<small>樓上漏水最常從這裡反應出來</small></span></label>
+        <label class="check-row"><input type="checkbox" data-field="leak2"><span class="ckbox-text">牆角踢腳板有潮濕 / 地板凸起<small>樓地板防水層破損</small></span></label>
+        <label class="check-row"><input type="checkbox" data-field="leak3"><span class="ckbox-text">窗框周圍有水痕 / 發霉<small>窗戶漏水或西曬蓄水</small></span></label>
+        <label class="check-row"><input type="checkbox" data-field="leak4"><span class="ckbox-text">廚房水管下方有水漬 / 生鏽<small>水管接頭或老化</small></span></label>
+        <label class="check-row"><input type="checkbox" data-field="leak5"><span class="ckbox-text">陽台外牆磁磚膨拱 / 白華<small>壁癌前兆</small></span></label>
+      </div>
+
+      <div class="field field-full" style="margin-top:14px;"><label>漏水觀察補充</label>
+        <textarea data-field="leakNote" placeholder="例：主臥東面牆有大片水漬，仲介說兩年前修過⋯"></textarea></div>
+
+      <div style="font-weight:600; color:var(--wood-deep); margin:18px 0 10px;">海砂屋（屋齡 1981-1995 高風險）</div>
+      <div class="check-list">
+        <label class="check-row"><input type="checkbox" data-field="seasand1"><span class="ckbox-text">看到鋼筋外露 / 生鏽</span></label>
+        <label class="check-row"><input type="checkbox" data-field="seasand2"><span class="ckbox-text">看到混凝土剝落</span></label>
+        <label class="check-row"><input type="checkbox" data-field="seasand3"><span class="ckbox-text">屋主已提供「海砂屋檢測報告」</span></label>
+      </div>
+
+      <div style="font-weight:600; color:var(--wood-deep); margin:18px 0 10px;">輻射屋（民國 71-73 年 / 1982-1984 高風險）</div>
+      <div class="check-list">
+        <label class="check-row"><input type="checkbox" data-field="radiation1"><span class="ckbox-text">屋主已提供「輻射屋檢測證明」</span></label>
+      </div>
+
+      <div class="field field-full" style="margin-top:18px;"><label>壁癌位置<span class="hint">可複選描述</span></label>
+        <textarea data-field="mildewWhere" placeholder="例：主臥靠陽台牆面，約 30 cm × 50 cm 範圍"></textarea></div>
+
+      <div class="field"><label>壁癌嚴重程度</label>
+        <div class="star-rate" data-rate-field="mildewLevel">
+          <span class="star" data-v="1">●</span>
+          <span class="star" data-v="2">●</span>
+          <span class="star" data-v="3">●</span>
+          <span class="star" data-v="4">●</span>
+          <span class="star" data-v="5">●</span>
+          <span class="label">1=無 5=全面</span>
+        </div>
+      </div>
+
+      <div style="font-weight:600; color:var(--wood-deep); margin:18px 0 10px;">結構安全</div>
+      <div class="check-list">
+        <label class="check-row"><input type="checkbox" data-field="struct1"><span class="ckbox-text">樑柱有裂縫<small>結構正常會有細紋，但要追問</small></span></label>
+        <label class="check-row"><input type="checkbox" data-field="struct2"><span class="ckbox-text">看到 45 度斜向裂縫<small>⚠️ 結構警訊</small></span></label>
+        <label class="check-row"><input type="checkbox" data-field="struct3"><span class="ckbox-text">921 / 0403 地震後社區是否評估過</span></label>
+      </div>
+
+      <div style="font-weight:600; color:var(--wood-deep); margin:18px 0 10px;">管線狀況</div>
+      <div class="field"><label>水管是否換過</label>
+        <select data-field="waterPipe">
+          <option value="">請選擇</option>
+          <option>沒換過 / 原始管線</option>
+          <option>換過 (5 年內)</option>
+          <option>換過 (5-10 年)</option>
+          <option>換過 (10 年以上)</option>
+          <option>不清楚</option>
+        </select></div>
+      <div class="field"><label>電線是否換過</label>
+        <select data-field="elecLine">
+          <option value="">請選擇</option>
+          <option>原始保險絲</option>
+          <option>換成無熔絲開關 (5 年內)</option>
+          <option>換成無熔絲開關 (5-10 年)</option>
+          <option>換成無熔絲開關 (10 年以上)</option>
+          <option>不清楚</option>
+        </select></div>
+      <div class="field"><label>瓦斯類型</label>
+        <select data-field="gasType">
+          <option value="">請選擇</option>
+          <option>天然氣</option>
+          <option>桶裝瓦斯</option>
+          <option>電陶爐 / IH 無瓦斯</option>
+        </select></div>
+    </div>
+  </div>
+
+  <!-- 區 3：嫌惡設施 -->
+  <div class="region collapsed" data-region="r3">
+    <div class="region-head" onclick="toggleRegion(this)">
+      <div class="title"><span class="step">3</span><h3>嫌惡設施距離</h3></div>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="region-body">
+      <div class="region-tip">💡 用 Google Map 量直線距離，標出每項到物件的距離級距。距離越近、影響房價越大。</div>
+
+      <div id="nearbyList"></div>
+
+      <div class="field field-full" style="margin-top:14px;"><label>嫌惡設施補充說明</label>
+        <textarea data-field="nearbyNote" placeholder="例：旁邊巷子有一間小宮廟，週末會放鞭炮⋯"></textarea></div>
+    </div>
+  </div>
+
+  <!-- 區 4：採光通風噪音動線 -->
+  <div class="region collapsed" data-region="r4">
+    <div class="region-head" onclick="toggleRegion(this)">
+      <div class="title"><span class="step">4</span><h3>採光．通風．噪音．動線</h3></div>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="region-body">
+      <div class="region-tip">💡 現場感受很主觀也最真實。早上 9-11 點看屋採光最準，避免下雨天看屋會誤判通風。</div>
+
+      <div class="field"><label>客廳採光</label>
+        <div class="star-rate" data-rate-field="lightLiving"><span class="star" data-v="1">●</span><span class="star" data-v="2">●</span><span class="star" data-v="3">●</span><span class="star" data-v="4">●</span><span class="star" data-v="5">●</span></div></div>
+      <div class="field"><label>主臥採光</label>
+        <div class="star-rate" data-rate-field="lightMaster"><span class="star" data-v="1">●</span><span class="star" data-v="2">●</span><span class="star" data-v="3">●</span><span class="star" data-v="4">●</span><span class="star" data-v="5">●</span></div></div>
+      <div class="field"><label>次臥採光</label>
+        <div class="star-rate" data-rate-field="lightSecond"><span class="star" data-v="1">●</span><span class="star" data-v="2">●</span><span class="star" data-v="3">●</span><span class="star" data-v="4">●</span><span class="star" data-v="5">●</span></div></div>
+      <div class="field"><label>通風狀況</label>
+        <select data-field="ventilation">
+          <option value="">請選擇</option>
+          <option>南北通透</option>
+          <option>對流良好</option>
+          <option>普通</option>
+          <option>悶熱不易對流</option>
+          <option>單面開窗</option>
+        </select></div>
+      <div class="field"><label>室內噪音整體</label>
+        <div class="star-rate" data-rate-field="noiseLevel"><span class="star" data-v="1">●</span><span class="star" data-v="2">●</span><span class="star" data-v="3">●</span><span class="star" data-v="4">●</span><span class="star" data-v="5">●</span><span class="label">5=極安靜</span></div></div>
+
+      <div class="field field-full"><label>噪音來源</label>
+        <textarea data-field="noiseSrc" placeholder="例：靠馬路那面開窗會有車聲、樓上有小孩走動聲⋯"></textarea></div>
+
+      <div class="field"><label>動線評分<span class="hint">玄關→客廳→廚房→房</span></label>
+        <div class="star-rate" data-rate-field="flowLevel"><span class="star" data-v="1">●</span><span class="star" data-v="2">●</span><span class="star" data-v="3">●</span><span class="star" data-v="4">●</span><span class="star" data-v="5">●</span></div></div>
+
+      <div class="field"><label>電梯 / 戶數比<span class="hint">2 梯 4 戶寫 2/4</span></label>
+        <input type="text" data-field="elevRatio" placeholder="例：2 梯 4 戶"></div>
+    </div>
+  </div>
+
+  <!-- 區 5：周邊機能 -->
+  <div class="region collapsed" data-region="r5">
+    <div class="region-head" onclick="toggleRegion(this)">
+      <div class="title"><span class="step">5</span><h3>周邊生活機能</h3></div>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="region-body">
+      <div class="region-tip">💡 機能加分項：捷運、學校、傳統市場、超市、公園、醫院。距離以步行時間記錄最直觀。</div>
+
+      <div class="field"><label>最近捷運站</label>
+        <input type="text" data-field="metro" placeholder="例：北屯站步行 8 分鐘"></div>
+      <div class="field"><label>最近公車站</label>
+        <input type="text" data-field="bus" placeholder="例：崇德路口 3 分鐘 / 10 班/小時"></div>
+      <div class="field"><label>國小學區</label>
+        <input type="text" data-field="elemSchool" placeholder="例：東光國小"></div>
+      <div class="field"><label>國中學區</label>
+        <input type="text" data-field="midSchool" placeholder="例：四育國中"></div>
+      <div class="field"><label>傳統市場 / 超市</label>
+        <input type="text" data-field="market" placeholder="例：全聯 5 分鐘 / 文心市場 10 分鐘"></div>
+      <div class="field"><label>醫院 / 診所</label>
+        <input type="text" data-field="hospital" placeholder="例：澄清醫院 10 分鐘"></div>
+      <div class="field"><label>公園綠地</label>
+        <input type="text" data-field="park" placeholder="例：四張犁公園 5 分鐘"></div>
+      <div class="field"><label>便利商店</label>
+        <input type="text" data-field="cvs" placeholder="例：7-11 / 全家 都在 2 分鐘內"></div>
+      <div class="field"><label>停車狀況</label>
+        <input type="text" data-field="parkingNearby" placeholder="例：路邊計次 / 月租 3500"></div>
+    </div>
+  </div>
+
+  <!-- 區 6：必問 8 題 -->
+  <div class="region collapsed" data-region="r6">
+    <div class="region-head" onclick="toggleRegion(this)">
+      <div class="title"><span class="step">6</span><h3>必問屋主 / 仲介 8 題</h3></div>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="region-body">
+      <div class="region-tip">💡 這 8 題決定你看的不只是「房子表面」、而是「真實狀況」。法律規定賣方須誠實告知重大事項，現場問清楚、寫下答案，作為後續決策依據。</div>
+
+      <div class="field field-full"><label>1. 屋主為什麼想賣？<span class="hint">套出緊急性與動機</span></label>
+        <textarea data-field="q1_reason" placeholder="例：移居國外 / 換大坪數 / 換工作地點⋯"></textarea></div>
+
+      <div class="field field-full"><label>2. 屋主持有多久？<span class="hint">短期持有要追問是否投資客</span></label>
+        <select data-field="q2_holdYears">
+          <option value="">請選擇</option>
+          <option>1 年內</option>
+          <option>1-3 年</option>
+          <option>3-5 年</option>
+          <option>5-10 年</option>
+          <option>10 年以上</option>
+          <option>不清楚</option>
+        </select></div>
+
+      <div class="field field-full"><label>3. 過去有沒有漏水 / 修繕紀錄？<span class="hint">法律規定須誠實告知</span></label>
+        <div class="radio-group" data-radio-field="q3_repair">
+          <label data-v="無">無</label>
+          <label data-v="有，已修繕">有，已修繕</label>
+          <label data-v="有，未修繕">有，未修繕</label>
+          <label data-v="不清楚">不清楚</label>
+        </div>
+        <textarea data-field="q3_repairNote" placeholder="補充：修繕時間 / 範圍 / 是否還會發生" style="margin-top:10px;"></textarea></div>
+
+      <div class="field field-full"><label>4. 這層樓 / 這戶有沒有發生過特殊事件？<span class="hint">影響房價與居住意願</span></label>
+        <textarea data-field="q4_event" placeholder="例：屋主回答無特殊事件 / 屋主表示僅曾住人，沒有非自然事件⋯"></textarea></div>
+
+      <div class="field field-full"><label>5. 管理費多少？管委會運作？最近一次區權會議？</label>
+        <div class="field-inline" style="margin-bottom:8px;">
+          <input type="number" data-field="q5_mgmtFee" placeholder="例：2800">
+          <span class="unit">元/月</span>
+        </div>
+        <textarea data-field="q5_mgmtNote" placeholder="例：管委會 2024 年底改選正常運作 / 上次區權會議 2025/03 通過外牆拉皮⋯"></textarea></div>
+
+      <div class="field field-full"><label>6. 車位產權與編號<span class="hint">影響貸款與過戶</span></label>
+        <div class="field-inline" style="margin-bottom:8px;">
+          <select data-field="q6_parkOwn">
+            <option value="">產權類型</option>
+            <option>獨立產權</option>
+            <option>公設持分</option>
+            <option>使用權</option>
+          </select>
+          <input type="text" data-field="q6_parkNo" placeholder="編號：B1-25" style="flex:2;">
+        </div></div>
+
+      <div class="field field-full"><label>7. 每月固定支出<span class="hint">電 / 水 / 瓦斯 / 第四台 / 網路</span></label>
+        <textarea data-field="q7_bills" placeholder="例：電費平均 1800 / 水費 350 / 瓦斯 600 / 第四台 + 網路 990"></textarea></div>
+
+      <div class="field field-full"><label>8. 屋主能否提供「現況確認書」與「不動產說明書」？<span class="hint">法律保護買方的重要文件</span></label>
+        <div class="radio-group" data-radio-field="q8_disclosure">
+          <label data-v="可提供">可提供</label>
+          <label data-v="協商中">協商中</label>
+          <label data-v="無法提供">無法提供</label>
+        </div>
+        <textarea data-field="q8_disclosureNote" placeholder="補充：仲介承諾下次回覆 / 屋主請代書處理中⋯" style="margin-top:10px;"></textarea></div>
+    </div>
+  </div>
+
+  <!-- 區 7：總評（簡短） -->
+  <div class="region collapsed" data-region="r7">
+    <div class="region-head" onclick="toggleRegion(this)">
+      <div class="title"><span class="step">7</span><h3>我的總評與決策</h3></div>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="region-body">
+      <div class="field"><label>整體喜好程度</label>
+        <div class="star-rate" data-rate-field="overall"><span class="star" data-v="1">●</span><span class="star" data-v="2">●</span><span class="star" data-v="3">●</span><span class="star" data-v="4">●</span><span class="star" data-v="5">●</span></div></div>
+      <div class="field"><label>後續意願</label>
+        <select data-field="nextStep">
+          <option value="">請選擇</option>
+          <option>非常有興趣 / 想再看一次</option>
+          <option>有興趣 / 觀望</option>
+          <option>還可以 / 列入備案</option>
+          <option>不考慮</option>
+        </select></div>
+      <div class="field field-full"><label>最喜歡的 3 點</label>
+        <textarea data-field="likes" placeholder="例：1. 採光真的很好 2. 社區管理整齊 3. 走 5 分鐘到捷運"></textarea></div>
+      <div class="field field-full"><label>最擔心的 3 點</label>
+        <textarea data-field="worries" placeholder="例：1. 公設比偏高 2. 附近有變電所 3. 樓上應該有小孩會吵"></textarea></div>
+      <div class="field field-full"><label>其他備註</label>
+        <textarea data-field="otherNotes"></textarea></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 比較表 modal ===== -->
+<div id="compareModal" class="modal-mask" hidden>
+  <div class="modal-box">
+    <h3>產生比較表 PDF</h3>
+    <div class="sub">勾選 2-5 個物件，會並排對照核心欄位。</div>
+    <div id="compareList" class="check-list"></div>
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeCompareModal()">取消</button>
+      <button class="btn" onclick="generateComparePDF()">產生 PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- PDF 渲染區（隱藏在畫面外）-->
+<div id="pdfRender"></div>
+
+<div id="toast" class="toast"></div>
+
+<footer class="main-footer">
+  <div class="contact">
+    <span class="agent-name">陳景泰（Teddy）</span>
+    一品不動產．有巢氏房屋台中世界之心加盟店<br>
+    📞 <a href="tel:0920118756">0920-118-756</a>
+    💬 LINE：<a href="https://line.me/ti/p/~sky811117">sky811117</a>
+    📷 IG：<a href="https://instagram.com/nov__817">@nov__817</a>
+    <div class="cert">
+      不動產經紀人：黃永隆（113彰縣字第324號）<br>
+      不動產營業員：陳景泰（114登字第488296號）
+    </div>
+  </div>
+</footer>
+
+</div>
+
+<script>
+// ========== Constant ==========
+const STORAGE_KEY = 'inspection-notebook-v1';
+const NEARBY_ITEMS = [
+  { key: 'nb_funeral',   label: '殯儀館 / 火葬場' },
+  { key: 'nb_power',     label: '高壓電塔 / 變電所' },
+  { key: 'nb_trash',     label: '垃圾掩埋場 / 焚化爐' },
+  { key: 'nb_gasstation',label: '加油站 / 瓦斯行' },
+  { key: 'nb_highway',   label: '高架橋 / 快速道路' },
+  { key: 'nb_railway',   label: '鐵路 / 捷運出風口' },
+  { key: 'nb_nightlife', label: '八大行業 / 賓館' },
+  { key: 'nb_temple',    label: '宮廟 / 神壇' },
+  { key: 'nb_cemetery',  label: '福地 / 公墓' },
+  { key: 'nb_tower',     label: '基地台 / 電信機房' },
+];
+const DIST_LEVELS = ['無/看不到', '<100m', '100-300m', '300-500m', '>500m'];
+const DIST_LEVELS_SHORT = ['無', '很近', '近', '中', '遠'];
+
+// ========== State ==========
+let state = {
+  properties: [],   // [{id, createdAt, data:{...}}]
+  activeId: null,
+};
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.properties)) {
+        state = parsed;
+      }
+    }
+  } catch (e) { console.warn('loadState fail', e); }
+}
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  catch (e) { console.warn('saveState fail', e); }
+}
+
+function uid() { return 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6); }
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+
+function getActiveProperty() {
+  return state.properties.find(p => p.id === state.activeId);
+}
+
+// ========== List view ==========
+function renderList() {
+  const listEl = document.getElementById('propertyList');
+  const countEl = document.getElementById('listCount');
+  const n = state.properties.length;
+  countEl.textContent = n ? `（${n} 間）` : '';
+
+  if (n === 0) {
+    listEl.innerHTML = `
+      <div class="empty-state">
+        <div class="big-emoji">🏠</div>
+        還沒有任何物件記錄<br>
+        點下方「+ 新增物件」開始第一筆
+      </div>`;
+    return;
+  }
+
+  listEl.innerHTML = state.properties.map((p, idx) => {
+    const d = p.data || {};
+    const name = d.communityName || d.address || '（未命名物件）';
+    const meta = [];
+    if (d.askingPrice) meta.push(`<span class="price-tag">${d.askingPrice} 萬</span>`);
+    if (d.totalArea) meta.push(`${d.totalArea} 坪`);
+    if (d.floor && d.totalFloor) meta.push(`${d.floor}/${d.totalFloor}F`);
+    if (d.age) meta.push(`屋齡 ${d.age} 年`);
+    if (d.visitDate) meta.push(`📅 ${d.visitDate}`);
+    return `
+      <div class="property-card">
+        <div class="seq">${idx + 1}</div>
+        <div class="info">
+          <div class="name">${escapeHtml(name)}</div>
+          <div class="meta">${meta.join(' · ') || '尚未填寫'}</div>
+        </div>
+        <div class="actions">
+          <button onclick="openProperty('${p.id}')">編輯</button>
+          <button onclick="exportSinglePDF('${p.id}')">PDF</button>
+          <button class="danger" onclick="deleteProperty('${p.id}')">×</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function newProperty() {
+  const p = {
+    id: uid(),
+    createdAt: new Date().toISOString(),
+    data: { visitDate: todayISO() },
+  };
+  state.properties.push(p);
+  state.activeId = p.id;
+  saveState();
+  showDetail();
+}
+
+function openProperty(id) {
+  state.activeId = id;
+  saveState();
+  showDetail();
+}
+
+function deleteProperty(id) {
+  const p = state.properties.find(x => x.id === id);
+  const name = p?.data?.communityName || '此筆物件';
+  if (!confirm(`確定刪除「${name}」嗎？此操作不可復原。`)) return;
+  state.properties = state.properties.filter(x => x.id !== id);
+  if (state.activeId === id) state.activeId = null;
+  saveState();
+  renderList();
+}
+
+function confirmClearAll() {
+  if (state.properties.length === 0) { toast('沒有資料可清空'); return; }
+  if (!confirm(`確定清空全部 ${state.properties.length} 筆看屋筆記嗎？此操作不可復原。`)) return;
+  state = { properties: [], activeId: null };
+  saveState();
+  renderList();
+  toast('已清空全部');
+}
+
+// ========== Detail view ==========
+function showList() {
+  document.getElementById('detailView').hidden = true;
+  document.getElementById('listView').hidden = false;
+  state.activeId = null;
+  saveState();
+  renderList();
+  window.scrollTo(0, 0);
+}
+
+function showDetail() {
+  document.getElementById('listView').hidden = true;
+  document.getElementById('detailView').hidden = false;
+  renderNearbyList();
+  loadActiveIntoForm();
+  updateDetailTitle();
+  window.scrollTo(0, 0);
+}
+
+function updateDetailTitle() {
+  const p = getActiveProperty();
+  const title = document.getElementById('detailTitle');
+  if (!p) { title.textContent = '填寫物件'; return; }
+  const idx = state.properties.findIndex(x => x.id === p.id);
+  const name = p.data.communityName || p.data.address || '未命名';
+  title.textContent = `物件 #${idx + 1}：${name}`;
+}
+
+function renderNearbyList() {
+  const el = document.getElementById('nearbyList');
+  el.innerHTML = NEARBY_ITEMS.map(item => `
+    <div class="nearby-row">
+      <div class="nb-label">${item.label}</div>
+      <div class="distance-group" data-radio-field="${item.key}">
+        ${DIST_LEVELS_SHORT.map((lv, i) => `<label data-v="${i}" class="lvl-${i}">${lv}</label>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function loadActiveIntoForm() {
+  const p = getActiveProperty();
+  if (!p) return;
+  const d = p.data || {};
+
+  // text/number/date/select/textarea fields
+  document.querySelectorAll('[data-field]').forEach(el => {
+    const k = el.dataset.field;
+    if (el.type === 'checkbox') {
+      el.checked = !!d[k];
+      updateCheckRow(el);
+    } else {
+      el.value = d[k] == null ? '' : d[k];
+    }
+  });
+
+  // radio group / distance group
+  document.querySelectorAll('[data-radio-field]').forEach(group => {
+    const k = group.dataset.radioField;
+    const v = d[k];
+    group.querySelectorAll('label').forEach(lab => {
+      if (String(lab.dataset.v) === String(v)) lab.classList.add('active');
+      else lab.classList.remove('active');
+    });
+  });
+
+  // star rate
+  document.querySelectorAll('[data-rate-field]').forEach(group => {
+    const k = group.dataset.rateField;
+    const v = parseInt(d[k] || 0);
+    group.querySelectorAll('.star').forEach(star => {
+      const sv = parseInt(star.dataset.v);
+      star.classList.toggle('active', sv <= v);
+    });
+  });
+
+  recalcDerivedFields();
+}
+
+function updateCheckRow(input) {
+  const row = input.closest('.check-row');
+  if (!row) return;
+  row.classList.toggle('checked', input.checked);
+}
+
+function recalcDerivedFields() {
+  const p = getActiveProperty();
+  if (!p) return;
+  const d = p.data;
+  // 每坪單價 = 開價 / 權狀坪
+  if (d.askingPrice && d.totalArea && +d.totalArea > 0) {
+    const ppp = (+d.askingPrice / +d.totalArea).toFixed(2);
+    const el = document.querySelector('[data-field="pricePerPing"]');
+    if (el) el.value = ppp;
+    d.pricePerPing = ppp;
+  }
+}
+
+function bindFormEvents() {
+  // text/number/date/select/textarea/checkbox 統一 onchange
+  document.addEventListener('input', e => {
+    const t = e.target;
+    if (t.dataset && t.dataset.field) {
+      const p = getActiveProperty();
+      if (!p) return;
+      const k = t.dataset.field;
+      if (t.type === 'checkbox') {
+        p.data[k] = t.checked;
+        updateCheckRow(t);
+      } else if (t.type === 'number') {
+        p.data[k] = t.value === '' ? '' : t.value;
+      } else {
+        p.data[k] = t.value;
+      }
+      recalcDerivedFields();
+      saveState();
+      updateDetailTitle();
+    }
+  });
+  document.addEventListener('change', e => {
+    const t = e.target;
+    if (t.dataset && t.dataset.field && (t.tagName === 'SELECT' || t.type === 'date')) {
+      const p = getActiveProperty();
+      if (!p) return;
+      p.data[t.dataset.field] = t.value;
+      saveState();
+      updateDetailTitle();
+    }
+  });
+
+  // radio group / distance click
+  document.addEventListener('click', e => {
+    const lab = e.target.closest('[data-radio-field] label');
+    if (lab) {
+      const group = lab.closest('[data-radio-field]');
+      const k = group.dataset.radioField;
+      const v = lab.dataset.v;
+      const p = getActiveProperty();
+      if (!p) return;
+      // toggle off if already active (allow deselect)
+      if (lab.classList.contains('active')) {
+        lab.classList.remove('active');
+        delete p.data[k];
+      } else {
+        group.querySelectorAll('label').forEach(l => l.classList.remove('active'));
+        lab.classList.add('active');
+        p.data[k] = v;
+      }
+      saveState();
+      return;
+    }
+    // star rate
+    const star = e.target.closest('[data-rate-field] .star');
+    if (star) {
+      const group = star.closest('[data-rate-field]');
+      const k = group.dataset.rateField;
+      const v = parseInt(star.dataset.v);
+      const p = getActiveProperty();
+      if (!p) return;
+      const old = parseInt(p.data[k] || 0);
+      const newV = (old === v) ? 0 : v;
+      p.data[k] = newV;
+      group.querySelectorAll('.star').forEach(s => {
+        s.classList.toggle('active', parseInt(s.dataset.v) <= newV);
+      });
+      saveState();
+    }
+  });
+}
+
+function toggleRegion(headEl) {
+  headEl.closest('.region').classList.toggle('collapsed');
+}
+
+// ========== Toast ==========
+let toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ========== PDF helpers ==========
+function fieldVal(d, k, fallback) {
+  const v = d[k];
+  if (v === undefined || v === null || v === '') return fallback || '—';
+  return String(v);
+}
+function checkedYesNo(d, k) {
+  return d[k] ? '✅ 是' : '—';
+}
+function starText(d, k) {
+  const v = parseInt(d[k] || 0);
+  if (!v) return '—';
+  return '★'.repeat(v) + '☆'.repeat(5 - v) + ` (${v}/5)`;
+}
+function nearbyDist(d, k) {
+  const v = d[k];
+  if (v === undefined || v === '' || v === null) return '—';
+  return DIST_LEVELS[parseInt(v)] || '—';
+}
+function safeAddr(d) {
+  return [d.address, d.communityName].filter(Boolean).join('．') || '—';
+}
+
+function isEmptyDisplay(v) {
+  const text = String(v).replace(/<[^>]+>/g, '').trim();
+  if (!text) return true;
+  const meaningful = text
+    .replace(/—/g, '')
+    .replace(/[\s\/／坪%萬年元月F房廳衛陽（）()::\-]/g, '');
+  return meaningful === '';
+}
+
+function pdfFooterHTML(extraNote) {
+  const todayStr = new Date().toLocaleDateString('zh-TW', { year:'numeric', month:'long', day:'numeric' });
+  return `
+    <div class="pdf-foot">
+      <div class="agent">陳景泰（Teddy）</div>
+      <div class="brand-line">一品不動產．有巢氏房屋台中世界之心加盟店</div>
+      <div class="contact-line">
+        📞 0920-118-756　💬 LINE：sky811117　📷 IG：@nov__817
+      </div>
+      <div class="cert-line">
+        不動產經紀人：黃永隆（113彰縣字第324號）<br>
+        不動產營業員：陳景泰（114登字第488296號）
+      </div>
+      <div class="disclaim">
+        ${extraNote || ''}
+        本筆記由買方現場記錄，內容為個人觀察與屋主／仲介當下回覆，未經查證請勿作為法律或交易依據。
+        實際成交條件以「不動產說明書」、「現況確認書」、產權謄本及代書核定為準。
+        報告日期：${todayStr}
+      </div>
+    </div>`;
+}
+
+function buildSinglePDFHTML(p) {
+  const d = p.data || {};
+  const name = d.communityName || d.address || '未命名物件';
+  const idx = state.properties.findIndex(x => x.id === p.id) + 1;
+
+  const row = (k, v) => isEmptyDisplay(v) ? '' : `<tr><td class="k">${k}</td><td class="v">${v}</td></tr>`;
+  const leakAny = ['leak1','leak2','leak3','leak4','leak5'].some(k => d[k]);
+  const leakItems = [];
+  if (d.leak1) leakItems.push('浴室天花板');
+  if (d.leak2) leakItems.push('牆角踢腳板');
+  if (d.leak3) leakItems.push('窗框周圍');
+  if (d.leak4) leakItems.push('廚房水管');
+  if (d.leak5) leakItems.push('陽台外牆');
+
+  const seasandItems = [];
+  if (d.seasand1) seasandItems.push('鋼筋外露');
+  if (d.seasand2) seasandItems.push('混凝土剝落');
+  const seasandReport = d.seasand3 ? '✅ 已提供檢測報告' : '未提供';
+
+  const structItems = [];
+  if (d.struct1) structItems.push('樑柱有裂縫');
+  if (d.struct2) structItems.push('⚠️ 看到 45 度斜向裂縫');
+  if (d.struct3) structItems.push('地震後社區已評估');
+
+  return `
+    <h1>看屋筆記．${escapeHtml(name)}</h1>
+    <div class="pdf-sub">物件 #${idx}　看屋日期：${fieldVal(d, 'visitDate')}　時段：${fieldVal(d, 'visitTime')}</div>
+
+    <div class="pdf-region">
+      <h2>1. 基本資料</h2>
+      <table class="pdf-table">
+        ${row('社區名稱', escapeHtml(fieldVal(d, 'communityName')))}
+        ${row('區段', escapeHtml(fieldVal(d, 'address')))}
+        ${row('樓層', `${fieldVal(d,'floor')} / ${fieldVal(d,'totalFloor')} F`)}
+        ${row('朝向', fieldVal(d, 'orientation'))}
+        ${row('格局', `${fieldVal(d,'rooms','—')}房 ${fieldVal(d,'halls','—')}廳 ${fieldVal(d,'baths','—')}衛 ${fieldVal(d,'balconies','—')}陽`)}
+        ${row('權狀坪數', `${fieldVal(d,'totalArea')} 坪`)}
+        ${row('主建物', `${fieldVal(d,'mainArea')} 坪`)}
+        ${row('公設比', `${fieldVal(d,'publicRatio')} %`)}
+        ${row('開價', `<b>${fieldVal(d,'askingPrice')} 萬</b>`)}
+        ${row('每坪單價', `${fieldVal(d,'pricePerPing')} 萬/坪`)}
+        ${row('屋齡', `${fieldVal(d,'age')} 年`)}
+        ${row('車位', `${fieldVal(d,'parkingType')}（產權：${fieldVal(d,'parkingOwn')}）`)}
+        ${row('仲介', escapeHtml(fieldVal(d, 'agent')))}
+      </table>
+    </div>
+
+    <div class="pdf-region">
+      <h2>2. 屋況檢查</h2>
+      <table class="pdf-table">
+        ${row('漏水 5 招（發現項）', leakAny ? leakItems.join('、') : '無發現')}
+        ${row('漏水補充', escapeHtml(fieldVal(d, 'leakNote')))}
+        ${row('海砂屋風險', seasandItems.length ? seasandItems.join('、') : '無外觀風險')}
+        ${row('海砂檢測', seasandReport)}
+        ${row('輻射檢測', d.radiation1 ? '✅ 已提供證明' : '未提供')}
+        ${row('壁癌位置', escapeHtml(fieldVal(d, 'mildewWhere')))}
+        ${row('壁癌嚴重程度', starText(d, 'mildewLevel'))}
+        ${row('結構', structItems.length ? structItems.join('、') : '無異常')}
+        ${row('水管', fieldVal(d, 'waterPipe'))}
+        ${row('電線', fieldVal(d, 'elecLine'))}
+        ${row('瓦斯', fieldVal(d, 'gasType'))}
+      </table>
+    </div>
+
+    <div class="pdf-region">
+      <h2>3. 嫌惡設施距離</h2>
+      <table class="pdf-table">
+        ${NEARBY_ITEMS.map(it => row(it.label, nearbyDist(d, it.key))).join('')}
+        ${row('補充說明', escapeHtml(fieldVal(d, 'nearbyNote')))}
+      </table>
+    </div>
+
+    <div class="pdf-region">
+      <h2>4. 採光．通風．噪音．動線</h2>
+      <table class="pdf-table">
+        ${row('客廳採光', starText(d, 'lightLiving'))}
+        ${row('主臥採光', starText(d, 'lightMaster'))}
+        ${row('次臥採光', starText(d, 'lightSecond'))}
+        ${row('通風狀況', fieldVal(d, 'ventilation'))}
+        ${row('安靜程度', starText(d, 'noiseLevel'))}
+        ${row('噪音來源', escapeHtml(fieldVal(d, 'noiseSrc')))}
+        ${row('動線評分', starText(d, 'flowLevel'))}
+        ${row('電梯戶數比', fieldVal(d, 'elevRatio'))}
+      </table>
+    </div>
+
+    <div class="pdf-region">
+      <h2>5. 周邊生活機能</h2>
+      <table class="pdf-table">
+        ${row('最近捷運', escapeHtml(fieldVal(d, 'metro')))}
+        ${row('最近公車', escapeHtml(fieldVal(d, 'bus')))}
+        ${row('國小學區', escapeHtml(fieldVal(d, 'elemSchool')))}
+        ${row('國中學區', escapeHtml(fieldVal(d, 'midSchool')))}
+        ${row('傳統市場 / 超市', escapeHtml(fieldVal(d, 'market')))}
+        ${row('醫院 / 診所', escapeHtml(fieldVal(d, 'hospital')))}
+        ${row('公園綠地', escapeHtml(fieldVal(d, 'park')))}
+        ${row('便利商店', escapeHtml(fieldVal(d, 'cvs')))}
+        ${row('停車', escapeHtml(fieldVal(d, 'parkingNearby')))}
+      </table>
+    </div>
+
+    <div class="pdf-region">
+      <h2>6. 必問屋主 / 仲介 8 題</h2>
+      <table class="pdf-table">
+        ${row('1. 為什麼想賣', escapeHtml(fieldVal(d, 'q1_reason')))}
+        ${row('2. 持有多久', fieldVal(d, 'q2_holdYears'))}
+        ${row('3. 漏水修繕紀錄', `${fieldVal(d,'q3_repair')}　${escapeHtml(fieldVal(d,'q3_repairNote',''))}`)}
+        ${row('4. 特殊事件', escapeHtml(fieldVal(d, 'q4_event')))}
+        ${row('5. 管理費 / 管委會', `${fieldVal(d,'q5_mgmtFee','—')} 元/月　${escapeHtml(fieldVal(d,'q5_mgmtNote',''))}`)}
+        ${row('6. 車位產權與編號', `${fieldVal(d,'q6_parkOwn','—')}　${escapeHtml(fieldVal(d,'q6_parkNo',''))}`)}
+        ${row('7. 每月固定支出', escapeHtml(fieldVal(d, 'q7_bills')))}
+        ${row('8. 現況確認書 / 不動產說明書', `${fieldVal(d,'q8_disclosure','—')}　${escapeHtml(fieldVal(d,'q8_disclosureNote',''))}`)}
+      </table>
+    </div>
+
+    <div class="pdf-region">
+      <h2>7. 我的總評</h2>
+      <table class="pdf-table">
+        ${row('整體喜好', starText(d, 'overall'))}
+        ${row('後續意願', fieldVal(d, 'nextStep'))}
+        ${row('最喜歡的 3 點', escapeHtml(fieldVal(d, 'likes')))}
+        ${row('最擔心的 3 點', escapeHtml(fieldVal(d, 'worries')))}
+        ${row('其他備註', escapeHtml(fieldVal(d, 'otherNotes')))}
+      </table>
+    </div>
+
+    ${pdfFooterHTML()}
+  `;
+}
+
+function exportSinglePDF(id) {
+  const p = state.properties.find(x => x.id === id);
+  if (!p) return;
+  const renderEl = document.getElementById('pdfRender');
+  renderEl.innerHTML = buildSinglePDFHTML(p);
+  const fname = `看屋筆記_${(p.data.communityName || p.data.address || '未命名').slice(0,20)}_${todayISO()}.pdf`;
+
+  toast('PDF 產生中⋯（約 5-10 秒）');
+  setTimeout(() => {
+    html2pdf().from(renderEl).set({
+      margin: 0,
+      filename: fname,
+      image: { type: 'jpeg', quality: 0.96 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'] }
+    }).save().then(() => {
+      renderEl.innerHTML = '';
+      toast('✅ PDF 已下載');
+    }).catch(err => {
+      console.error(err);
+      toast('PDF 產生失敗，請再試一次');
+      renderEl.innerHTML = '';
+    });
+  }, 100);
+}
+
+// ========== Compare PDF ==========
+let compareSelected = new Set();
+
+function openCompareModal() {
+  if (state.properties.length < 2) {
+    toast('至少要有 2 個物件才能比較');
+    return;
+  }
+  compareSelected.clear();
+  // 預設勾前 2-3 筆
+  state.properties.slice(0, Math.min(3, state.properties.length)).forEach(p => compareSelected.add(p.id));
+  renderCompareList();
+  document.getElementById('compareModal').hidden = false;
+}
+function closeCompareModal() {
+  document.getElementById('compareModal').hidden = true;
+}
+function renderCompareList() {
+  const el = document.getElementById('compareList');
+  el.innerHTML = state.properties.map((p, idx) => {
+    const d = p.data || {};
+    const name = d.communityName || d.address || `物件 #${idx+1}`;
+    const priceArea = [
+      d.askingPrice ? `${d.askingPrice} 萬` : '',
+      d.totalArea ? `${d.totalArea} 坪` : '',
+    ].filter(Boolean).join(' · ');
+    const checked = compareSelected.has(p.id);
+    return `
+      <label class="check-row ${checked ? 'checked' : ''}" onclick="toggleCompareSel('${p.id}', this)">
+        <input type="checkbox" ${checked ? 'checked' : ''} onclick="event.stopPropagation()">
+        <span class="ckbox-text">${escapeHtml(name)}<small>${priceArea || '—'}</small></span>
+      </label>`;
+  }).join('');
+}
+function toggleCompareSel(id, rowEl) {
+  if (compareSelected.has(id)) {
+    compareSelected.delete(id);
+  } else {
+    if (compareSelected.size >= 5) {
+      toast('最多比較 5 個物件');
+      return;
+    }
+    compareSelected.add(id);
+  }
+  renderCompareList();
+}
+
+function buildComparePDFHTML(props) {
+  const n = props.length;
+  const colHeads = props.map((p, idx) => {
+    const d = p.data || {};
+    const name = d.communityName || d.address || `物件 #${idx+1}`;
+    return `<th>${escapeHtml(name.slice(0, 14))}</th>`;
+  }).join('');
+
+  const rowKV = (label, fn) => {
+    const cells = props.map(p => fn(p.data || {}));
+    if (cells.every(c => isEmptyDisplay(c))) return '';
+    return `<tr><th class="row-head">${label}</th>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
+  };
+
+  const section = (label) => `<tr class="section"><th class="row-head">${label}</th>${props.map(()=>`<td></td>`).join('')}</tr>`;
+
+  const todayStr = new Date().toLocaleDateString('zh-TW', { year:'numeric', month:'long', day:'numeric' });
+  const ids = props.map((p,idx) => `<b>#${idx+1}</b> ${escapeHtml(p.data.communityName || p.data.address || '未命名')}`).join('　/　');
+
+  return `
+    <h1>看屋物件比較表</h1>
+    <div class="pdf-sub">${n} 筆並排對照　日期：${todayStr}<br>${ids}</div>
+
+    <table class="cmp-table">
+      <thead>
+        <tr><th class="row-head">項目</th>${colHeads}</tr>
+      </thead>
+      <tbody>
+        ${section('1. 基本資料')}
+        ${rowKV('看屋日期', d => fieldVal(d,'visitDate'))}
+        ${rowKV('區段', d => escapeHtml(fieldVal(d,'address')))}
+        ${rowKV('樓層', d => `${fieldVal(d,'floor','—')}/${fieldVal(d,'totalFloor','—')}F`)}
+        ${rowKV('朝向', d => fieldVal(d,'orientation'))}
+        ${rowKV('格局', d => `${fieldVal(d,'rooms','—')}房${fieldVal(d,'halls','—')}廳${fieldVal(d,'baths','—')}衛`)}
+        ${rowKV('權狀坪', d => `${fieldVal(d,'totalArea')} 坪`)}
+        ${rowKV('公設比', d => `${fieldVal(d,'publicRatio')} %`)}
+        ${rowKV('開價', d => `<b>${fieldVal(d,'askingPrice')} 萬</b>`)}
+        ${rowKV('每坪單價', d => `${fieldVal(d,'pricePerPing')} 萬/坪`)}
+        ${rowKV('屋齡', d => `${fieldVal(d,'age')} 年`)}
+        ${rowKV('車位', d => fieldVal(d,'parkingType'))}
+
+        ${section('2. 屋況風險')}
+        ${rowKV('漏水發現', d => {
+          const ls = [];
+          if (d.leak1) ls.push('浴室');
+          if (d.leak2) ls.push('踢腳板');
+          if (d.leak3) ls.push('窗框');
+          if (d.leak4) ls.push('廚房');
+          if (d.leak5) ls.push('陽台');
+          return ls.length ? `⚠️ ${ls.join('、')}` : '無';
+        })}
+        ${rowKV('海砂風險', d => {
+          const ls = [];
+          if (d.seasand1) ls.push('鋼筋');
+          if (d.seasand2) ls.push('混凝土');
+          if (d.seasand3) ls.push('已檢測');
+          return ls.length ? ls.join('、') : '—';
+        })}
+        ${rowKV('壁癌', d => starText(d,'mildewLevel'))}
+        ${rowKV('結構', d => (d.struct2 ? '⚠️ 斜裂' : (d.struct1 ? '有裂縫' : '無異常')))}
+
+        ${section('3. 嫌惡設施（最近距離）')}
+        ${NEARBY_ITEMS.slice(0, 6).map(it => rowKV(it.label, d => nearbyDist(d, it.key))).join('')}
+
+        ${section('4. 採光通風')}
+        ${rowKV('客廳採光', d => starText(d,'lightLiving'))}
+        ${rowKV('安靜程度', d => starText(d,'noiseLevel'))}
+        ${rowKV('通風', d => fieldVal(d,'ventilation'))}
+
+        ${section('5. 機能')}
+        ${rowKV('捷運', d => escapeHtml(fieldVal(d,'metro')))}
+        ${rowKV('學區', d => escapeHtml([fieldVal(d,'elemSchool',''),fieldVal(d,'midSchool','')].filter(Boolean).join(' / ')))}
+        ${rowKV('市場 / 超市', d => escapeHtml(fieldVal(d,'market')))}
+
+        ${section('6. 必問 8 題重點')}
+        ${rowKV('為什麼賣', d => escapeHtml(fieldVal(d,'q1_reason')))}
+        ${rowKV('持有多久', d => fieldVal(d,'q2_holdYears'))}
+        ${rowKV('漏水修繕史', d => fieldVal(d,'q3_repair'))}
+        ${rowKV('管理費', d => d.q5_mgmtFee ? `${d.q5_mgmtFee} 元/月` : '—')}
+        ${rowKV('現況確認書', d => fieldVal(d,'q8_disclosure'))}
+
+        ${section('7. 我的總評')}
+        ${rowKV('整體喜好', d => starText(d,'overall'))}
+        ${rowKV('後續意願', d => fieldVal(d,'nextStep'))}
+      </tbody>
+    </table>
+
+    ${pdfFooterHTML('比較表為買方主觀整理之決策輔助工具，各物件實際條件以原始不動產說明書與謄本為準。')}
+  `;
+}
+
+function generateComparePDF() {
+  if (compareSelected.size < 2) { toast('至少選 2 個物件'); return; }
+  const props = state.properties.filter(p => compareSelected.has(p.id));
+  const renderEl = document.getElementById('pdfRender');
+  // 比較表用橫式 A4 + 寬一點的 render
+  renderEl.style.width = (props.length >= 4 ? '1100px' : '900px');
+  renderEl.innerHTML = buildComparePDFHTML(props);
+  closeCompareModal();
+
+  const fname = `看屋比較表_${props.length}間_${todayISO()}.pdf`;
+  toast('比較表 PDF 產生中⋯');
+
+  setTimeout(() => {
+    html2pdf().from(renderEl).set({
+      margin: [10, 10, 10, 10],
+      filename: fname,
+      image: { type: 'jpeg', quality: 0.96 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: props.length >= 4 ? 'landscape' : 'portrait',
+      },
+      pagebreak: { mode: ['css', 'legacy'] }
+    }).save().then(() => {
+      renderEl.innerHTML = '';
+      renderEl.style.width = '794px';
+      toast('✅ 比較表已下載');
+    }).catch(err => {
+      console.error(err);
+      toast('PDF 產生失敗');
+      renderEl.innerHTML = '';
+      renderEl.style.width = '794px';
+    });
+  }, 100);
+}
+
+// ========== Init ==========
+loadState();
+bindFormEvents();
+renderList();
+// 啟動時如果有 activeId，恢復到 detail
+if (state.activeId && state.properties.find(p => p.id === state.activeId)) {
+  showDetail();
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(r => console.log('SW registered:', r.scope))
+      .catch(e => console.warn('SW failed:', e));
+  });
+}
+</script>
+</body>
+</html>
