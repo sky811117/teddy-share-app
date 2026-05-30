@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>嫌惡設施地圖檢查 ─ 一品不動產．有巢氏台中世界之心加盟店</title>
+
+<meta name="theme-color" content="#C8A574">
+<meta name="description" content="輸入地址，地圖圈出半徑 500 公尺內的嫌惡設施（宮廟、加油站、變電所、基地台、墓地、殯葬、市場等），供買方初步參考。">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="嫌惡設施地圖">
+
+<meta property="og:title" content="嫌惡設施地圖檢查">
+<meta property="og:description" content="輸入地址，圈出半徑 500 公尺內的嫌惡設施，供買方初步參考。">
+<meta property="og:type" content="website">
+<meta property="og:image" content="icon-512.png">
+
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+
+<!-- Leaflet（地圖類唯一允許的 CDN） -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<style>
+  :root {
+    --bg: #FAF7F2;
+    --card: #FFFFFF;
+    --card-tint: #F5EFE3;
+    --wood: #C8A574;
+    --wood-deep: #8B6F4B;
+    --text: #3A3530;
+    --text-soft: #6B6259;
+    --line: #E8DECB;
+    --num: #2C4A2E;
+    --warn: #C75A3C;
+    --warn-bg: #FBE9DE;
+  }
+  * { box-sizing: border-box; }
+  html { font-size: 17px; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 28px 20px 80px;
+  }
+  header {
+    text-align: center;
+    padding: 28px 0 18px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 28px;
+  }
+  header .brand {
+    font-size: 15px;
+    color: var(--wood-deep);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  header h1 {
+    font-size: 32px;
+    margin: 6px 0 8px;
+    color: var(--text);
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  header .sub {
+    color: var(--text-soft);
+    font-size: 17px;
+  }
+  .disclaimer-top {
+    background: var(--warn-bg);
+    border-left: 4px solid var(--warn);
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-size: 15px;
+    color: #6B3925;
+    margin: 18px 0 24px;
+    line-height: 1.7;
+  }
+  .card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: 0 2px 14px rgba(139, 111, 75, 0.07);
+    border: 1px solid var(--line);
+    margin-bottom: 22px;
+  }
+  .card h2 {
+    font-size: 22px;
+    margin: 0 0 14px;
+    color: var(--wood-deep);
+    border-bottom: 2px solid var(--wood);
+    padding-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h2 .step {
+    background: var(--wood);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  /* 搜尋列 */
+  .search-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .search-row input[type="text"] {
+    flex: 1 1 240px;
+    padding: 13px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 18px;
+    background: #FDFCF7;
+    color: var(--text);
+    font-family: inherit;
+  }
+  .search-row input[type="text"]:focus {
+    outline: none;
+    border-color: var(--wood);
+    background: #FFFEF8;
+  }
+  .search-btn {
+    background: var(--wood);
+    color: white;
+    border: none;
+    padding: 13px 28px;
+    border-radius: 8px;
+    font-size: 17px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+  .search-btn:hover { background: var(--wood-deep); }
+  .search-btn:disabled { background: #C9C0B2; cursor: not-allowed; }
+  .search-hint {
+    font-size: 15px;
+    color: var(--text-soft);
+    margin-top: 10px;
+    line-height: 1.6;
+  }
+  .example-chips {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .example-chips .chip {
+    background: var(--card-tint);
+    border: 1px solid var(--line);
+    color: var(--wood-deep);
+    font-size: 15px;
+    padding: 6px 12px;
+    border-radius: 14px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .example-chips .chip:hover { background: #EFE7D6; }
+  /* 狀態列 */
+  .status {
+    margin: 0 0 18px;
+    padding: 13px 18px;
+    border-radius: 8px;
+    font-size: 16px;
+    line-height: 1.6;
+    display: none;
+  }
+  .status.show { display: block; }
+  .status.loading {
+    background: #FFF8E8;
+    border-left: 4px solid var(--wood);
+    color: #7A5D2E;
+  }
+  .status.error {
+    background: var(--warn-bg);
+    border-left: 4px solid var(--warn);
+    color: #6B3925;
+  }
+  .status.ok {
+    background: #EEF4EC;
+    border-left: 4px solid #4F7549;
+    color: #2C4A2E;
+  }
+  .spinner {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    border: 2px solid #E3D6BC;
+    border-top-color: var(--wood-deep);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: -2px;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  /* 地圖 */
+  #map {
+    width: 100%;
+    height: 56vh;
+    min-height: 340px;
+    max-height: 560px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: #EDE7DA;
+    z-index: 0;
+  }
+  .map-note {
+    font-size: 15px;
+    color: var(--text-soft);
+    margin-top: 8px;
+    line-height: 1.6;
+  }
+  .leaflet-popup-content { font-size: 15px; line-height: 1.5; }
+  /* 結果摘要 */
+  .summary-banner {
+    background: linear-gradient(135deg, #F5EFE3 0%, #FDFCF7 100%);
+    border: 1px solid var(--wood);
+    border-radius: 14px;
+    padding: 18px 24px;
+    margin: 0 0 22px;
+    text-align: center;
+    display: none;
+  }
+  .summary-banner.show { display: block; }
+  .summary-banner .label {
+    font-size: 15px;
+    color: var(--wood-deep);
+    margin-bottom: 6px;
+  }
+  .summary-banner .big-num {
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--num);
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    letter-spacing: 1px;
+  }
+  .summary-banner .addr {
+    font-size: 15px;
+    color: var(--text-soft);
+    margin-top: 6px;
+    word-break: break-all;
+  }
+  /* 分類清單 */
+  .cat-list { display: none; }
+  .cat-list.show { display: block; }
+  .cat {
+    border-bottom: 1px solid var(--line);
+    padding: 14px 0;
+  }
+  .cat:last-child { border-bottom: none; }
+  .cat-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .cat-head .emoji { font-size: 22px; line-height: 1; }
+  .cat-head .cat-count {
+    margin-left: auto;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+  }
+  .cat-head .cat-count.has { color: var(--warn); }
+  .cat-head .cat-count.none { color: #7C9A78; font-weight: 500; }
+  .cat-items {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0;
+  }
+  .cat-items li {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 7px 0 7px 32px;
+    border-bottom: 1px dashed #F0E6D0;
+    font-size: 16px;
+  }
+  .cat-items li:last-child { border-bottom: none; }
+  .cat-items li .nm { color: var(--text); }
+  .cat-items li .dist {
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    color: var(--num);
+    font-weight: 600;
+    white-space: nowrap;
+    font-size: 15px;
+  }
+  .cat-empty {
+    padding: 6px 0 0 32px;
+    font-size: 15px;
+    color: #7C9A78;
+  }
+  .legend {
+    background: #FFF8E8;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 15px;
+    color: #7A5D2E;
+    margin-top: 16px;
+    line-height: 1.9;
+  }
+  /* caveat 強制區塊 */
+  .caveat {
+    background: var(--warn-bg);
+    border: 1px solid #E9B79F;
+    border-left: 4px solid var(--warn);
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-size: 15px;
+    color: #6B3925;
+    line-height: 1.8;
+    margin: 22px 0;
+  }
+  .caveat strong { color: var(--warn); }
+  .caveat ul { margin: 8px 0 0; padding-left: 20px; }
+  .caveat li { margin-bottom: 4px; }
+  .print-btn {
+    background: var(--wood);
+    color: white;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    margin: 20px auto;
+    display: block;
+    font-family: inherit;
+  }
+  .print-btn:hover { background: var(--wood-deep); }
+  footer {
+    margin-top: 50px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+  }
+  footer .legal {
+    background: #F5EFE3;
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-size: 14px;
+    color: var(--text-soft);
+    line-height: 1.8;
+    text-align: left;
+    margin-bottom: 24px;
+  }
+  footer .legal strong { color: var(--wood-deep); }
+  footer .contact {
+    font-size: 15px;
+    color: var(--text);
+    line-height: 1.8;
+  }
+  footer .contact .agent-name {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--wood-deep);
+    display: block;
+    margin-bottom: 4px;
+  }
+  footer .contact a {
+    color: var(--wood-deep);
+    text-decoration: none;
+  }
+  footer .contact a:hover { text-decoration: underline; }
+  footer .contact .sep { color: var(--line); margin: 0 4px; }
+  footer .cert {
+    font-size: 14px;
+    color: var(--text-soft);
+    margin-top: 8px;
+  }
+  @media (max-width: 600px) {
+    header h1 { font-size: 26px; }
+    #map { height: 50vh; }
+  }
+  @media print {
+    .print-btn, .search-btn, .example-chips, .status.loading { display: none !important; }
+    body { background: white; }
+    .card, .summary-banner { box-shadow: none; }
+    #map { height: 360px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">一品不動產．有巢氏台中世界之心加盟店</div>
+  <h1>嫌惡設施地圖檢查</h1>
+  <div class="sub">輸入地址，圈出半徑 500 公尺內的鄰避設施．初步參考用</div>
+</header>
+
+<div class="disclaimer-top">
+  ⚠️ <strong>使用前請看：</strong>本工具使用 OpenStreetMap（OSM）公開圖資查詢，OSM 為民間眾包資料，<strong>可能漏標、誤標或標示位置略有偏差</strong>。查詢結果僅供「初步輔助參考」，<strong>不能取代現場勘查、不動產說明書揭露與政府正式圖資</strong>。本工具不評斷任何特定物件是否為凶宅、是否有瑕疵。是否「嫌惡」因人而異，請依個人需求現場確認。
+</div>
+
+<!-- 搜尋區 -->
+<div class="card">
+  <h2><span class="step">1</span>輸入要查詢的地址</h2>
+  <div class="search-row">
+    <input type="text" id="addrInput" placeholder="例：北屯區文心路四段 / 西屯區市政北二路 / 太子雲世紀"
+           autocomplete="off" inputmode="text" />
+    <button class="search-btn" id="searchBtn">查詢周邊</button>
+  </div>
+  <div class="search-hint">
+    輸入台中市的路段、社區名或門牌（系統自動帶入「台中市」一起查詢）。查到後會以該點為中心，畫出半徑 500 公尺範圍，並列出範圍內查得到的鄰避設施。
+  </div>
+  <div class="example-chips" id="exampleChips">
+    <button class="chip" data-q="北屯區文心路四段">北屯區文心路四段</button>
+    <button class="chip" data-q="西屯區市政北二路">西屯區市政北二路</button>
+    <button class="chip" data-q="南屯區公益路二段">南屯區公益路二段</button>
+    <button class="chip" data-q="霧峰區萊園路">霧峰區萊園路</button>
+  </div>
+</div>
+
+<!-- 狀態列 -->
+<div class="status" id="status"></div>
+
+<!-- 結果摘要 -->
+<div class="summary-banner" id="summaryBanner">
+  <div class="label">半徑 500 公尺內，查到的鄰避設施總數</div>
+  <div class="big-num" id="totalCount">─</div>
+  <div class="addr" id="resolvedAddr"></div>
+</div>
+
+<!-- 地圖 -->
+<div class="card">
+  <h2><span class="step">2</span>周邊地圖（半徑 500 公尺）</h2>
+  <div id="map"></div>
+  <div class="map-note">
+    🔵 藍點＝查詢中心．虛線圓＝半徑 500 公尺．彩色標記＝各類鄰避設施（點標記可看名稱與距離）。地圖圖資 © OpenStreetMap 貢獻者。
+  </div>
+</div>
+
+<!-- 分類清單 -->
+<div class="card cat-list" id="catList">
+  <h2><span class="step">3</span>分類清單（由近到遠）</h2>
+  <div id="catContainer"></div>
+  <div class="legend">
+    📏 距離為「直線距離」估算（非步行 / 行車距離），數值來自查詢中心到該設施標示點的概算公尺數。<br>
+    🗂️ 同一設施在 OSM 上若由不同人重複標記，可能出現相近的重複項目，屬正常現象。
+  </div>
+</div>
+
+<!-- 強制 caveat -->
+<div class="caveat">
+  <strong>重要說明（務必閱讀）</strong>
+  <ul>
+    <li>OSM 為民間眾包圖資，<strong>可能漏標或誤標</strong>，「查無」不代表現場一定沒有，「有標記」也可能位置或屬性有誤。</li>
+    <li>本結果<strong>僅供初步輔助</strong>，不能取代現場勘查、不動產說明書（屋況說明書）揭露與政府正式圖資（如環保局、地政、都發局公開資料）。</li>
+    <li>本工具<strong>不評斷</strong>任何特定物件是否為凶宅、是否有瑕疵或糾紛。</li>
+    <li>「嫌惡 / 鄰避」程度因人而異（例如有人介意宮廟、有人不介意），請依個人需求親自到現場、不同時段確認。</li>
+    <li>購屋前的設施查詢，建議併同向不動產經紀業、政府單位查證，本工具不作為交易決策的唯一依據。</li>
+  </ul>
+</div>
+
+<button class="print-btn" onclick="window.print()">📄 列印 / 存成 PDF</button>
+
+<footer>
+  <div class="legal">
+    <strong>法定揭露與免責聲明</strong><br>
+    1. 本工具地圖與設施資料來源為 <strong>OpenStreetMap</strong>（© OpenStreetMap 貢獻者，ODbL 授權），地理編碼使用 OSM Nominatim、設施查詢使用 Overpass API，皆為第三方公開服務，資料正確性與即時性由原始來源決定，本店不對其完整性負責。<br>
+    2. 查詢結果僅為「初步參考」，<strong>非估價、非投資建議、非交易決策依據</strong>；設施是否存在、確切位置與屬性，應以現場勘查及政府正式圖資為準。<br>
+    3. 本工具不揭露任何屋主姓名、電話或完整門牌資訊，亦不評斷特定物件是否為凶宅或具有瑕疵。<br>
+    4. 是否構成「嫌惡設施」屬個人主觀認定，本工具僅列示客觀地圖標記，不代表本店立場。<br>
+    5. 本工具由有巢氏房屋台中世界之心加盟店景泰提供，僅作為買方初步評估之輔助。
+  </div>
+  <div class="contact">
+    <span class="agent-name">陳景泰（Teddy）</span>
+    一品不動產．有巢氏房屋台中世界之心加盟店<br>
+    📞 <a href="tel:0920118756">0920-118-756</a>
+    <span class="sep">｜</span>
+    💬 LINE：<a href="https://line.me/ti/p/~sky811117">sky811117</a>
+    <span class="sep">｜</span>
+    📷 IG：<a href="https://instagram.com/nov__817">@nov__817</a>
+    <div class="cert">
+      不動產經紀人：黃永隆（113彰縣字第324號）<br>
+      不動產營業員：陳景泰（114登字第488296號）
+    </div>
+  </div>
+</footer>
+
+</div>
+
+<!-- Leaflet JS（地圖類唯一允許的 CDN） -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+const $ = (id) => document.getElementById(id);
+
+// 給 Nominatim / Overpass 用的聯絡 email（無法可靠設 User-Agent header，改帶 email 參數符合使用規範）
+const CONTACT_EMAIL = 'a0920118756@gmail.com';
+const RADIUS = 500; // 公尺
+const TAICHUNG_CENTER = [24.1477, 120.6736]; // 台中市政府附近，作預設視角
+// 台中市大致範圍 viewbox：左(西) 下(南) 右(東) 上(北) → Nominatim 用 lon,lat,lon,lat
+const TC_VIEWBOX = '120.40,23.95,121.05,24.45';
+
+let map, centerMarker, radiusCircle, poiLayer;
+
+/* ── 嫌惡 / 鄰避設施分類定義 ──
+   每類：emoji、中文名、顏色、以及 Overpass 過濾函式（判斷某 tags 是否屬於此類） */
+const CATEGORIES = [
+  {
+    key: 'worship', emoji: '⛩️', name: '宮廟 / 寺廟 / 教堂', color: '#C75A3C',
+    match: t => t.amenity === 'place_of_worship'
+  },
+  {
+    key: 'fuel', emoji: '⛽', name: '加油 / 加氣站', color: '#D98324',
+    match: t => t.amenity === 'fuel' || t.shop === 'gas'
+  },
+  {
+    key: 'substation', emoji: '⚡', name: '變電所 / 配電設施', color: '#B5852A',
+    match: t => t.power === 'substation' || t.power === 'plant' || t.power === 'transformer'
+  },
+  {
+    key: 'powerline', emoji: '🗼', name: '高壓電塔 / 高壓線', color: '#8B6F4B',
+    match: t => t.power === 'tower' || t.power === 'line' || t.power === 'minor_line' || t.power === 'pole'
+  },
+  {
+    key: 'mast', emoji: '📡', name: '通訊基地台 / 通訊塔', color: '#6E7F9E',
+    match: t => t.man_made === 'communications_tower'
+                || ((t.man_made === 'mast' || t.man_made === 'tower')
+                    && (t['tower:type'] === 'communication'
+                        || t['communication:mobile_phone'] === 'yes'))
+  },
+  {
+    key: 'cemetery', emoji: '⚰️', name: '墓地 / 福地 / 公墓', color: '#5B5650',
+    match: t => t.landuse === 'cemetery' || t.amenity === 'grave_yard'
+  },
+  {
+    key: 'funeral', emoji: '🕯️', name: '殯儀館 / 火葬場 / 禮儀', color: '#4A4640',
+    match: t => t.amenity === 'funeral_hall' || t.amenity === 'crematorium'
+                || t.shop === 'funeral_directors' || t.office === 'funeral_directors'
+  },
+  {
+    key: 'waste', emoji: '🗑️', name: '垃圾場 / 掩埋 / 焚化', color: '#6B7A3A',
+    match: t => t.amenity === 'waste_transfer_station' || t.landuse === 'landfill'
+                || t.man_made === 'incinerator' || t.amenity === 'recycling'
+                || t.amenity === 'waste_disposal'
+  },
+  {
+    key: 'market', emoji: '🏮', name: '市場 / 夜市', color: '#C77A3C',
+    match: t => t.amenity === 'marketplace'
+  },
+  {
+    key: 'hospital', emoji: '🏥', name: '醫院', color: '#C75A6E',
+    match: t => t.amenity === 'hospital'
+  },
+  {
+    key: 'industrial', emoji: '🏭', name: '工廠 / 工業用地', color: '#7A6E5A',
+    match: t => t.landuse === 'industrial' || t.man_made === 'works'
+  },
+  {
+    key: 'prison', emoji: '🚔', name: '看守所 / 監所', color: '#55504A',
+    match: t => t.amenity === 'prison'
+  }
+];
+
+/* 初始化地圖 */
+function initMap() {
+  map = L.map('map', { scrollWheelZoom: true }).setView(TAICHUNG_CENTER, 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap 貢獻者'
+  }).addTo(map);
+  poiLayer = L.layerGroup().addTo(map);
+}
+
+/* Haversine 直線距離（公尺） */
+function distMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(a)));
+}
+
+/* 狀態列 */
+function setStatus(type, html) {
+  const s = $('status');
+  if (!type) { s.className = 'status'; s.innerHTML = ''; return; }
+  s.className = 'status show ' + type;
+  s.innerHTML = html;
+}
+
+/* 小圓點標記 */
+function makeIcon(color) {
+  return L.divIcon({
+    className: 'poi-pin',
+    html: `<div style="width:16px;height:16px;border-radius:50% 50% 50% 0;
+            background:${color};transform:rotate(-45deg);
+            border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);"></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 16],
+    popupAnchor: [0, -14]
+  });
+}
+
+/* HTML escape，避免 OSM name 內容破壞版面 */
+function esc(str) {
+  return String(str == null ? '' : str).replace(/[&<>"']/g, c => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+  ));
+}
+
+/* 主流程：地理編碼 → Overpass → 渲染 */
+async function search(query) {
+  const q = (query || $('addrInput').value || '').trim();
+  if (!q) {
+    setStatus('error', '請先輸入要查詢的地址或路段。');
+    return;
+  }
+  $('searchBtn').disabled = true;
+  $('summaryBanner').classList.remove('show');
+  $('catList').classList.remove('show');
+  if (poiLayer) poiLayer.clearLayers();
+
+  // 自動補「台中市」（若使用者沒打縣市）
+  const fullQ = /台中/.test(q) ? q : ('台中市 ' + q);
+  setStatus('loading', `<span class="spinner"></span>正在定位地址「${esc(q)}」…`);
+
+  // ── 1. Nominatim 地理編碼 ──
+  let lat, lon, displayName;
+  try {
+    const url = 'https://nominatim.openstreetmap.org/search'
+      + '?format=json&limit=1&countrycodes=tw&accept-language=zh-TW'
+      + '&viewbox=' + encodeURIComponent(TC_VIEWBOX) + '&bounded=1'
+      + '&addressdetails=0'
+      + '&email=' + encodeURIComponent(CONTACT_EMAIL)
+      + '&q=' + encodeURIComponent(fullQ);
+    const resp = await fetchWithTimeout(url, {}, 15000);
+    if (!resp.ok) throw new Error('geocode-http-' + resp.status);
+    const data = await resp.json();
+    if (!data || data.length === 0) {
+      $('searchBtn').disabled = false;
+      setStatus('error',
+        `找不到「${esc(q)}」這個地址。<br>建議：①確認是台中市的地址 ②試著只打「區 + 路段」（例如「北屯區文心路四段」）③或改用附近知名社區、地標名稱再查一次。`);
+      return;
+    }
+    lat = parseFloat(data[0].lat);
+    lon = parseFloat(data[0].lon);
+    displayName = data[0].display_name || fullQ;
+  } catch (err) {
+    $('searchBtn').disabled = false;
+    if (err && err.name === 'AbortError') {
+      setStatus('error', '定位地址逾時，可能是網路較慢或服務忙碌。請稍候再試一次。');
+    } else {
+      setStatus('error', '定位地址時發生問題，請檢查網路後再試一次。（地理編碼服務暫時無法使用）');
+    }
+    return;
+  }
+
+  // 置中 + 畫圓
+  map.setView([lat, lon], 16);
+  if (centerMarker) map.removeLayer(centerMarker);
+  if (radiusCircle) map.removeLayer(radiusCircle);
+  centerMarker = L.circleMarker([lat, lon], {
+    radius: 8, color: '#1d4ed8', fillColor: '#3b82f6', fillOpacity: 0.9, weight: 2
+  }).addTo(map).bindPopup('📍 查詢中心<br>' + esc(displayName));
+  radiusCircle = L.circle([lat, lon], {
+    radius: RADIUS, color: '#8B6F4B', weight: 2, dashArray: '6 6',
+    fillColor: '#C8A574', fillOpacity: 0.08
+  }).addTo(map);
+  map.fitBounds(radiusCircle.getBounds(), { padding: [20, 20] });
+
+  // ── 2. Overpass 查詢圓內 POI ──
+  setStatus('loading', `<span class="spinner"></span>已定位，正在查詢半徑 500 公尺內的鄰避設施…（資料量大時可能需要 10-20 秒）`);
+
+  const aroundClause = `(around:${RADIUS},${lat},${lon})`;
+  const oq = `
+[out:json][timeout:25];
+(
+  nwr["amenity"="place_of_worship"]${aroundClause};
+  nwr["amenity"="fuel"]${aroundClause};
+  nwr["shop"="gas"]${aroundClause};
+  nwr["power"="substation"]${aroundClause};
+  nwr["power"="plant"]${aroundClause};
+  nwr["power"="transformer"]${aroundClause};
+  node["power"="tower"]${aroundClause};
+  way["power"="line"]${aroundClause};
+  way["power"="minor_line"]${aroundClause};
+  nwr["man_made"="mast"]${aroundClause};
+  nwr["man_made"="communications_tower"]${aroundClause};
+  nwr["man_made"="tower"]["tower:type"="communication"]${aroundClause};
+  nwr["landuse"="cemetery"]${aroundClause};
+  nwr["amenity"="grave_yard"]${aroundClause};
+  nwr["amenity"="funeral_hall"]${aroundClause};
+  nwr["amenity"="crematorium"]${aroundClause};
+  nwr["shop"="funeral_directors"]${aroundClause};
+  nwr["office"="funeral_directors"]${aroundClause};
+  nwr["amenity"="waste_transfer_station"]${aroundClause};
+  nwr["amenity"="waste_disposal"]${aroundClause};
+  nwr["landuse"="landfill"]${aroundClause};
+  nwr["man_made"="incinerator"]${aroundClause};
+  nwr["amenity"="recycling"]["recycling_type"="centre"]${aroundClause};
+  nwr["amenity"="marketplace"]${aroundClause};
+  nwr["amenity"="hospital"]${aroundClause};
+  nwr["landuse"="industrial"]${aroundClause};
+  nwr["man_made"="works"]${aroundClause};
+  nwr["amenity"="prison"]${aroundClause};
+);
+out center tags;`;
+
+  let elements;
+  const endpoints = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter'
+  ];
+  let lastErr = null;
+  for (const ep of endpoints) {
+    try {
+      const resp = await fetchWithTimeout(ep, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'data=' + encodeURIComponent(oq)
+      }, 30000);
+      if (!resp.ok) { lastErr = new Error('overpass-http-' + resp.status); continue; }
+      const json = await resp.json();
+      elements = json.elements || [];
+      lastErr = null;
+      break;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+
+  $('searchBtn').disabled = false;
+
+  if (lastErr || !elements) {
+    setStatus('error',
+      '已定位成功，但查詢周邊設施時逾時或服務忙碌（Overpass 公開服務有時較慢）。地圖中心已標出，請稍候 30 秒後再按一次「查詢周邊」。');
+    return;
+  }
+
+  renderResults(elements, lat, lon, displayName);
+}
+
+/* 渲染結果：分類、距離、地圖標記、清單 */
+function renderResults(elements, cLat, cLon, displayName) {
+  // 收集每個 element 的座標（node 用 lat/lon；way/relation 用 center）
+  const buckets = {};
+  CATEGORIES.forEach(c => buckets[c.key] = []);
+
+  const seen = new Set();
+  let total = 0;
+
+  elements.forEach(el => {
+    const t = el.tags || {};
+    let elat = el.lat, elon = el.lon;
+    if ((elat == null || elon == null) && el.center) {
+      elat = el.center.lat; elon = el.center.lon;
+    }
+    if (elat == null || elon == null) return;
+
+    // 找出符合的第一個分類
+    const cat = CATEGORIES.find(c => c.match(t));
+    if (!cat) return;
+
+    const d = distMeters(cLat, cLon, elat, elon);
+    if (d > RADIUS + 30) return; // way/relation center 可能略超出，給 30m 容差
+
+    // 名稱
+    let nm = t.name || t['name:zh'] || t['name:zh-Hant'] || '';
+    if (!nm) {
+      // 給未命名設施一個可讀標籤
+      const fallback = {
+        worship: '（未命名宗教場所）', fuel: '（加油/加氣站）',
+        substation: '（變電/配電設施）', powerline: '（電塔/高壓線）',
+        mast: '（通訊塔/基地台）', cemetery: '（墓地/公墓）',
+        funeral: '（殯葬相關）', waste: '（垃圾/回收/焚化設施）',
+        market: '（市場/攤集）', hospital: '（醫院）',
+        industrial: '（工業用地/工廠）', prison: '（監所）'
+      };
+      nm = fallback[cat.key] || '（未命名設施）';
+    }
+
+    // 去重：同分類 + 同名 + 距離相近(<25m) 視為重複
+    const dedupeKey = cat.key + '|' + nm + '|' + Math.round(d / 25);
+    if (seen.has(dedupeKey)) return;
+    seen.add(dedupeKey);
+
+    buckets[cat.key].push({ nm, d, lat: elat, lon: elon });
+    total++;
+
+    // 地圖標記
+    L.marker([elat, elon], { icon: makeIcon(cat.color) })
+      .addTo(poiLayer)
+      .bindPopup(`${cat.emoji} <strong>${esc(nm)}</strong><br>${cat.name}<br>距中心約 ${d} 公尺`);
+  });
+
+  // 各分類內由近到遠排序
+  CATEGORIES.forEach(c => buckets[c.key].sort((a, b) => a.d - b.d));
+
+  // 摘要
+  $('totalCount').textContent = total + ' 處';
+  $('resolvedAddr').textContent = '查詢中心：' + displayName;
+  $('summaryBanner').classList.add('show');
+
+  // 分類清單
+  const container = $('catContainer');
+  container.innerHTML = CATEGORIES.map(c => {
+    const items = buckets[c.key];
+    const cnt = items.length;
+    const countCls = cnt > 0 ? 'has' : 'none';
+    const countTxt = cnt > 0 ? (cnt + ' 處') : '此半徑內查無';
+    let body;
+    if (cnt > 0) {
+      body = `<ul class="cat-items">` + items.map(it =>
+        `<li><span class="nm">${esc(it.nm)}</span><span class="dist">約 ${it.d} m</span></li>`
+      ).join('') + `</ul>`;
+    } else {
+      body = `<div class="cat-empty">（此半徑內查無）</div>`;
+    }
+    return `
+      <div class="cat">
+        <div class="cat-head">
+          <span class="emoji">${c.emoji}</span>
+          <span>${c.name}</span>
+          <span class="cat-count ${countCls}">${countTxt}</span>
+        </div>
+        ${body}
+      </div>`;
+  }).join('');
+  $('catList').classList.add('show');
+
+  // 狀態收尾
+  if (total > 0) {
+    setStatus('ok',
+      `✅ 查詢完成：半徑 500 公尺內共標出 <strong>${total}</strong> 處鄰避設施（依 OSM 公開圖資）。請務必搭配現場勘查與正式圖資確認，OSM 可能有漏標或誤標。`);
+  } else {
+    setStatus('ok',
+      `✅ 查詢完成：此半徑 500 公尺內，OSM 圖資<strong>查無</strong>上列各類鄰避設施標記。<strong>但這不代表現場一定沒有</strong> —— OSM 為眾包資料可能漏標，仍請以現場勘查與政府正式圖資為準。`);
+  }
+}
+
+/* fetch + timeout（AbortController） */
+function fetchWithTimeout(url, opts, ms) {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, Object.assign({}, opts, { signal: ctrl.signal }))
+    .finally(() => clearTimeout(id));
+}
+
+/* 事件綁定 */
+window.addEventListener('DOMContentLoaded', () => {
+  initMap();
+  $('searchBtn').addEventListener('click', () => search());
+  $('addrInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); search(); }
+  });
+  $('exampleChips').addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    const q = chip.getAttribute('data-q');
+    $('addrInput').value = q;
+    search(q);
+  });
+});
+
+// 明確「不」註冊 service worker（避免快取鎖死 bug）。
+</script>
+</body>
+</html>

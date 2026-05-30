@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>賣方屋況自評表 ─ 一品不動產．有巢氏台中世界之心加盟店</title>
+
+<meta name="theme-color" content="#C8A574">
+<meta name="description" content="賣方屋況快速自評：10 題打分了解自家房子體質，再找景泰免費專業複評。">
+
+<meta property="og:title" content="賣方屋況自評表">
+<meta property="og:description" content="10 題自評了解自家房子體質，找景泰免費專業複評。">
+<meta property="og:type" content="website">
+<meta property="og:image" content="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<style>
+  :root {
+    --bg: #FAF7F2;
+    --card: #FFFFFF;
+    --card-tint: #F5EFE3;
+    --wood: #C8A574;
+    --wood-deep: #8B6F4B;
+    --text: #3A3530;
+    --text-soft: #6B6259;
+    --line: #E8DECB;
+    --num: #2C4A2E;
+    --warn: #C75A3C;
+    --warn-bg: #FBE9DE;
+  }
+  * { box-sizing: border-box; }
+  html { font-size: 17px; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 28px 20px 80px;
+  }
+  header {
+    text-align: center;
+    padding: 28px 0 18px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 28px;
+  }
+  header .brand {
+    font-size: 15px;
+    color: var(--wood-deep);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  header h1 {
+    font-size: 32px;
+    margin: 6px 0 8px;
+    color: var(--text);
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  header .sub {
+    color: var(--text-soft);
+    font-size: 17px;
+  }
+  .disclaimer-top {
+    background: var(--warn-bg);
+    border-left: 4px solid var(--warn);
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-size: 15px;
+    color: #6B3925;
+    margin: 18px 0 24px;
+    line-height: 1.7;
+  }
+  .intro-box {
+    background: var(--card-tint);
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-size: 17px;
+    color: var(--text-soft);
+    margin-bottom: 26px;
+    line-height: 1.7;
+  }
+  .intro-box strong { color: var(--wood-deep); }
+
+  /* 進度條 */
+  .progress-wrap {
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    padding: 12px 0 14px;
+    z-index: 20;
+    margin-bottom: 8px;
+  }
+  .progress-track {
+    height: 10px;
+    background: var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--wood) 0%, var(--wood-deep) 100%);
+    border-radius: 6px;
+    transition: width 0.3s ease;
+  }
+  .progress-label {
+    text-align: center;
+    font-size: 15px;
+    color: var(--text-soft);
+    margin-top: 6px;
+  }
+
+  /* 題目卡 */
+  .q-card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 22px 24px;
+    box-shadow: 0 2px 14px rgba(139, 111, 75, 0.07);
+    border: 1px solid var(--line);
+    margin-bottom: 18px;
+  }
+  .q-card.answered {
+    border-color: var(--wood);
+  }
+  .q-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .q-num {
+    background: var(--wood);
+    color: white;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .q-card.answered .q-num { background: var(--num); }
+  .q-title {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--text);
+    padding-top: 3px;
+  }
+  .q-title .q-dim {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--wood-deep);
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+  }
+  .options {
+    display: grid;
+    gap: 10px;
+  }
+  .opt {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    padding: 13px 16px;
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    cursor: pointer;
+    background: #FDFCF7;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .opt:hover { border-color: var(--wood); background: #FFFEF8; }
+  .opt input[type="radio"] {
+    width: 20px;
+    height: 20px;
+    margin-top: 1px;
+    accent-color: var(--wood);
+    flex-shrink: 0;
+  }
+  .opt.selected {
+    border-color: var(--wood-deep);
+    background: #F5EFE3;
+  }
+  .opt .opt-text {
+    font-size: 17px;
+    color: var(--text);
+  }
+  .opt .opt-text small {
+    display: block;
+    font-size: 14px;
+    color: var(--text-soft);
+    margin-top: 2px;
+  }
+
+  /* 結果區 */
+  .result-card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 24px;
+    border: 1px solid var(--line);
+    box-shadow: 0 2px 14px rgba(139, 111, 75, 0.07);
+    margin-top: 26px;
+  }
+  .result-card h2 {
+    font-size: 22px;
+    color: var(--wood-deep);
+    margin: 0 0 16px;
+    border-bottom: 2px solid var(--wood);
+    padding-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .result-card h2 .step {
+    background: var(--wood);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .score-banner {
+    background: linear-gradient(135deg, #F5EFE3 0%, #FDFCF7 100%);
+    border: 1px solid var(--wood);
+    border-radius: 14px;
+    padding: 24px;
+    text-align: center;
+  }
+  .score-banner .grade {
+    font-size: 44px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    line-height: 1.2;
+    color: var(--num);
+  }
+  .score-banner .grade-label {
+    font-size: 19px;
+    color: var(--wood-deep);
+    font-weight: 700;
+    margin-top: 2px;
+  }
+  .score-banner .score-num {
+    font-size: 16px;
+    color: var(--text-soft);
+    margin-top: 10px;
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+  }
+  .score-banner .score-num b {
+    font-size: 28px;
+    color: var(--num);
+    font-weight: 700;
+  }
+  .advice-box {
+    background: var(--card-tint);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-top: 18px;
+    font-size: 17px;
+    line-height: 1.8;
+    color: var(--text);
+  }
+  .advice-box h3 {
+    margin: 0 0 10px;
+    font-size: 18px;
+    color: var(--wood-deep);
+  }
+  .advice-box ul {
+    margin: 8px 0 0;
+    padding-left: 20px;
+  }
+  .advice-box li { margin-bottom: 6px; }
+
+  /* 維度明細表 */
+  table.dim-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 17px;
+    margin-top: 6px;
+  }
+  table.dim-table th, table.dim-table td {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 1px solid #F0E6D0;
+  }
+  table.dim-table th {
+    background: var(--card-tint);
+    font-size: 15px;
+    color: var(--wood-deep);
+    font-weight: 600;
+  }
+  table.dim-table td.dim-score {
+    text-align: right;
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .bar-mini {
+    display: inline-block;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--wood);
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+
+  .cta-box {
+    background: #EEF4EC;
+    border: 1px solid #C7DBC2;
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin-top: 22px;
+    text-align: center;
+  }
+  .cta-box h3 {
+    margin: 0 0 8px;
+    font-size: 21px;
+    color: #2C4A2E;
+  }
+  .cta-box p {
+    font-size: 16px;
+    color: var(--text-soft);
+    margin: 0 0 16px;
+    line-height: 1.7;
+  }
+  .cta-btn {
+    display: inline-block;
+    background: #4F7549;
+    color: white;
+    text-decoration: none;
+    padding: 14px 32px;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: 700;
+    margin: 6px;
+  }
+  .cta-btn:hover { background: #3E5C39; }
+  .cta-btn.tel {
+    background: var(--wood-deep);
+  }
+  .cta-btn.tel:hover { background: #6E5638; }
+
+  .alert-line {
+    background: var(--warn-bg);
+    border-left: 4px solid var(--warn);
+    border-radius: 6px;
+    padding: 11px 16px;
+    font-size: 14px;
+    color: #6B3925;
+    margin-top: 16px;
+    line-height: 1.6;
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 24px 0 0;
+  }
+  .print-btn, .reset-btn {
+    border: none;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .print-btn {
+    background: var(--wood);
+    color: white;
+  }
+  .print-btn:hover { background: var(--wood-deep); }
+  .reset-btn {
+    background: #FDFCF7;
+    color: var(--text-soft);
+    border: 1px solid var(--line);
+  }
+  .reset-btn:hover { border-color: var(--wood); color: var(--wood-deep); }
+
+  footer {
+    margin-top: 50px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+  }
+  footer .legal {
+    background: #F5EFE3;
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-size: 14px;
+    color: var(--text-soft);
+    line-height: 1.8;
+    text-align: left;
+    margin-bottom: 24px;
+  }
+  footer .legal strong { color: var(--wood-deep); }
+  footer .contact {
+    font-size: 15px;
+    color: var(--text);
+    line-height: 1.8;
+  }
+  footer .contact .agent-name {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--wood-deep);
+    display: block;
+    margin-bottom: 4px;
+  }
+  footer .contact a {
+    color: var(--wood-deep);
+    text-decoration: none;
+  }
+  footer .contact a:hover { text-decoration: underline; }
+  footer .contact .contact-line { margin: 2px 0; }
+  footer .cert {
+    font-size: 14px;
+    color: var(--text-soft);
+    margin-top: 10px;
+  }
+  @media print {
+    .progress-wrap, .btn-row, .opt:hover { display: none; }
+    .progress-wrap { display: none !important; }
+    body { background: white; }
+    .q-card, .result-card { box-shadow: none; page-break-inside: avoid; }
+    .opt input[type="radio"] { -webkit-appearance: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">一品不動產．有巢氏台中世界之心加盟店</div>
+  <h1>賣方屋況自評表</h1>
+  <div class="sub">10 題快速了解自家房子的市場體質</div>
+</header>
+
+<div class="disclaimer-top">
+  ⚠️ <strong>使用前請看：</strong>本表是一份「初步參考」的自我評估，幫您先盤點自家房子的條件，<strong>不是估價、也不是投資建議</strong>，更不會也不能告訴您應該賣多少錢。每個社區、每戶的實際條件差異很大，精準的市場行情與定價策略，仍需由專業人員依實際物件、最新成交資料判斷。
+</div>
+
+<div class="intro-box">
+  🏡 想賣房子，第一步是<strong>看懂自家的條件</strong>。這份表用 10 個面向幫您打個分數，<strong>先自己心裡有個底</strong>，再找景泰免費幫您做專業複評。誠實作答最準 —— 沒有「標準答案」，只有「了解現況」。
+</div>
+
+<div class="progress-wrap">
+  <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="progress-label" id="progressLabel">已完成 0 / 10 題</div>
+</div>
+
+<div id="quiz"></div>
+
+<!-- 結果區（作答完才顯示） -->
+<div id="resultArea" style="display:none;">
+
+  <div class="result-card">
+    <h2><span class="step">✓</span>您的屋況自評結果</h2>
+    <div class="score-banner">
+      <div class="grade" id="gradeLetter">─</div>
+      <div class="grade-label" id="gradeName">─</div>
+      <div class="score-num">自評總分 <b id="scoreValue">0</b> / <span id="scoreMax">0</span> 分</div>
+    </div>
+
+    <div class="advice-box" id="adviceBox"></div>
+
+    <h2 style="margin-top:26px;font-size:19px;"><span class="step" style="background:var(--wood-deep);">★</span>各面向得分明細</h2>
+    <table class="dim-table">
+      <thead>
+        <tr>
+          <th style="width:34%;">評估面向</th>
+          <th>您的選擇</th>
+          <th style="width:64px;text-align:right;">得分</th>
+        </tr>
+      </thead>
+      <tbody id="dimTableBody"></tbody>
+    </table>
+
+    <div class="alert-line">
+      ⚠️ 本分數只反映「您自己的勾選」，屬主觀盤點。實際市場價值還牽涉成交時機、區域供需、房屋現況查驗、貸款條件等因素，<strong>分數高低不等於成交價高低</strong>，請務必交由專業人員依實際物件評估。
+    </div>
+  </div>
+
+  <div class="cta-box">
+    <h3>想知道精準行情與定價策略？</h3>
+    <p>自評只是第一步。景泰會依您家的實際條件、社區最近的<strong>內政部不動產交易實價登錄</strong>資料，免費幫您做一份專業的市場評估與上架建議，完全不收費、不勉強。</p>
+    <a class="cta-btn" href="https://line.me/ti/p/~sky811117">💬 LINE 免費幫你專業評估</a>
+    <a class="cta-btn tel" href="tel:0920118756">📞 直接撥 0920-118-756</a>
+  </div>
+
+  <div class="btn-row">
+    <button class="print-btn" onclick="window.print()">📄 列印 / 存成 PDF</button>
+    <button class="reset-btn" onclick="resetAll()">↺ 重新評估</button>
+  </div>
+</div>
+
+<footer>
+  <div class="legal">
+    <strong>法定揭露與免責聲明</strong><br>
+    1. 本工具為「屋況初步自我評估」工具，由使用者自行勾選作答，結果僅供賣方盤點自家條件參考。<br>
+    2. 本工具<strong>不提供任何具體售價、估價或市場行情數字</strong>，亦<strong>不構成不動產估價、財務、稅務或法律建議</strong>。不動產估價依《不動產估價師法》應由不動產估價師辦理。<br>
+    3. 自評分數為主觀勾選結果，<strong>分數高低不代表、也不保證實際成交價格</strong>。實際價值須由專業人員依個案、現況查驗及最新成交資料判斷。<br>
+    4. 區域成交行情資料來源為「內政部不動產交易實價登錄」，各筆交易條件不同，僅能作為趨勢參考，不得逕予套用於特定物件。<br>
+    5. 本工具不蒐集、不揭露任何屋主姓名、聯絡方式或完整門牌資訊；所有作答僅在您的瀏覽器本機計算，不會上傳。<br>
+    6. 本表由有巢氏房屋台中世界之心加盟店景泰提供，僅作為賣方初步評估之參考。
+  </div>
+  <div class="contact">
+    <span class="agent-name">陳景泰（Teddy）</span>
+    一品不動產．有巢氏房屋台中世界之心加盟店<br>
+    <div class="contact-line">📞 <a href="tel:0920118756">0920-118-756</a></div>
+    <div class="contact-line">💬 LINE：<a href="https://line.me/ti/p/~sky811117">sky811117</a></div>
+    <div class="contact-line">📷 IG：<a href="https://instagram.com/nov__817">@nov__817</a></div>
+    <div class="cert">
+      不動產經紀人：黃永隆（113彰縣字第324號）<br>
+      不動產營業員：陳景泰（114登字第488296號）
+    </div>
+  </div>
+</footer>
+
+</div>
+
+<script>
+// === 10 題題庫（每題單選計分） ===
+// 分數設計：各題最高分不一，反映該面向對「市場接受度」的相對權重。
+const QUESTIONS = [
+  {
+    dim: '屋齡',
+    title: '房子的屋齡大約是？',
+    options: [
+      { t: '10 年內（含新成屋）', s: 10 },
+      { t: '11 ~ 25 年', s: 8 },
+      { t: '26 ~ 40 年', s: 5 },
+      { t: '逾 40 年（含老屋）', s: 3 }
+    ]
+  },
+  {
+    dim: '格局／房數',
+    title: '室內格局與房數規劃？',
+    options: [
+      { t: '2~3 房、方正好用、無暗房', s: 10 },
+      { t: '4 房以上或 1 房，格局尚可', s: 7 },
+      { t: '有過道長、開窗少或小暗房', s: 5 },
+      { t: '需要大幅改格局才好住', s: 3 }
+    ]
+  },
+  {
+    dim: '樓層',
+    title: '所在樓層條件？（含有無電梯）',
+    options: [
+      { t: '電梯大樓中高樓層（非頂樓）', s: 10 },
+      { t: '電梯大樓 2~3 樓 或 1 樓店面', s: 8 },
+      { t: '公寓 2~3 樓（無電梯）', s: 6 },
+      { t: '公寓 4~5 樓 或 頂樓加蓋', s: 4 }
+    ]
+  },
+  {
+    dim: '採光通風',
+    title: '室內採光與通風感受？',
+    options: [
+      { t: '雙面採光、明亮、通風良好', s: 10 },
+      { t: '單面採光，白天大致明亮', s: 7 },
+      { t: '部分空間偏暗，需開燈', s: 4 },
+      { t: '採光差、不易通風', s: 2 }
+    ]
+  },
+  {
+    dim: '學區／文教',
+    title: '周邊學區與文教環境？',
+    options: [
+      { t: '明星學區或步行可達優質學校', s: 8 },
+      { t: '一般公立學區，距離適中', s: 6 },
+      { t: '學校較遠，需接送', s: 4 },
+      { t: '不清楚 / 對學區無特別需求', s: 4 }
+    ]
+  },
+  {
+    dim: '生活機能／交通',
+    title: '生活機能與交通便利度？',
+    options: [
+      { t: '近捷運／主幹道，市場賣場齊全', s: 10 },
+      { t: '機能尚可，開車代步方便', s: 7 },
+      { t: '機能普通，部分需開車前往', s: 5 },
+      { t: '較偏，日常採買需遠行', s: 3 }
+    ]
+  },
+  {
+    dim: '車位',
+    title: '車位配置情況？',
+    options: [
+      { t: '含平面車位（產權獨立）', s: 10 },
+      { t: '含機械車位', s: 7 },
+      { t: '無車位，但周邊好停 / 可租', s: 5 },
+      { t: '無車位且周邊停車不易', s: 3 }
+    ]
+  },
+  {
+    dim: '社區管理／公設',
+    title: '社區管理與公設比？',
+    options: [
+      { t: '有管理員、公設實用、管理佳', s: 9 },
+      { t: '有管理，公設比偏高', s: 6 },
+      { t: '無管理的公寓 / 透天', s: 5 },
+      { t: '管理不佳或公設閒置雜亂', s: 3 }
+    ]
+  },
+  {
+    dim: '屋況／裝潢',
+    title: '室內屋況與裝潢新舊？',
+    options: [
+      { t: '近年翻新 / 屋主自住保養佳', s: 10 },
+      { t: '有基本裝潢，狀況良好', s: 8 },
+      { t: '原始屋況，需簡單整理', s: 5 },
+      { t: '老舊待整修 / 曾有漏水待處理', s: 3 }
+    ]
+  },
+  {
+    dim: '周邊環境',
+    title: '房子周邊環境狀況？',
+    options: [
+      { t: '寧靜單純、無明顯嫌惡設施', s: 10 },
+      { t: '大致單純，附近有主幹道車流', s: 7 },
+      { t: '鄰近市場 / 學校較熱鬧吵雜', s: 5 },
+      { t: '鄰近高架／嫌惡設施 或 不確定', s: 4 }
+    ]
+  }
+];
+
+const answers = new Array(QUESTIONS.length).fill(null);
+
+// === 渲染題目 ===
+function renderQuiz() {
+  const quiz = document.getElementById('quiz');
+  quiz.innerHTML = QUESTIONS.map((q, qi) => `
+    <div class="q-card" id="qcard-${qi}">
+      <div class="q-head">
+        <span class="q-num">${qi + 1}</span>
+        <div class="q-title"><span class="q-dim">${q.dim}</span>${q.title}</div>
+      </div>
+      <div class="options">
+        ${q.options.map((opt, oi) => `
+          <label class="opt" id="opt-${qi}-${oi}">
+            <input type="radio" name="q${qi}" value="${oi}" onchange="selectAns(${qi}, ${oi})">
+            <span class="opt-text">${opt.t}</span>
+          </label>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectAns(qi, oi) {
+  answers[qi] = oi;
+  // 視覺：標記選中
+  QUESTIONS[qi].options.forEach((_, i) => {
+    document.getElementById(`opt-${qi}-${i}`).classList.toggle('selected', i === oi);
+  });
+  document.getElementById(`qcard-${qi}`).classList.add('answered');
+  updateProgress();
+}
+
+function updateProgress() {
+  const done = answers.filter(a => a !== null).length;
+  const pct = (done / QUESTIONS.length) * 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = `已完成 ${done} / ${QUESTIONS.length} 題`;
+  if (done === QUESTIONS.length) {
+    showResult();
+  }
+}
+
+// === 計分 + 分級 ===
+function showResult() {
+  let total = 0;
+  let maxTotal = 0;
+  QUESTIONS.forEach((q, qi) => {
+    const maxOpt = Math.max(...q.options.map(o => o.s));
+    maxTotal += maxOpt;
+    if (answers[qi] !== null) total += q.options[answers[qi]].s;
+  });
+
+  const ratio = total / maxTotal; // 0~1
+
+  // 分級
+  let grade, gname, gcolor, adviceTitle, adviceLead, bullets;
+  if (ratio >= 0.80) {
+    grade = 'A'; gname = '體質佳'; gcolor = '#2C4A2E';
+    adviceLead = '恭喜！從您的勾選來看，這間房子在多數面向都相當有競爭力，市場接受度通常較高。';
+    bullets = [
+      '條件好的房子，<strong>賣相與第一印象更重要</strong>：建議成交前把屋況整理乾淨、採光打開，讓買方一眼就喜歡。',
+      '優勢明確時，<strong>定價策略</strong>更需精準 —— 開太高會趕跑買方、開太低又可惜，建議交給專業依實際成交資料抓區間。',
+      '把房子的亮點（學區、車位、採光、管理）整理成清單，帶看時更能打動買方。'
+    ];
+  } else if (ratio >= 0.55) {
+    grade = 'B'; gname = '中等．有亮點'; gcolor = '#8B6F4B';
+    adviceLead = '您的房子體質中等，有幾個明顯優勢、也有可以再加分的地方，是市場上很常見的好物件類型。';
+    bullets = [
+      '先<strong>放大優勢、補強弱項</strong>：得分較低的面向，往往是帶看時買方最會問的點，提早準備好說明。',
+      '部分弱項（例如屋況、整潔）可用<strong>簡單整理或修繕</strong>改善觀感，CP 值很高；大筆裝潢則不一定划算，建議先諮詢。',
+      '這類物件「定價」與「行銷曝光」最關鍵，找專業排好上架策略，能明顯縮短銷售時間。'
+    ];
+  } else {
+    grade = 'C'; gname = '條件待加強'; gcolor = '#C75A3C';
+    adviceLead = '您的房子目前有幾個面向條件較具挑戰性，但這不代表不好賣 —— 每種房子都有適合它的買方，重點是用對方法。';
+    bullets = [
+      '條件較弱的物件，<strong>「找到對的買方」比什麼都重要</strong>：例如老屋對自住客、首購族、收租或重建型買方各有不同訴求。',
+      '先盤點哪些是<strong>能改善的</strong>（屋況、整潔、格局微調）、哪些是<strong>先天的</strong>（樓層、屋齡），把力氣花在投報率高的地方。',
+      '這類物件最忌「自己亂開價、慢慢等」，建議務必交給專業評估合理區間與行銷管道，避免愈拖愈難賣。'
+    ];
+  }
+
+  document.getElementById('gradeLetter').textContent = grade;
+  document.getElementById('gradeLetter').style.color = gcolor;
+  document.getElementById('gradeName').textContent = gname;
+  document.getElementById('gradeName').style.color = gcolor;
+  document.getElementById('scoreValue').textContent = total;
+  document.getElementById('scoreMax').textContent = maxTotal;
+
+  document.getElementById('adviceBox').innerHTML = `
+    <h3>給您的務實建議</h3>
+    <p style="margin:0 0 10px;">${adviceLead}</p>
+    <ul>${bullets.map(b => `<li>${b}</li>`).join('')}</ul>
+  `;
+
+  // 維度明細（bar 寬度用各題自身最高分當分母，讓每題選最優都能填滿）
+  document.getElementById('dimTableBody').innerHTML = QUESTIONS.map((q, qi) => {
+    const opt = q.options[answers[qi]];
+    const maxOptThis = Math.max(...q.options.map(o => o.s));
+    const barW = Math.round((opt.s / maxOptThis) * 70);
+    return `
+      <tr>
+        <td><strong>${q.dim}</strong></td>
+        <td style="font-size:15px;color:var(--text-soft);">${opt.t}</td>
+        <td class="dim-score">
+          <span class="bar-mini" style="width:${barW}px;"></span>${opt.s}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  document.getElementById('resultArea').style.display = 'block';
+  document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function resetAll() {
+  answers.fill(null);
+  document.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+  document.querySelectorAll('.opt').forEach(o => o.classList.remove('selected'));
+  document.querySelectorAll('.q-card').forEach(c => c.classList.remove('answered'));
+  document.getElementById('resultArea').style.display = 'none';
+  document.getElementById('progressFill').style.width = '0%';
+  document.getElementById('progressLabel').textContent = `已完成 0 / ${QUESTIONS.length} 題`;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+renderQuiz();
+</script>
+</body>
+</html>

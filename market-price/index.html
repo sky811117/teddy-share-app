@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>台中各區行情速查 ─ 一品不動產．有巢氏台中世界之心加盟店</title>
+
+<meta name="theme-color" content="#C8A574">
+<meta name="description" content="台中各行政區實價登錄行情速查：中位單價、價格區間、屋齡、各建物型態。資料來源內政部不動產交易實價登錄。">
+
+<meta property="og:title" content="台中各區行情速查">
+<meta property="og:description" content="台中 28 區實價登錄中位單價一覽（內政部不動產交易實價登錄）">
+<meta property="og:type" content="website">
+<meta property="og:image" content="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<style>
+  :root {
+    --bg: #FAF7F2;
+    --card: #FFFFFF;
+    --card-tint: #F5EFE3;
+    --wood: #C8A574;
+    --wood-deep: #8B6F4B;
+    --text: #3A3530;
+    --text-soft: #6B6259;
+    --line: #E8DECB;
+    --num: #2C4A2E;
+    --warn: #C75A3C;
+    --warn-bg: #FBE9DE;
+  }
+  * { box-sizing: border-box; }
+  html { font-size: 17px; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 28px 20px 80px;
+  }
+  header {
+    text-align: center;
+    padding: 28px 0 18px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 24px;
+  }
+  header .brand {
+    font-size: 15px;
+    color: var(--wood-deep);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  header h1 {
+    font-size: 32px;
+    margin: 6px 0 8px;
+    color: var(--text);
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  header .sub {
+    color: var(--text-soft);
+    font-size: 17px;
+  }
+  /* 資料來源橫幅 */
+  .source-banner {
+    background: var(--card-tint);
+    border: 1px solid var(--wood);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 18px;
+    font-size: 15px;
+    line-height: 1.8;
+    color: var(--text);
+  }
+  .source-banner .src-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--wood-deep);
+    display: block;
+    margin-bottom: 6px;
+  }
+  .source-banner .src-row { color: var(--text-soft); }
+  .source-banner .src-row b { color: var(--text); font-weight: 600; }
+  .disclaimer-top {
+    background: var(--warn-bg);
+    border-left: 4px solid var(--warn);
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-size: 15px;
+    color: #6B3925;
+    margin: 0 0 24px;
+    line-height: 1.7;
+  }
+  /* 控制列 */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .controls .ctrl-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 auto;
+  }
+  .controls label {
+    font-size: 15px;
+    color: var(--text-soft);
+    white-space: nowrap;
+  }
+  .controls select, .controls input[type="search"] {
+    padding: 11px 14px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    font-size: 17px;
+    background: #FDFCF7;
+    color: var(--text);
+    font-family: inherit;
+    width: 100%;
+  }
+  .controls select:focus, .controls input[type="search"]:focus {
+    outline: none;
+    border-color: var(--wood);
+    background: #FFFEF8;
+  }
+  .controls .search-wrap { flex: 1 1 220px; }
+  .controls .sort-wrap { flex: 1 1 200px; }
+  /* 表格（桌機）/ 卡片（手機）共用資料來源 */
+  .table-card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 8px 8px;
+    box-shadow: 0 2px 14px rgba(139, 111, 75, 0.07);
+    border: 1px solid var(--line);
+    overflow: hidden;
+  }
+  table.price-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 17px;
+  }
+  table.price-table th {
+    background: var(--card-tint);
+    font-size: 15px;
+    color: var(--wood-deep);
+    font-weight: 600;
+    padding: 13px 10px;
+    text-align: right;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    border-bottom: 2px solid var(--wood);
+  }
+  table.price-table th:first-child { text-align: left; }
+  table.price-table th .arrow { font-size: 12px; color: var(--wood); margin-left: 2px; }
+  table.price-table td {
+    padding: 13px 10px;
+    border-bottom: 1px solid #F0E6D0;
+    text-align: right;
+    vertical-align: middle;
+  }
+  table.price-table td:first-child { text-align: left; }
+  table.price-table tbody tr { cursor: pointer; transition: background .12s; }
+  table.price-table tbody tr:hover { background: #FBF6EC; }
+  table.price-table tbody tr.open { background: #F5EFE3; }
+  table.price-table .dist-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--wood-deep);
+  }
+  table.price-table .dist-name .toggle-ico {
+    display: inline-block;
+    width: 18px;
+    color: var(--wood);
+    font-size: 13px;
+    transition: transform .15s;
+  }
+  table.price-table tr.open .toggle-ico { transform: rotate(90deg); }
+  table.price-table .median-cell {
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    color: var(--num);
+    font-weight: 700;
+    font-size: 19px;
+    white-space: nowrap;
+  }
+  table.price-table .num-cell {
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .trend { font-weight: 600; white-space: nowrap; font-family: 'Inter', 'Noto Sans TC', sans-serif; }
+  .trend.down { color: var(--warn); }
+  .trend.up { color: #2C4A2E; }
+  .trend.flat { color: var(--text-soft); }
+  .trend.na { color: var(--text-soft); font-weight: 400; }
+  /* 展開明細列 */
+  tr.detail-row > td {
+    padding: 0;
+    border-bottom: 1px solid #F0E6D0;
+    text-align: left;
+  }
+  .detail-inner {
+    background: #FBF7EF;
+    padding: 18px 18px 20px;
+    display: none;
+  }
+  tr.detail-row.show .detail-inner { display: block; }
+  .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 720px) {
+    .detail-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .stat-box {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-align: center;
+  }
+  .stat-box .s-label { font-size: 13px; color: var(--text-soft); margin-bottom: 4px; }
+  .stat-box .s-val {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--num);
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+  }
+  .stat-box .s-unit { font-size: 13px; color: var(--text-soft); font-weight: 400; }
+  .detail-sub {
+    font-size: 16px;
+    color: var(--wood-deep);
+    font-weight: 700;
+    margin: 6px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .type-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  @media (max-width: 720px) {
+    .type-grid { grid-template-columns: 1fr; }
+  }
+  .type-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 10px 14px;
+    font-size: 16px;
+  }
+  .type-row .t-name { color: var(--text); }
+  .type-row .t-name small { color: var(--text-soft); font-size: 13px; margin-left: 4px; }
+  .type-row .t-val {
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    color: var(--num);
+    font-weight: 700;
+    font-size: 17px;
+  }
+  .trend-line {
+    background: #FFF8E8;
+    border-radius: 9px;
+    padding: 12px 16px;
+    font-size: 15px;
+    color: #7A5D2E;
+    line-height: 1.7;
+  }
+  .trend-line .badge {
+    display: inline-block;
+    font-size: 12px;
+    background: var(--wood-deep);
+    color: #fff;
+    padding: 2px 9px;
+    border-radius: 10px;
+    margin-right: 6px;
+    vertical-align: 1px;
+  }
+  .trend-line .big {
+    font-size: 19px;
+    font-weight: 700;
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+  }
+  .trend-line .big.down { color: var(--warn); }
+  .trend-line .big.up { color: #2C4A2E; }
+  .empty-row td {
+    text-align: center;
+    color: var(--text-soft);
+    padding: 30px 10px;
+    font-size: 16px;
+  }
+  /* 表頭精簡欄位在窄螢幕隱藏 */
+  @media (max-width: 600px) {
+    .col-hide-sm { display: none; }
+    table.price-table th, table.price-table td { padding: 12px 7px; }
+    table.price-table .dist-name { font-size: 17px; }
+    table.price-table .median-cell { font-size: 18px; }
+  }
+  .legend {
+    font-size: 14px;
+    color: var(--text-soft);
+    margin: 14px 2px 0;
+    line-height: 1.8;
+  }
+  .legend b { color: var(--wood-deep); }
+  .print-btn {
+    background: var(--wood);
+    color: white;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    margin: 26px auto 0;
+    display: block;
+    font-family: inherit;
+  }
+  .print-btn:hover { background: var(--wood-deep); }
+  /* CTA */
+  .cta-banner {
+    background: linear-gradient(135deg, #F5EFE3 0%, #FDFCF7 100%);
+    border: 1px solid var(--wood);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin: 28px 0 0;
+    text-align: center;
+  }
+  .cta-banner .cta-title {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--wood-deep);
+    margin-bottom: 6px;
+  }
+  .cta-banner .cta-sub {
+    font-size: 16px;
+    color: var(--text-soft);
+    line-height: 1.7;
+  }
+  footer {
+    margin-top: 40px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+  }
+  footer .legal {
+    background: #F5EFE3;
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-size: 13px;
+    color: var(--text-soft);
+    line-height: 1.8;
+    text-align: left;
+    margin-bottom: 24px;
+  }
+  footer .legal strong { color: var(--wood-deep); }
+  footer .contact {
+    font-size: 15px;
+    color: var(--text);
+    line-height: 1.8;
+  }
+  footer .contact .agent-name {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--wood-deep);
+    display: block;
+    margin-bottom: 4px;
+  }
+  footer .contact a {
+    color: var(--wood-deep);
+    text-decoration: none;
+  }
+  footer .contact a:hover { text-decoration: underline; }
+  footer .cert {
+    font-size: 13px;
+    color: var(--text-soft);
+    margin-top: 8px;
+  }
+  @media print {
+    .print-btn, .controls { display: none; }
+    body { background: white; }
+    .table-card { box-shadow: none; }
+    tr.detail-row .detail-inner { display: block !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">一品不動產．有巢氏台中世界之心加盟店</div>
+  <h1>台中各區行情速查</h1>
+  <div class="sub">台中 28 個行政區．實價登錄中位單價一覽</div>
+</header>
+
+<!-- 資料來源（最上方明顯標示） -->
+<div class="source-banner">
+  <span class="src-title">📊 資料來源：內政部不動產交易實價登錄</span>
+  <div class="src-row"><b>資料區間：</b><span id="srcRange">─</span></div>
+  <div class="src-row"><b>單位：</b><span id="srcUnit">─</span></div>
+  <div class="src-row"><b>統計方法：</b><span id="srcMethod">─</span></div>
+  <div class="src-row"><b>資料更新：</b><span id="srcGenerated">─</span></div>
+</div>
+
+<div class="disclaimer-top">
+  ⚠️ <strong>使用前請看：</strong>本表為各區成交價的<strong>統計概況</strong>，反映<strong>過去實際成交</strong>，僅供初步參考。個別物件因屋齡、樓層、座向、裝潢、有無車位差異甚大，<strong>單一物件行情仍需個案估價</strong>。本工具不代表任何物件報價，亦<strong>不構成未來房價漲跌的預測或建議</strong>。
+</div>
+
+<!-- 控制列：搜尋 + 排序 -->
+<div class="controls">
+  <div class="ctrl-group search-wrap">
+    <label for="searchBox">🔍 找區</label>
+    <input type="search" id="searchBox" placeholder="輸入行政區，如：北屯、西屯…">
+  </div>
+  <div class="ctrl-group sort-wrap">
+    <label for="sortSel">排序</label>
+    <select id="sortSel">
+      <option value="median-desc">中位單價（高 → 低）</option>
+      <option value="median-asc">中位單價（低 → 高）</option>
+      <option value="n-desc">成交件數（多 → 少）</option>
+      <option value="trend-desc">近1年增減幅（高 → 低）</option>
+      <option value="trend-asc">近1年變化（低 → 高）</option>
+      <option value="name">行政區名稱</option>
+    </select>
+  </div>
+</div>
+
+<div class="table-card">
+  <table class="price-table">
+    <thead>
+      <tr>
+        <th data-sort="name">行政區</th>
+        <th data-sort="median" style="text-align:right;">中位單價<span class="arrow" id="ar-median">▼</span></th>
+        <th data-sort="range" class="col-hide-sm" style="text-align:right;">區間 (p25–p75)</th>
+        <th data-sort="n" class="col-hide-sm" style="text-align:right;">成交件數</th>
+        <th data-sort="trend" style="text-align:right;">近1年變化</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<div class="legend">
+  <b>名詞說明：</b>「中位單價」＝該區所有成交單價的中位數（萬元/坪），比平均數較不受少數豪宅或極低價拉抬。
+  「區間 (p25–p75)」＝多數成交落在的單價範圍（第 25～75 百分位）。
+  「近1年變化」＝近 1 年成交中位數相對前 1 年的<b>歷史變化百分比，為過去成交紀錄，非未來房價預測</b>。
+  點任一列可展開該區屋齡、主力房數與各建物型態細節。
+</div>
+
+<button class="print-btn" onclick="window.print()">📄 列印 / 存成 PDF</button>
+
+<!-- CTA -->
+<div class="cta-banner">
+  <div class="cta-title">想知道「您看的這一間」實際行情？</div>
+  <div class="cta-sub">
+    區域中位數只是大盤概況。特定社區、樓層、屋況的合理價格，需要逐案比對實價登錄與現場估價。<br>
+    歡迎把物件資訊給我，景泰幫您做一份免費的個案行情分析。
+  </div>
+</div>
+
+<footer>
+  <div class="legal">
+    <strong>法定揭露與免責聲明</strong><br>
+    1. 本表數據來源為<strong>內政部不動產交易實價登錄</strong>，資料區間與統計方法如本頁上方標示。<br>
+    2. 數據已排除車位、店面、廠辦及極端單價交易，採「中位數」呈現，以降低少數高價或低價交易對統計的影響。<br>
+    3. 中位單價為<strong>區域整體成交概況</strong>，不等於任何個別物件的成交價或委託價；個案價格受屋齡、樓層、座向、格局、裝潢、公設比、有無車位等因素影響甚大。<br>
+    4.「近1年變化」為<strong>過去成交中位數的歷史變化，屬已發生之成交紀錄，不構成、也不應被解讀為未來房價漲跌之預測、保證或投資建議</strong>。<br>
+    5. 本工具僅供<strong>初步參考</strong>，不構成任何具體財務、稅務、法律或投資建議；實際物件行情仍需個案估價，購屋前請洽詢專業人員確認。<br>
+    6. 本表由有巢氏房屋台中世界之心加盟店景泰提供，僅作為民眾了解區域行情之參考工具。
+  </div>
+  <div class="contact">
+    <span class="agent-name">陳景泰（Teddy）</span>
+    一品不動產．有巢氏房屋台中世界之心加盟店<br>
+    📞 <a href="tel:0920118756">0920-118-756</a>
+    💬 LINE：<a href="https://line.me/ti/p/~sky811117">sky811117</a>
+    📷 IG：<a href="https://instagram.com/nov__817">@nov__817</a>
+    <div class="cert">
+      不動產經紀人：黃永隆（113彰縣字第324號）<br>
+      不動產營業員：陳景泰（114登字第488296號）
+    </div>
+  </div>
+</footer>
+
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let DATA = null;
+let DISTRICTS = [];
+let openSet = new Set();
+let currentSort = 'median-desc';
+
+// 數字格式化
+function fmtN(n, digits) {
+  if (n === null || n === undefined || !isFinite(n)) return '─';
+  return Number(n).toLocaleString('zh-TW', {
+    minimumFractionDigits: digits ?? 0,
+    maximumFractionDigits: digits ?? 1
+  });
+}
+
+// 房數中文
+function roomLabel(m) {
+  if (m === null || m === undefined) return '─';
+  return m + ' 房';
+}
+
+// 屋齡顯示（資料中 1.0 代表新成屋附近）
+function ageLabel(a) {
+  if (a === null || a === undefined) return '─';
+  const v = Math.round(a);
+  if (v <= 1) return '約 ' + v + ' 年（新成屋為主）';
+  return '約 ' + v + ' 年';
+}
+
+// trend 顯示用
+function trendClass(t) {
+  if (t === null || t === undefined) return 'na';
+  if (t <= -0.5) return 'down';
+  if (t >= 0.5) return 'up';
+  return 'flat';
+}
+function trendText(t) {
+  if (t === null || t === undefined) return '樣本少';
+  const sign = t > 0 ? '+' : '';
+  return sign + fmtN(t, 1) + '%';
+}
+
+// 排序
+function sortDistricts(list, key) {
+  const arr = list.slice();
+  const byNum = (sel, dir) => arr.sort((a, b) => {
+    let av = sel(a), bv = sel(b);
+    // null 一律排到最後
+    const an = (av === null || av === undefined || !isFinite(av));
+    const bn = (bv === null || bv === undefined || !isFinite(bv));
+    if (an && bn) return 0;
+    if (an) return 1;
+    if (bn) return -1;
+    return dir * (bv - av);
+  });
+  switch (key) {
+    case 'median-desc': return byNum(d => d.median, 1);
+    case 'median-asc':  return byNum(d => d.median, -1);
+    case 'n-desc':      return byNum(d => d.n, 1);
+    case 'trend-desc':  return byNum(d => d.trend_1y_pct, 1);
+    case 'trend-asc':   return byNum(d => d.trend_1y_pct, -1);
+    case 'name':        return arr.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
+    default:            return byNum(d => d.median, 1);
+  }
+}
+
+// 表頭箭頭
+function updateHeaderArrow() {
+  const ar = $('ar-median');
+  if (!ar) return;
+  if (currentSort === 'median-desc') ar.textContent = '▼';
+  else if (currentSort === 'median-asc') ar.textContent = '▲';
+  else ar.textContent = '';
+}
+
+// 各型態：依件數由多到少排
+function renderTypes(byType) {
+  if (!byType) return '';
+  const order = ['電梯大樓', '華廈', '公寓', '透天厝'];
+  const entries = Object.keys(byType)
+    .map(k => ({ name: k, n: byType[k].n, median: byType[k].median }))
+    .sort((a, b) => {
+      // 先照固定型態順序，其次件數
+      const ia = order.indexOf(a.name), ib = order.indexOf(b.name);
+      if (ia !== ib) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+      return b.n - a.n;
+    });
+  return entries.map(e => `
+    <div class="type-row">
+      <span class="t-name">${e.name}<small>${fmtN(e.n, 0)} 件</small></span>
+      <span class="t-val">${fmtN(e.median, 1)} <small style="font-size:13px;color:var(--text-soft);font-weight:400;">萬/坪</small></span>
+    </div>
+  `).join('');
+}
+
+function renderDetail(d) {
+  const tcls = trendClass(d.trend_1y_pct);
+  const trendBlock = (d.trend_1y_pct === null || d.trend_1y_pct === undefined)
+    ? `<div class="trend-line">
+         <span class="badge">近1年</span>
+         此區近期成交樣本較少（近1年約 ${fmtN(d.n_recent_1y, 0)} 件），歷史變化數據參考性較低，暫不顯示變化幅度。
+       </div>`
+    : `<div class="trend-line">
+         <span class="badge">近1年</span>
+         近 1 年成交中位數相對前 1 年為
+         <span class="big ${tcls}">${trendText(d.trend_1y_pct)}</span>
+         （近1年約 ${fmtN(d.n_recent_1y, 0)} 件成交）。
+         此為<b>過去成交的歷史變化，非未來房價預測</b>。
+       </div>`;
+
+  return `
+    <div class="detail-inner">
+      <div class="detail-grid">
+        <div class="stat-box">
+          <div class="s-label">成交件數</div>
+          <div class="s-val">${fmtN(d.n, 0)} <span class="s-unit">件</span></div>
+        </div>
+        <div class="stat-box">
+          <div class="s-label">中位單價</div>
+          <div class="s-val">${fmtN(d.median, 1)} <span class="s-unit">萬/坪</span></div>
+        </div>
+        <div class="stat-box">
+          <div class="s-label">多數落在</div>
+          <div class="s-val">${fmtN(d.p25, 1)}–${fmtN(d.p75, 1)} <span class="s-unit">萬/坪</span></div>
+        </div>
+        <div class="stat-box">
+          <div class="s-label">中位屋齡</div>
+          <div class="s-val">${ageLabel(d.age_median)}</div>
+        </div>
+      </div>
+      <div class="detail-sub">主力房數：${roomLabel(d.room_mode)}　｜　各建物型態中位單價</div>
+      <div class="type-grid">
+        ${renderTypes(d.by_type)}
+      </div>
+      ${trendBlock}
+    </div>
+  `;
+}
+
+function render() {
+  const q = ($('searchBox').value || '').trim();
+  let list = DISTRICTS;
+  if (q) {
+    list = list.filter(d => d.name.indexOf(q) !== -1);
+  }
+  list = sortDistricts(list, currentSort);
+
+  const tbody = $('tbody');
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">找不到「${q}」相關的行政區，請確認輸入（例：北屯、西屯、南屯）</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(d => {
+    const isOpen = openSet.has(d.name);
+    const tcls = trendClass(d.trend_1y_pct);
+    return `
+      <tr class="data-row ${isOpen ? 'open' : ''}" data-name="${d.name}">
+        <td>
+          <span class="dist-name"><span class="toggle-ico">▶</span> ${d.name}</span>
+        </td>
+        <td><span class="median-cell">${fmtN(d.median, 1)}</span></td>
+        <td class="col-hide-sm"><span class="num-cell">${fmtN(d.p25, 1)} – ${fmtN(d.p75, 1)}</span></td>
+        <td class="col-hide-sm"><span class="num-cell">${fmtN(d.n, 0)}</span></td>
+        <td><span class="trend ${tcls}">${trendText(d.trend_1y_pct)}</span></td>
+      </tr>
+      <tr class="detail-row ${isOpen ? 'show' : ''}" data-detail="${d.name}">
+        <td colspan="5">${renderDetail(d)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  // 綁定點擊展開
+  tbody.querySelectorAll('tr.data-row').forEach(tr => {
+    tr.addEventListener('click', () => {
+      const name = tr.getAttribute('data-name');
+      if (openSet.has(name)) openSet.delete(name);
+      else openSet.add(name);
+      render();
+    });
+  });
+}
+
+// 載入資料
+fetch('./data.json')
+  .then(r => {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  })
+  .then(json => {
+    DATA = json;
+    DISTRICTS = (json.districts || []).slice();
+
+    // 資料來源區
+    const m = json.meta || {};
+    $('srcRange').textContent = m.data_range || '─';
+    $('srcUnit').textContent = m.unit || '─';
+    $('srcMethod').textContent = m.method || '─';
+    $('srcGenerated').textContent = m.generated || '─';
+
+    render();
+  })
+  .catch(err => {
+    $('tbody').innerHTML =
+      `<tr class="empty-row"><td colspan="5">資料載入失敗（${err.message}）。請以瀏覽器透過本機伺服器開啟，或稍後再試。</td></tr>`;
+    // 資料來源區載入失敗時不要留「─」，給明確提示
+    $('srcRange').textContent = '資料載入失敗，請稍後再試';
+    $('srcUnit').textContent = '資料載入失敗，請稍後再試';
+    $('srcMethod').textContent = '資料載入失敗，請稍後再試';
+  });
+
+// 事件
+$('searchBox').addEventListener('input', render);
+$('sortSel').addEventListener('change', (e) => {
+  currentSort = e.target.value;
+  updateHeaderArrow();
+  render();
+});
+
+// 表頭點擊排序（中位單價 / 件數 / 變化 / 名稱）
+document.querySelectorAll('th[data-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const key = th.getAttribute('data-sort');
+    if (key === 'median') {
+      currentSort = (currentSort === 'median-desc') ? 'median-asc' : 'median-desc';
+    } else if (key === 'n' || key === 'range') {
+      currentSort = 'n-desc';
+    } else if (key === 'trend') {
+      currentSort = (currentSort === 'trend-desc') ? 'trend-asc' : 'trend-desc';
+    } else if (key === 'name') {
+      currentSort = 'name';
+    }
+    $('sortSel').value = currentSort;
+    updateHeaderArrow();
+    render();
+  });
+});
+</script>
+</body>
+</html>

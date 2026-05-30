@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>看屋檢查清單 ─ 一品不動產．有巢氏台中世界之心加盟店</title>
+
+<meta name="theme-color" content="#C8A574">
+<meta name="description" content="看屋檢查清單：60＋項逐條打勾，看屋前列印帶著、現場核對，避免漏看。買方初步參考用。">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="看屋清單">
+
+<meta property="og:title" content="看屋檢查清單">
+<meta property="og:description" content="60＋項逐條打勾，看屋前列印帶著、現場核對，避免漏看">
+<meta property="og:type" content="website">
+<meta property="og:image" content="icon-512.png">
+
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FAF7F2;
+    --card: #FFFFFF;
+    --card-tint: #F5EFE3;
+    --wood: #C8A574;
+    --wood-deep: #8B6F4B;
+    --text: #3A3530;
+    --text-soft: #6B6259;
+    --line: #E8DECB;
+    --num: #2C4A2E;
+    --warn: #C75A3C;
+    --warn-bg: #FBE9DE;
+  }
+  * { box-sizing: border-box; }
+  html { font-size: 17px; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 28px 20px 80px;
+  }
+  header {
+    text-align: center;
+    padding: 28px 0 18px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 28px;
+  }
+  header .brand {
+    font-size: 15px;
+    color: var(--wood-deep);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  header h1 {
+    font-size: 32px;
+    margin: 6px 0 8px;
+    color: var(--text);
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  header .sub {
+    color: var(--text-soft);
+    font-size: 17px;
+  }
+  .disclaimer-top {
+    background: var(--warn-bg);
+    border-left: 4px solid var(--warn);
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-size: 15px;
+    color: #6B3925;
+    margin: 18px 0 24px;
+    line-height: 1.7;
+  }
+
+  /* 工具列 */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  .btn {
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 500;
+  }
+  .btn-primary { background: var(--wood); color: #fff; }
+  .btn-primary:hover { background: var(--wood-deep); }
+  .btn-ghost {
+    background: #fff;
+    color: var(--wood-deep);
+    border: 1px solid var(--wood);
+  }
+  .btn-ghost:hover { background: var(--card-tint); }
+
+  /* 進度條 */
+  .progress-wrap {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--bg);
+    padding: 12px 0 14px;
+    margin-bottom: 8px;
+  }
+  .progress-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .progress-head .ptitle {
+    font-size: 16px;
+    color: var(--wood-deep);
+    font-weight: 600;
+  }
+  .progress-head .pcount {
+    font-size: 16px;
+    color: var(--num);
+    font-weight: 700;
+  }
+  .progress-bar-bg {
+    width: 100%;
+    height: 14px;
+    background: #EDE3D0;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--wood) 0%, var(--wood-deep) 100%);
+    border-radius: 10px;
+    transition: width .25s ease;
+  }
+
+  /* 物件基本資料卡 */
+  .card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: 0 2px 14px rgba(139, 111, 75, 0.07);
+    border: 1px solid var(--line);
+    margin-bottom: 22px;
+  }
+  .card h2 {
+    font-size: 22px;
+    margin: 0 0 14px;
+    color: var(--wood-deep);
+    border-bottom: 2px solid var(--wood);
+    padding-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h2 .step {
+    background: var(--wood);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 22px;
+  }
+  @media (max-width: 720px) {
+    .info-grid { grid-template-columns: 1fr; }
+  }
+  .info-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .info-field label {
+    font-size: 15px;
+    color: var(--text-soft);
+    font-weight: 500;
+  }
+  .info-field input {
+    width: 100%;
+    padding: 11px 13px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 17px;
+    background: #FDFCF7;
+    color: var(--text);
+    font-family: inherit;
+  }
+  .info-field input:focus {
+    outline: none;
+    border-color: var(--wood);
+    background: #FFFEF8;
+  }
+
+  /* 區塊 */
+  .section {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 22px 24px;
+    box-shadow: 0 2px 14px rgba(139, 111, 75, 0.07);
+    border: 1px solid var(--line);
+    margin-bottom: 20px;
+  }
+  .section > h2 {
+    font-size: 21px;
+    margin: 0 0 6px;
+    color: var(--wood-deep);
+    border-bottom: 2px solid var(--wood);
+    padding-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section > h2 .step {
+    background: var(--wood);
+    color: white;
+    min-width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 700;
+    flex-shrink: 0;
+    padding: 0 4px;
+  }
+  .section > h2 .sec-count {
+    margin-left: auto;
+    font-size: 15px;
+    color: var(--text-soft);
+    font-weight: 500;
+    background: var(--card-tint);
+    padding: 3px 12px;
+    border-radius: 12px;
+  }
+
+  .check-item {
+    border-bottom: 1px dashed #F0E6D0;
+    padding: 12px 0 10px;
+  }
+  .check-item:last-child { border-bottom: none; }
+  .check-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    cursor: pointer;
+  }
+  .check-row input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    accent-color: var(--wood);
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .check-row .ck-text {
+    font-size: 17px;
+    color: var(--text);
+    line-height: 1.55;
+  }
+  .check-row .ck-text small {
+    display: block;
+    color: var(--text-soft);
+    font-size: 15px;
+    margin-top: 3px;
+    line-height: 1.55;
+  }
+  .check-row input:checked + .ck-text {
+    color: var(--text-soft);
+  }
+  .note-input {
+    margin: 8px 0 2px 33px;
+    width: calc(100% - 33px);
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    font-size: 15px;
+    background: #FDFCF7;
+    color: var(--text);
+    font-family: inherit;
+  }
+  .note-input::placeholder { color: #B7AC9A; }
+  .note-input:focus {
+    outline: none;
+    border-color: var(--wood);
+    background: #FFFEF8;
+  }
+
+  .sec-tip {
+    background: #FFF8E8;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 15px;
+    color: #7A5D2E;
+    margin: 4px 0 12px;
+    line-height: 1.65;
+  }
+  .sec-tip.warn {
+    background: var(--warn-bg);
+    color: #6B3925;
+    border-left: 4px solid var(--warn);
+  }
+  .sec-tip a {
+    color: var(--wood-deep);
+    font-weight: 600;
+  }
+
+  .saved-flag {
+    text-align: center;
+    font-size: 15px;
+    color: var(--num);
+    margin: 4px 0 18px;
+    min-height: 20px;
+  }
+
+  footer {
+    margin-top: 50px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+  }
+  footer .legal {
+    background: #F5EFE3;
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-size: 14px;
+    color: var(--text-soft);
+    line-height: 1.8;
+    text-align: left;
+    margin-bottom: 24px;
+  }
+  footer .legal strong { color: var(--wood-deep); }
+  footer .contact {
+    font-size: 15px;
+    color: var(--text);
+    line-height: 1.8;
+  }
+  footer .contact .agent-name {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--wood-deep);
+    display: block;
+    margin-bottom: 4px;
+  }
+  footer .contact a {
+    color: var(--wood-deep);
+    text-decoration: none;
+  }
+  footer .contact a:hover { text-decoration: underline; }
+  footer .cert {
+    font-size: 14px;
+    color: var(--text-soft);
+    margin-top: 8px;
+  }
+
+  @media print {
+    .toolbar { display: none; }
+    .progress-wrap { position: static; }
+    body { background: white; }
+    .card, .section { box-shadow: none; break-inside: avoid; }
+    .section { page-break-inside: avoid; }
+    .sec-tip { background: #fff; border: 1px solid var(--line); }
+    a[href]:after { content: ""; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">一品不動產．有巢氏台中世界之心加盟店</div>
+  <h1>看屋檢查清單</h1>
+  <div class="sub">看屋前列印帶著．現場逐條打勾．避免回家才想起漏看</div>
+</header>
+
+<div class="disclaimer-top">
+  ⚠️ <strong>使用前請看：</strong>本清單是<strong>買方看屋的初步提醒工具</strong>，協助你現場有系統地查看與紀錄，<strong>不是房屋鑑定、不是估價、也不是投資建議</strong>。結構安全、海砂、輻射、是否曾發生非自然身故（凶宅）等事項，一律<strong>以委託書、不動產說明書及產權調查的正式書面揭露為準</strong>，本清單僅提醒你逐項向屋主、仲介或專業技師查證。勾選與備註資料只儲存在你自己的手機／電腦瀏覽器，不會上傳。
+</div>
+
+<!-- 工具列 -->
+<div class="toolbar">
+  <button class="btn btn-primary" onclick="window.print()">🖨️ 列印 / 存成 PDF</button>
+  <button class="btn btn-ghost" onclick="clearAll()">🧹 清除重填</button>
+</div>
+
+<!-- 進度條 -->
+<div class="progress-wrap">
+  <div class="progress-head">
+    <span class="ptitle">看屋完成度</span>
+    <span class="pcount"><span id="doneCount">0</span> / <span id="totalCount">0</span> 項</span>
+  </div>
+  <div class="progress-bar-bg">
+    <div class="progress-bar-fill" id="progressFill"></div>
+  </div>
+</div>
+<div class="saved-flag" id="savedFlag">&nbsp;</div>
+
+<!-- 物件基本資料 -->
+<div class="card">
+  <h2><span class="step">★</span>物件基本資料（列印帶走用）</h2>
+  <div class="info-grid">
+    <div class="info-field">
+      <label>看屋日期</label>
+      <input type="date" id="info_date" data-info>
+    </div>
+    <div class="info-field">
+      <label>社區 / 大樓名稱</label>
+      <input type="text" id="info_community" data-info placeholder="例：順天豐華">
+    </div>
+    <div class="info-field">
+      <label>地址 / 路段（可只記路段）</label>
+      <input type="text" id="info_addr" data-info placeholder="例：北屯區崇德路二段">
+    </div>
+    <div class="info-field">
+      <label>樓層 / 總樓層</label>
+      <input type="text" id="info_floor" data-info placeholder="例：8/14F">
+    </div>
+    <div class="info-field">
+      <label>開價（萬）</label>
+      <input type="text" id="info_price" data-info placeholder="例：1080">
+    </div>
+    <div class="info-field">
+      <label>坪數（權狀／主＋附）</label>
+      <input type="text" id="info_area" data-info placeholder="例：權狀 42 坪 / 室內 28 坪">
+    </div>
+  </div>
+  <div class="sec-tip" style="margin-top:16px;">
+    📌 開價只是屋主的要約，<strong>不代表成交行情</strong>。想了解周邊「過去實際成交」資料，可查內政部不動產交易實價登錄網（lvr.land.moi.gov.tw），數字僅供參考、會隨個案條件差異。
+  </div>
+</div>
+
+<!-- 清單區塊由 JS 渲染 -->
+<div id="checklistRoot"></div>
+
+<button class="btn btn-primary" style="display:block;margin:24px auto 0;" onclick="window.print()">🖨️ 列印 / 存成 PDF</button>
+
+<footer>
+  <div class="legal">
+    <strong>法定揭露與免責聲明</strong><br>
+    1. 本清單為買方看屋之<strong>初步檢查與紀錄輔助工具</strong>，所列項目為一般看屋常見注意事項整理，非鑑定、非估價、非投資建議。<br>
+    2. 房屋結構安全、漏水、海砂屋（氯離子含量）、輻射屋、是否為曾發生非自然身故之標的（凶宅）等重大事項，<strong>應以委託書、不動產說明書及產權／現況之正式書面揭露為準</strong>；必要時請另委請專業技師、相關檢測機構查驗。<br>
+    3. 不動產說明書、土地及建物登記謄本、有無查封或限制登記等產權狀況，請於出價前向仲介索取並核對正本。<br>
+    4. 本工具不預測、不保證房價漲跌；任何成交行情數字請以<strong>內政部不動產交易實價登錄</strong>公開資料為準，並注意其為歷史成交、會因個案條件不同而有差異。<br>
+    5. 本清單之勾選與備註內容僅儲存於使用者個人裝置瀏覽器（localStorage），不會上傳或外流。<br>
+    6. 本表由有巢氏房屋台中世界之心加盟店陳景泰提供，僅供買方初步參考；實際交易請洽詢仲介、代書、貸款銀行及相關專業人員確認。
+  </div>
+  <div class="contact">
+    <span class="agent-name">陳景泰（Teddy）</span>
+    一品不動產．有巢氏房屋台中世界之心加盟店<br>
+    📞 <a href="tel:0920118756">0920-118-756</a>
+    💬 LINE：<a href="https://line.me/ti/p/~sky811117">sky811117</a>
+    📷 IG：<a href="https://instagram.com/nov__817">@nov__817</a>
+    <div class="cert">
+      不動產經紀人：黃永隆（113彰縣字第324號）<br>
+      不動產營業員：陳景泰（114登字第488296號）
+    </div>
+  </div>
+</footer>
+
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const STORE_KEY = 'teddy_viewing_checklist_v1';
+
+/* ── 清單資料：10 區塊 / 共 70 項 ── */
+const SECTIONS = [
+  {
+    icon: '①', title: '外觀與結構',
+    items: [
+      ['外牆磁磚有無剝落、空鼓或大面積修補痕跡', '繞建築外圍抬頭看，磁磚掉落是公安與後續維修費風險'],
+      ['樑、柱、外牆有無明顯裂縫（尤其斜向裂縫）', '結構性裂縫須請專業技師判斷，不可自行認定安全'],
+      ['建築物有無傾斜、地基下陷或門框變形跡象', ''],
+      ['頂樓 / 露台有無加蓋，是否為合法或既存違建', '加蓋部分可能涉拆除風險，須確認登記與現況'],
+      ['騎樓、外牆、招牌有無滲水或鏽蝕鋼筋外露', ''],
+      ['外觀整體屋齡感與謄本／說明書記載是否相符', '屋齡以建物登記謄本為準'],
+    ],
+  },
+  {
+    icon: '②', title: '室內屋況',
+    items: [
+      ['牆面 / 牆角有無壁癌、白色結晶或油漆鼓起', '常是滲漏的徵兆，留意是否剛粉刷遮蓋'],
+      ['天花板有無水漬、變色或修補不均的痕跡', '特別看窗邊、外牆側、浴廁正下方'],
+      ['地板有無膨拱、翹起、空心聲或磁磚裂痕', '可用腳輕踩、輕敲聽聲音'],
+      ['有無剛上漆、貼壁紙、擺家具遮蓋特定牆面', '對可疑處可直接詢問是否曾漏水修繕'],
+      ['門、窗開合是否順暢、有無變形或關不緊', ''],
+      ['窗戶有無滲水痕、發霉或矽利康老化', ''],
+      ['牆面、櫃內有無潮濕霉味（嗅覺確認）', ''],
+    ],
+  },
+  {
+    icon: '③', title: '水電管線',
+    items: [
+      ['各水龍頭水壓是否足夠、出水是否清澈', '同時開幾處測試，留意是否變小'],
+      ['排水是否順暢、有無回堵或異味', '測廚房、浴室、陽台地排'],
+      ['總電箱安培數與迴路是否足夠（老屋常不足）', '使用多電器、裝冷氣需評估是否要重拉'],
+      ['各房間插座數量、位置是否夠用、是否有接地', ''],
+      ['熱水器型式（瓦斯／電）、位置是否合規通風', '瓦斯熱水器嚴禁裝室內無排氣處，攸關安全'],
+      ['全室電燈、開關是否正常，有無臨時延長線亂接', ''],
+      ['有無瓦斯（天然氣／桶裝）、管線是否老舊', ''],
+    ],
+  },
+  {
+    icon: '④', title: '衛浴與廚房',
+    items: [
+      ['浴室地板、牆面防水是否完好，有無滲到隔壁', ''],
+      ['浴室有無對外窗或抽風設備、通風是否良好', '無窗浴室更要看排風與除濕'],
+      ['馬桶、地排、洗手台排水與沖水是否正常', ''],
+      ['若曾改建浴室，留意是否有確實做防水與回填', '二次施工防水沒做好是日後漏水大宗'],
+      ['廚房流理台、櫥櫃是否堪用、有無漏水或鏽蝕', ''],
+      ['抽油煙機、排油煙管出口是否正常、會不會回煙', ''],
+    ],
+  },
+  {
+    icon: '⑤', title: '採光 / 通風 / 噪音 / 氣味',
+    items: [
+      ['房屋座向與主要採光面（建議實際看日照時間）', '座向影響採光與西曬，可不同時段再看一次'],
+      ['前後棟距、是否被鄰棟遮擋採光或對看', ''],
+      ['對外窗能否形成通風對流、是否悶熱', ''],
+      ['鄰近馬路、鐵路、學校、商家的噪音程度', '建議白天與夜間各感受一次'],
+      ['有無油煙、餐飲、工廠、排水溝等異味來源', ''],
+      ['夜間照明、街燈是否足夠、回家動線是否安全', ''],
+    ],
+  },
+  {
+    icon: '⑥', title: '格局與動線',
+    items: [
+      ['格局是否方正、有無難利用的畸零或狹長空間', ''],
+      ['是否有暗房（無對外窗的房間）', '暗房採光通風較差，影響使用與轉手'],
+      ['室內有無大樑、大柱壓迫感（尤其床位、客廳）', ''],
+      ['走道、玄關動線是否順暢、不浪費坪效', ''],
+      ['陽台位置、是否外推、能否曬衣或放洗衣機', '外推陽台屬違建範圍，須確認'],
+      ['未來裝潢／格局調整是否會動到結構牆', '結構牆不可隨意拆除'],
+    ],
+  },
+  {
+    icon: '⑦', title: '社區與管理',
+    items: [
+      ['是否有管理委員會、管理是否上軌道', ''],
+      ['每月管理費金額、是否有積欠或將大額提撥', '可詢問管理費收取標準與用途'],
+      ['車位型式（坡平／機械／升降）、產權或租用', '台中大樓車位常見坡平與機械，價格與好停度差很多'],
+      ['車位尺寸、進出動線、是否好停（建議實地試）', ''],
+      ['公共設施項目、維護狀況與使用率', ''],
+      ['公共空間、樓梯間、電梯整潔與保養狀況', ''],
+      ['住戶單純度、有無短租 / 商業 / 出租比例偏高', ''],
+      ['有無重大修繕計畫或將召開區權會討論大額支出', ''],
+    ],
+  },
+  {
+    icon: '⑧', title: '周邊嫌惡設施',
+    tip: '建議搭配本站<a href="../nuisance-map/index.html">「嫌惡設施地圖」</a>工具一起查；現場也務必走一圈、上樓看窗外實景。是否構成嫌惡因人而異，僅供評估參考。',
+    items: [
+      ['周邊有無宮廟、神壇（留意誦經、燒香、活動噪音）', ''],
+      ['有無加油站、瓦斯行（公共安全與氣味考量）', ''],
+      ['有無高壓電塔、變電所、基地台（鄰避設施）', ''],
+      ['附近有無墓地、靈骨塔、殯葬相關設施', ''],
+      ['是否緊鄰傳統市場、夜市、攤販（噪音、垃圾、人潮）', ''],
+      ['有無資源回收場、垃圾子車集中點、堪慮工廠', ''],
+      ['有無高架橋、鐵道、快速道路貼近（噪音、灰塵）', ''],
+    ],
+  },
+  {
+    icon: '⑨', title: '產權與文件',
+    tip: '凶宅、海砂屋、輻射屋等屬法定重大瑕疵揭露事項，<strong>一律以委託書與不動產說明書的正式書面揭露為準</strong>，本清單僅提醒你務必查證、不替任何特定物件作判斷。',
+    items: [
+      ['是否已取得並詳閱「不動產說明書」', '出價前一定要看，內含產權與現況重要揭露'],
+      ['核對土地登記謄本、建物登記謄本（所有權人、面積）', '謄本資料優先於廣告或口頭說法'],
+      ['有無查封、假扣押、限制登記或他項權利', '謄本「其他登記事項」欄須逐項看清'],
+      ['有無抵押權設定、設定金額與債權人', ''],
+      ['產權是否清楚、有無共有、持分或繼承未完成', ''],
+      ['說明書是否揭露輻射屋／海砂屋（氯離子）檢測結果', '如有疑慮可要求提供檢測報告'],
+      ['說明書是否揭露是否曾發生非自然身故（凶宅）', '以書面勾選揭露為準，現場口頭不算數'],
+      ['有無附帶租約、占用、增建未保存登記等情形', ''],
+    ],
+  },
+  {
+    icon: '⑩', title: '其它（交易條件）',
+    items: [
+      ['家具、家電、裝潢、窗簾等去留是否談清楚並寫入合約', '口頭約定務必落入買賣契約或附表'],
+      ['預計交屋日、現況有無出租或需點交事項', ''],
+      ['可貸款成數、銀行估價是否足以支撐自備款規劃', '貸款成數依銀行核定，購屋前可先向銀行詢問'],
+      ['屋主出售原因、是否急售或可議空間（供參考）', ''],
+      ['一次性費用（契稅、代書、規費等）是否已預估', '可搭配本站「買房總費用試算」工具一起評估'],
+      ['是否安排第二次、不同時段或雨天再看一次', '雨天最容易看出漏水，強烈建議'],
+    ],
+  },
+];
+
+/* ── 建立 DOM ── */
+let TOTAL = 0;
+function buildChecklist() {
+  const root = $('checklistRoot');
+  let html = '';
+  SECTIONS.forEach((sec, sIdx) => {
+    const count = sec.items.length;
+    html += `<section class="section">
+      <h2><span class="step">${sec.icon}</span>${sec.title}
+        <span class="sec-count">${count} 項</span></h2>`;
+    if (sec.tip) {
+      const warnCls = (sIdx === 8) ? ' warn' : '';
+      html += `<div class="sec-tip${warnCls}">${sec.tip}</div>`;
+    }
+    sec.items.forEach((it, iIdx) => {
+      const key = `s${sIdx}_i${iIdx}`;
+      const text = it[0];
+      const sub = it[1] ? `<small>${it[1]}</small>` : '';
+      html += `<div class="check-item">
+        <label class="check-row">
+          <input type="checkbox" data-check id="chk_${key}">
+          <span class="ck-text">${text}${sub}</span>
+        </label>
+        <input type="text" class="note-input" data-note id="note_${key}"
+               placeholder="備註（選填）：現場狀況、屋主說明、要再確認的事…">
+      </div>`;
+      TOTAL++;
+    });
+    html += `</section>`;
+  });
+  root.innerHTML = html;
+  $('totalCount').textContent = TOTAL;
+}
+
+/* ── 儲存 / 載入 localStorage ── */
+function collectState() {
+  const state = { info: {}, checks: {}, notes: {} };
+  document.querySelectorAll('[data-info]').forEach(el => state.info[el.id] = el.value);
+  document.querySelectorAll('[data-check]').forEach(el => state.checks[el.id] = el.checked);
+  document.querySelectorAll('[data-note]').forEach(el => state.notes[el.id] = el.value);
+  return state;
+}
+function saveState() {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(collectState()));
+    flashSaved();
+  } catch (e) { /* localStorage 不可用時靜默 */ }
+}
+function loadState() {
+  let raw;
+  try { raw = localStorage.getItem(STORE_KEY); } catch (e) { return; }
+  if (!raw) return;
+  let state;
+  try { state = JSON.parse(raw); } catch (e) { return; }
+  if (state.info)   Object.entries(state.info).forEach(([id, v]) => { if ($(id)) $(id).value = v; });
+  if (state.checks) Object.entries(state.checks).forEach(([id, v]) => { if ($(id)) $(id).checked = v; });
+  if (state.notes)  Object.entries(state.notes).forEach(([id, v]) => { if ($(id)) $(id).value = v; });
+}
+
+let flashTimer;
+function flashSaved() {
+  const f = $('savedFlag');
+  f.textContent = '✓ 已自動儲存到本機（重新整理不會遺失）';
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { f.innerHTML = '&nbsp;'; }, 1800);
+}
+
+/* ── 進度條 ── */
+function updateProgress() {
+  const done = document.querySelectorAll('[data-check]:checked').length;
+  $('doneCount').textContent = done;
+  const pct = TOTAL > 0 ? (done / TOTAL * 100) : 0;
+  $('progressFill').style.width = pct.toFixed(1) + '%';
+}
+
+/* ── 清除 ── */
+function clearAll() {
+  if (!confirm('確定要清除所有勾選與備註、重新填寫嗎？此動作無法復原。')) return;
+  document.querySelectorAll('[data-check]').forEach(el => el.checked = false);
+  document.querySelectorAll('[data-note]').forEach(el => el.value = '');
+  document.querySelectorAll('[data-info]').forEach(el => el.value = '');
+  try { localStorage.removeItem(STORE_KEY); } catch (e) {}
+  updateProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ── 綁定事件 ── */
+function bindEvents() {
+  document.querySelectorAll('[data-check]').forEach(el => {
+    el.addEventListener('change', () => { updateProgress(); saveState(); });
+  });
+  document.querySelectorAll('[data-note], [data-info]').forEach(el => {
+    el.addEventListener('input', saveState);
+  });
+}
+
+/* ── 初始化 ── */
+buildChecklist();
+loadState();
+bindEvents();
+updateProgress();
+</script>
+</body>
+</html>

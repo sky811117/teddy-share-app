@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>賣屋流程懶人包 ─ 從委託到交屋 9 步驟｜一品不動產．有巢氏台中世界之心加盟店</title>
+
+<meta name="theme-color" content="#C8A574">
+<meta name="description" content="賣屋流程懶人包：從委託到交屋 9 步驟圖解，每一步要做什麼、屋主要準備什麼文件、大概多久、注意事項。">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="賣屋流程">
+
+<meta property="og:title" content="賣屋流程懶人包 ─ 從委託到交屋 9 步驟">
+<meta property="og:description" content="從委託到交屋 9 步驟圖解，每一步要準備什麼、大概多久、注意事項。">
+<meta property="og:type" content="website">
+<meta property="og:image" content="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<style>
+  :root {
+    --bg: #FAF7F2;
+    --card: #FFFFFF;
+    --card-tint: #F5EFE3;
+    --wood: #C8A574;
+    --wood-deep: #8B6F4B;
+    --text: #3A3530;
+    --text-soft: #6B6259;
+    --line: #E8DECB;
+    --num: #2C4A2E;
+    --warn: #C75A3C;
+    --warn-bg: #FBE9DE;
+  }
+  * { box-sizing: border-box; }
+  html { font-size: 17px; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 28px 20px 80px;
+  }
+  header {
+    text-align: center;
+    padding: 28px 0 18px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 28px;
+  }
+  header .brand {
+    font-size: 15px;
+    color: var(--wood-deep);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  header h1 {
+    font-size: 32px;
+    margin: 6px 0 8px;
+    color: var(--text);
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  header .sub {
+    color: var(--text-soft);
+    font-size: 17px;
+  }
+  .disclaimer-top {
+    background: var(--warn-bg);
+    border-left: 4px solid var(--warn);
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-size: 15px;
+    color: #6B3925;
+    margin: 18px 0 24px;
+    line-height: 1.7;
+  }
+
+  /* 步驟進度條 */
+  .progress {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin: 0 0 28px;
+  }
+  .progress .dot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 5px 12px 5px 6px;
+    font-size: 14px;
+    color: var(--text-soft);
+    text-decoration: none;
+  }
+  .progress .dot .n {
+    background: var(--wood);
+    color: #fff;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .progress .dot:hover { border-color: var(--wood); color: var(--wood-deep); }
+
+  /* 時間軸 */
+  .timeline {
+    position: relative;
+    margin: 0 0 8px;
+  }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    left: 27px;
+    top: 18px;
+    bottom: 18px;
+    width: 2px;
+    background: var(--line);
+  }
+  .step-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  .step-num {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--wood);
+    color: #fff;
+    font-size: 26px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 10px rgba(139, 111, 75, 0.25);
+    z-index: 1;
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+  }
+  .step-body {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 20px 22px;
+    box-shadow: 0 2px 14px rgba(139, 111, 75, 0.07);
+    border: 1px solid var(--line);
+  }
+  .step-body h2 {
+    font-size: 22px;
+    margin: 0 0 4px;
+    color: var(--wood-deep);
+    font-weight: 700;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .step-body h2 .en {
+    font-size: 15px;
+    color: var(--text-soft);
+    font-weight: 400;
+    letter-spacing: 1px;
+  }
+  .step-lead {
+    font-size: 17px;
+    color: var(--text);
+    margin: 8px 0 14px;
+    line-height: 1.7;
+  }
+  .step-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  @media (max-width: 560px) {
+    .step-meta { grid-template-columns: 1fr; }
+  }
+  .meta-block {
+    background: var(--card-tint);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .meta-block.time { background: #EEF4EC; }
+  .meta-block .mb-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--wood-deep);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .meta-block.time .mb-title { color: #2C4A2E; }
+  .meta-block ul {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 17px;
+    color: var(--text);
+    line-height: 1.75;
+  }
+  .meta-block ul li { margin-bottom: 3px; }
+  .meta-block .plain {
+    font-size: 16px;
+    color: var(--num);
+    font-weight: 600;
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+  }
+  .meta-block .plain small {
+    display: block;
+    font-size: 15px;
+    color: var(--text-soft);
+    font-weight: 400;
+    margin-top: 3px;
+  }
+  .step-note {
+    background: #FFF8E8;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 15px;
+    color: #7A5D2E;
+    margin-top: 12px;
+    line-height: 1.7;
+  }
+  .step-note strong { color: #6B3925; }
+
+  /* 稅費概念卡 */
+  .section-title {
+    font-size: 24px;
+    color: var(--wood-deep);
+    font-weight: 700;
+    margin: 40px 0 6px;
+    text-align: center;
+  }
+  .section-sub {
+    text-align: center;
+    color: var(--text-soft);
+    font-size: 15px;
+    margin-bottom: 20px;
+  }
+  .fee-card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 22px 24px;
+    border: 1px solid var(--line);
+    box-shadow: 0 2px 14px rgba(139, 111, 75, 0.07);
+  }
+  table.fee-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 16px;
+  }
+  table.fee-table th, table.fee-table td {
+    text-align: left;
+    padding: 12px 8px;
+    border-bottom: 1px solid #F0E6D0;
+    vertical-align: top;
+  }
+  table.fee-table th {
+    background: var(--card-tint);
+    font-size: 15px;
+    color: var(--wood-deep);
+    font-weight: 600;
+  }
+  table.fee-table td .item-name {
+    font-weight: 600;
+    color: var(--text);
+    display: block;
+    margin-bottom: 2px;
+  }
+  table.fee-table td .item-desc {
+    font-size: 15px;
+    color: var(--text-soft);
+    line-height: 1.65;
+  }
+  .fee-callout {
+    background: var(--warn-bg);
+    border-left: 4px solid var(--warn);
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-size: 15px;
+    color: #6B3925;
+    margin-top: 16px;
+    line-height: 1.75;
+  }
+  .fee-callout strong { color: var(--warn); }
+
+  /* CTA */
+  .cta-banner {
+    background: linear-gradient(135deg, #F5EFE3 0%, #FDFCF7 100%);
+    border: 1px solid var(--wood);
+    border-radius: 14px;
+    padding: 26px 24px;
+    margin: 32px 0 8px;
+    text-align: center;
+  }
+  .cta-banner .label {
+    font-size: 16px;
+    color: var(--wood-deep);
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+  .cta-banner .big {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 6px 0 16px;
+    line-height: 1.5;
+  }
+  .cta-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+  }
+  .cta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    text-decoration: none;
+    font-size: 17px;
+    font-weight: 600;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-family: inherit;
+  }
+  .cta-btn.phone { background: var(--wood-deep); color: #fff; }
+  .cta-btn.phone:hover { background: #745B3B; }
+  .cta-btn.line { background: #06C755; color: #fff; }
+  .cta-btn.line:hover { filter: brightness(0.93); }
+
+  .print-btn {
+    background: var(--wood);
+    color: white;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    margin: 24px auto 0;
+    display: block;
+    font-family: inherit;
+  }
+  .print-btn:hover { background: var(--wood-deep); }
+
+  footer {
+    margin-top: 44px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+  }
+  footer .legal {
+    background: #F5EFE3;
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-size: 14px;
+    color: var(--text-soft);
+    line-height: 1.8;
+    text-align: left;
+    margin-bottom: 24px;
+  }
+  footer .legal strong { color: var(--wood-deep); }
+  footer .contact {
+    font-size: 15px;
+    color: var(--text);
+    line-height: 1.8;
+  }
+  footer .contact .agent-name {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--wood-deep);
+    display: block;
+    margin-bottom: 4px;
+  }
+  footer .contact a {
+    color: var(--wood-deep);
+    text-decoration: none;
+  }
+  footer .contact a:hover { text-decoration: underline; }
+  footer .cert {
+    font-size: 14px;
+    color: var(--text-soft);
+    margin-top: 8px;
+  }
+  @media print {
+    .print-btn, .progress, .cta-btns { display: none; }
+    body { background: white; }
+    .step-body, .fee-card { box-shadow: none; }
+    .step-card { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">一品不動產．有巢氏台中世界之心加盟店</div>
+  <h1>賣屋流程懶人包</h1>
+  <div class="sub">從委託到交屋，9 個步驟一次看懂</div>
+</header>
+
+<div class="disclaimer-top">
+  ⚠️ <strong>使用前請看：</strong>本懶人包為賣屋流程的<strong>初步參考</strong>，整理現行一般交易常見的步驟與文件，<strong>非估價、非投資建議</strong>。各步驟順序與耗時會因物件、買方貸款情形、屋主配合度而不同；所有稅費金額一律以稅捐稽徵機關核定與代書（地政士）計算為準。實際委託與簽約條件，請以您與經紀業簽訂之契約為準。
+</div>
+
+<!-- 步驟快速導覽 -->
+<nav class="progress">
+  <a class="dot" href="#s1"><span class="n">1</span>委託</a>
+  <a class="dot" href="#s2"><span class="n">2</span>估價／定價</a>
+  <a class="dot" href="#s3"><span class="n">3</span>上架曝光</a>
+  <a class="dot" href="#s4"><span class="n">4</span>帶看</a>
+  <a class="dot" href="#s5"><span class="n">5</span>議價</a>
+  <a class="dot" href="#s6"><span class="n">6</span>簽約收訂</a>
+  <a class="dot" href="#s7"><span class="n">7</span>用印／對保</a>
+  <a class="dot" href="#s8"><span class="n">8</span>完稅</a>
+  <a class="dot" href="#s9"><span class="n">9</span>交屋點交</a>
+</nav>
+
+<div class="timeline">
+
+  <!-- 1 委託 -->
+  <div class="step-card" id="s1">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h2>委託 <span class="en">ENTRUSTMENT</span></h2>
+      <p class="step-lead">與經紀業簽訂委託銷售契約（一般約／專任約），確認委託期間、委託價格、服務費與權利義務，正式啟動銷售。</p>
+      <div class="step-meta">
+        <div class="meta-block">
+          <div class="mb-title">📋 屋主要準備</div>
+          <ul>
+            <li>身分證明文件（屋主本人）</li>
+            <li>所有權狀或近期土地、建物謄本</li>
+            <li>若有貸款：貸款銀行與大約餘額</li>
+            <li>產權若為多人持有，須全體共有人同意</li>
+          </ul>
+        </div>
+        <div class="meta-block time">
+          <div class="mb-title">⏱ 大概耗時</div>
+          <div class="plain">約 1 天內
+            <small>備齊文件當天即可簽委託</small>
+          </div>
+        </div>
+      </div>
+      <div class="step-note">
+        💡 <strong>注意：</strong>委託「期間」與「自動下架日」屬於合約隱私，可保留彈性；委託價格建議參考客觀行情後再決定（見步驟 2）。簽約前看清楚服務費條件與解約方式。
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 估價/定價 -->
+  <div class="step-card" id="s2">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h2>估價／定價 <span class="en">PRICING</span></h2>
+      <p class="step-lead">依物件條件、同社區與周邊「過去實際成交行情」整理出合理價格區間，再與屋主討論訂出委託售價。</p>
+      <div class="step-meta">
+        <div class="meta-block">
+          <div class="mb-title">📋 屋主要準備</div>
+          <ul>
+            <li>物件現況資訊（坪數、樓層、車位、屋況）</li>
+            <li>裝潢、增建、漏水修繕等已知狀況</li>
+            <li>對售價的期待與底線（內部參考用）</li>
+          </ul>
+        </div>
+        <div class="meta-block time">
+          <div class="mb-title">⏱ 大概耗時</div>
+          <div class="plain">約 1～3 天
+            <small>整理行情、討論定價</small>
+          </div>
+        </div>
+      </div>
+      <div class="step-note">
+        💡 <strong>注意：</strong>行情數據來源為<strong>內政部不動產交易實價登錄</strong>之過往成交資料，僅呈現「已發生」的歷史價格，<strong>不代表、也不預測未來漲跌</strong>。定價是市場策略，最終由屋主決定。
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 上架曝光 -->
+  <div class="step-card" id="s3">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h2>上架曝光 <span class="en">MARKETING</span></h2>
+      <p class="step-lead">拍攝照片、撰寫物件文案，上架各大房仲平台與公司通路，安排廣告曝光，讓更多買方看到。</p>
+      <div class="step-meta">
+        <div class="meta-block">
+          <div class="mb-title">📋 屋主要配合</div>
+          <ul>
+            <li>整理環境、配合約定拍攝時間</li>
+            <li>提供可公開的物件資訊與賣點</li>
+            <li>確認對外揭露範圍（保護個人隱私）</li>
+          </ul>
+        </div>
+        <div class="meta-block time">
+          <div class="mb-title">⏱ 大概耗時</div>
+          <div class="plain">約 3～7 天上線
+            <small>曝光期視市場反應持續進行</small>
+          </div>
+        </div>
+      </div>
+      <div class="step-note">
+        💡 <strong>注意：</strong>對外刊登一律<strong>不揭露屋主姓名、電話與完整門牌（巷弄號）</strong>；廣告內容依《不動產經紀業管理條例》與廣告相關規範製作，不使用誇大不實字眼。
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 帶看 -->
+  <div class="step-card" id="s4">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <h2>帶看 <span class="en">VIEWING</span></h2>
+      <p class="step-lead">經紀人陪同有意願的買方現場看屋，介紹物件優點、回答問題，並回報屋主市場反應。</p>
+      <div class="step-meta">
+        <div class="meta-block">
+          <div class="mb-title">📋 屋主要配合</div>
+          <ul>
+            <li>配合約定帶看時段（保持屋況整潔）</li>
+            <li>貴重物品自行收妥</li>
+            <li>由經紀人代為接待，屋主可不在場</li>
+          </ul>
+        </div>
+        <div class="meta-block time">
+          <div class="mb-title">⏱ 大概耗時</div>
+          <div class="plain">不定
+            <small>視市場與物件條件，數天到數週皆有可能</small>
+          </div>
+        </div>
+      </div>
+      <div class="step-note">
+        💡 <strong>注意：</strong>帶看次數與成交速度因物件、價格、屋況、市況而異，<strong>無法保證成交時間</strong>。每次帶看後可請經紀人回報買方真實回饋，作為後續策略調整參考。
+      </div>
+    </div>
+  </div>
+
+  <!-- 5 議價 -->
+  <div class="step-card" id="s5">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <h2>議價 <span class="en">NEGOTIATION</span></h2>
+      <p class="step-lead">買方出價後，由經紀人居中協調買賣雙方價格與條件，直到雙方對價金與交易條件達成共識。</p>
+      <div class="step-meta">
+        <div class="meta-block">
+          <div class="mb-title">📋 屋主要準備</div>
+          <ul>
+            <li>明確的可接受價格與條件範圍</li>
+            <li>交屋日期、附贈設備等條件想法</li>
+            <li>共有人之間的售價共識（如適用）</li>
+          </ul>
+        </div>
+        <div class="meta-block time">
+          <div class="mb-title">⏱ 大概耗時</div>
+          <div class="plain">約數小時～數天
+            <small>視雙方價格差距而定</small>
+          </div>
+        </div>
+      </div>
+      <div class="step-note">
+        💡 <strong>注意：</strong>除了價格，<strong>交屋日、貸款配合、附贈設備、稅費負擔</strong>等也是議價內容，建議一併談清楚，避免簽約後爭議。
+      </div>
+    </div>
+  </div>
+
+  <!-- 6 簽約收訂 -->
+  <div class="step-card" id="s6">
+    <div class="step-num">6</div>
+    <div class="step-body">
+      <h2>簽約（收訂） <span class="en">CONTRACT</span></h2>
+      <p class="step-lead">雙方達成共識後簽訂不動產買賣契約，買方支付訂金（簽約款），交易正式成立並進入履約程序。</p>
+      <div class="step-meta">
+        <div class="meta-block">
+          <div class="mb-title">📋 屋主要準備</div>
+          <ul>
+            <li>身分證、印章（核對用）</li>
+            <li>所有權狀正本</li>
+            <li>全體共有人到場或合法授權</li>
+            <li>確認收款帳戶資訊</li>
+          </ul>
+        </div>
+        <div class="meta-block time">
+          <div class="mb-title">⏱ 大概耗時</div>
+          <div class="plain">約半天
+            <small>簽約當日完成用印與收訂</small>
+          </div>
+        </div>
+      </div>
+      <div class="step-note">
+        💡 <strong>注意：</strong>建議搭配<strong>第三方履約保證專戶</strong>保障雙方價金安全；契約應有合理審閱期間，簽約前務必看清楚付款分期、稅費負擔與交屋條件。
+      </div>
+    </div>
+  </div>
+
+  <!-- 7 用印/對保 -->
+  <div class="step-card" id="s7">
+    <div class="step-num">7</div>
+    <div class="step-body">
+      <h2>用印／對保 <span class="en">SEALING &amp; LOAN</span></h2>
+      <p class="step-lead">備齊過戶用印文件辦理產權移轉；買方若需貸款，由買方與銀行對保、估價核貸，地政士同步準備過戶。</p>
+      <div class="step-meta">
+        <div class="meta-block">
+          <div class="mb-title">📋 屋主要準備</div>
+          <ul>
+            <li>印鑑章、印鑑證明（依代書指示份數）</li>
+            <li>戶籍與身分相關文件</li>
+            <li>原貸款餘額結清資訊（如有貸款）</li>
+          </ul>
+        </div>
+        <div class="meta-block time">
+          <div class="mb-title">⏱ 大概耗時</div>
+          <div class="plain">約 1～3 週
+            <small>含買方對保、銀行核貸作業</small>
+          </div>
+        </div>
+      </div>
+      <div class="step-note">
+        💡 <strong>注意：</strong>此階段由<strong>地政士（代書）統籌</strong>文件與時程；屋主若有原貸款，會在後續流程中以買方價金代為清償並塗銷抵押權。文件份數與細節，請以承辦代書通知為準。
+      </div>
+    </div>
+  </div>
+
+  <!-- 8 完稅 -->
+  <div class="step-card" id="s8">
+    <div class="step-num">8</div>
+    <div class="step-body">
+      <h2>完稅 <span class="en">TAX SETTLEMENT</span></h2>
+      <p class="step-lead">由地政士向稅捐機關申報並繳清相關稅費，取得完稅證明後，即可送件辦理產權正式過戶登記。</p>
+      <div class="step-meta">
+        <div class="meta-block">
+          <div class="mb-title">📋 屋主相關（賣方常見）</div>
+          <ul>
+            <li>土地增值稅（賣方常見負擔項目）</li>
+            <li>房地合一稅（如符合課稅條件）</li>
+            <li>配合代書補件、確認稅單金額</li>
+          </ul>
+        </div>
+        <div class="meta-block time">
+          <div class="mb-title">⏱ 大概耗時</div>
+          <div class="plain">約 1～2 週
+            <small>申報、繳稅到送件登記</small>
+          </div>
+        </div>
+      </div>
+      <div class="step-note">
+        💡 <strong>注意：</strong>賣方稅費「項目」與「金額」因物件持有狀況、自用條件、持有年限而差異很大，<strong>一律以稅捐稽徵機關核定與代書試算為準</strong>，本懶人包不計算任何具體金額或稅率。詳細稅費說明見下方表格。
+      </div>
+    </div>
+  </div>
+
+  <!-- 9 交屋點交 -->
+  <div class="step-card" id="s9">
+    <div class="step-num">9</div>
+    <div class="step-body">
+      <h2>交屋點交 <span class="en">HANDOVER</span></h2>
+      <p class="step-lead">產權登記完成、尾款撥付後，雙方現場點交房屋，結算水電、管理費等費用，完成整筆交易。</p>
+      <div class="step-meta">
+        <div class="meta-block">
+          <div class="mb-title">📋 屋主要準備</div>
+          <ul>
+            <li>房屋鑰匙、門禁卡、相關說明文件</li>
+            <li>水費、電費、瓦斯、管理費結清</li>
+            <li>確認約定附贈設備、屋況現狀</li>
+            <li>遷出戶籍（如有設籍）</li>
+          </ul>
+        </div>
+        <div class="meta-block time">
+          <div class="mb-title">⏱ 大概耗時</div>
+          <div class="plain">約半天
+            <small>點交當日完成交付與結算</small>
+          </div>
+        </div>
+      </div>
+      <div class="step-note">
+        💡 <strong>注意：</strong>點交時建議雙方對水電錶度數、設備現況一一確認並記錄，價金透過履約保證專戶結算，買賣雙方一手交屋、一手交款，整個賣屋流程到此圓滿完成。
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 賣方稅費概念說明 -->
+<div class="section-title">賣方稅費（概念說明）</div>
+<div class="section-sub">以下僅為「項目概念」介紹，不計算金額、不預測稅率</div>
+
+<div class="fee-card">
+  <table class="fee-table">
+    <thead>
+      <tr>
+        <th style="width:32%;">費用項目</th>
+        <th style="width:68%;">這是什麼（概念）</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <span class="item-name">土地增值稅</span>
+        </td>
+        <td>
+          <span class="item-desc">就土地公告現值的「漲價部分」課徵，通常由賣方負擔。是否適用自用住宅優惠稅率、實際金額，皆以稅捐稽徵機關核定為準。</span>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <span class="item-name">房地合一稅</span>
+        </td>
+        <td>
+          <span class="item-desc">就出售房地的「獲利部分」課徵，稅率與持有年限、是否自用等條件有關。是否課稅、適用級距與金額，皆以稅捐稽徵機關核定及代書試算為準。</span>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <span class="item-name">地政規費</span>
+        </td>
+        <td>
+          <span class="item-desc">辦理產權移轉登記、抵押權塗銷等所需的地政規費與書狀費等。實際金額依登記項目，以地政機關與代書計算為準。</span>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <span class="item-name">仲介服務費</span>
+        </td>
+        <td>
+          <span class="item-desc">依《不動產仲介經紀業報酬計收標準規定》，買賣雙方<strong>合計上限為成交價 6%</strong>，實際由雙方與經紀業議定，本懶人包不預設賣方比例。</span>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <span class="item-name">代書（地政士）費</span>
+        </td>
+        <td>
+          <span class="item-desc">辦理過戶、塗銷、申報等作業的服務費，由承辦地政士依案件內容報價，以實際委任為準。</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="fee-callout">
+    🔎 <strong>本表僅概念性說明，不含任何金額或稅率。</strong>賣方每筆交易的稅費差異極大，取決於持有年限、自用條件、土地漲價情形與貸款狀況等。<strong>實際應繳項目與金額，一律以稅捐稽徵機關核定與代書（地政士）計算為準</strong>，並建議於簽約前洽詢專業稅務或代書人員確認。
+  </div>
+</div>
+
+<!-- CTA：委託前先諮詢 -->
+<div class="cta-banner">
+  <div class="label">準備賣屋了嗎？</div>
+  <div class="big">委託前，先和景泰聊聊<br>幫您看清楚行情、評估流程與時程</div>
+  <div class="cta-btns">
+    <a class="cta-btn phone" href="tel:0920118756">📞 撥打 0920-118-756</a>
+    <a class="cta-btn line" href="https://line.me/ti/p/~sky811117">💬 加 LINE 諮詢</a>
+  </div>
+</div>
+
+<button class="print-btn" onclick="window.print()">📄 列印 / 存成 PDF</button>
+
+<footer>
+  <div class="legal">
+    <strong>法定揭露與免責聲明</strong><br>
+    1. 本懶人包整理現行不動產交易常見的賣屋流程步驟，<strong>僅供初步參考，非估價、非投資建議</strong>，各步驟順序、文件與耗時會因個案而不同。<br>
+    2. 各項稅費（含土地增值稅、房地合一稅、地政規費、代書費等）之適用與金額，<strong>一律以稅捐稽徵機關核定與代書（地政士）計算為準</strong>，本工具不計算任何具體金額或稅率。<br>
+    3. 仲介服務費依《不動產仲介經紀業報酬計收標準規定》，買賣雙方合計上限為成交價 6%，實際比例由雙方與經紀業議定。<br>
+    4. 行情相關說明之數據來源為<strong>內政部不動產交易實價登錄</strong>之過往成交資料，僅呈現已發生的歷史價格，<strong>不代表亦不預測未來房價漲跌</strong>。<br>
+    5. 本工具不揭露任何屋主姓名、電話、完整門牌等個人資料，亦不評斷特定物件狀態。<br>
+    6. 實際委託、簽約及交易條件，應以您與經紀業簽訂之契約及承辦地政士、貸款銀行確認之內容為準。本懶人包由有巢氏房屋台中世界之心加盟店景泰提供。
+  </div>
+  <div class="contact">
+    <span class="agent-name">陳景泰（Teddy）</span>
+    一品不動產．有巢氏房屋台中世界之心加盟店<br>
+    📞 <a href="tel:0920118756">0920-118-756</a>
+    💬 LINE：<a href="https://line.me/ti/p/~sky811117">sky811117</a>
+    📷 IG：<a href="https://instagram.com/nov__817">@nov__817</a>
+    <div class="cert">
+      不動產經紀人：黃永隆（113彰縣字第324號）<br>
+      不動產營業員：陳景泰（114登字第488296號）
+    </div>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>
