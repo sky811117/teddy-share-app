@@ -302,13 +302,23 @@ def parse_list(html_str: str):
         house_id = m_id.group(1)
 
         title = _text(card.find("div", class_="caseName"))
-        district = _parse_district(_text(card.find("span", class_="address")))
+        addr_text = _text(card.find("span", class_="address"))
+        m_addr = _DISTRICT_RE.search(addr_text) if addr_text else None
+        if m_addr:
+            city, district = m_addr.group(1), m_addr.group(2)
+        else:
+            mc = re.search(r"([一-鿿]{1,3}[市縣])", addr_text or "")
+            city = mc.group(1) if mc else ""
+            district = _parse_district(addr_text)
         main_area_ping = _parse_main_area(_text(card.find("span", class_="mainArea")))
+        building_area_ping = _first_float(_text(card.find("span", class_="regArea")))  # 建坪/權狀
         room_count = _parse_room_count(_text(card.find("span", class_="room")))
         price_wan = _parse_price_wan(
             _text(card.find("div", class_="price")),
             _text(card.find("span", class_="origin-price")),
         )
+        community_name = _text(card.find("span", class_="community")) or None
+        parking = _text(card.find("span", class_="car")) or None
 
         case_info = card.find("div", class_="case-info")
         case_type = _text(card.find("span", class_="caseType")) or None
@@ -323,7 +333,11 @@ def parse_list(html_str: str):
             "price_wan": price_wan,
             "room_count": room_count,
             "main_area_ping": main_area_ping,
+            "building_area_ping": building_area_ping,
             "district": district,
+            "city": city,
+            "community_name": community_name,
+            "parking": parking,
             "case_type": case_type,
             "age_years": age_years,
             "cover_image_url": cover_image_url,
@@ -631,11 +645,15 @@ def _fetch_list(city, district, warnings) -> list:
         return []
 
 
-def _passes_tier(c, anchor_type_norm, room_set, area_lo, area_hi, price_lo, price_hi):
-    """單筆候選是否符合某層框檔次條件 (同類型 + 房型 in room_set + 坪數帶 + 價格帶)。"""
+def _passes_tier(c, anchor_type_norm, room_set, area_lo, area_hi, price_lo, price_hi,
+                 anchor_city='', b_lo=None, b_hi=None):
+    """單筆候選是否符合某層框檔次 (同縣市 + 同類型 + 房型 + 主建坪 + 權狀坪 + 價格)。"""
     if not c.get('price_wan'):
         return False
     if not (price_lo <= c['price_wan'] <= price_hi):
+        return False
+    # 跨縣市排除 (永慶 list 偶爾混入跨市推薦物件，如台北豪宅塞進台中 list)
+    if anchor_city and c.get('city') and c['city'] != anchor_city:
         return False
     # 同類型 (anchor_type_norm 為空就不卡類型)
     if anchor_type_norm:
@@ -646,10 +664,15 @@ def _passes_tier(c, anchor_type_norm, room_set, area_lo, area_hi, price_lo, pric
         rn = _room_num(c.get('room_count') or "")
         if rn is None or rn not in room_set:
             return False
-    # 坪數 (抓不到坪數的，類型/房型/價格都對就放行，不因缺欄位誤殺)
+    # 主建坪 (抓不到坪數的，類型/房型/價格都對就放行，不因缺欄位誤殺)
     area = c.get('main_area_ping')
     if area is not None:
         if not (area_lo <= area <= area_hi):
+            return False
+    # 權狀坪 (擋豪宅: 主建坪像普通 3 房但權狀超大 = 不同檔次，如寶徠 102 權狀坪)
+    b = c.get('building_area_ping')
+    if b_lo is not None and b is not None:
+        if not (b_lo <= b <= b_hi):
             return False
     return True
 
@@ -763,10 +786,16 @@ def recommend(short_url: str) -> dict:
             pool.extend(list_cache.get(d, []))
         return pool
 
+    # 權狀坪範圍 (擋豪宅: anchor 權狀 ±，比主建坪帶寬鬆以容同社區戶型差異)
+    anchor_building = anchor.get('building_area_ping')
+    b_lo = anchor_building * 0.5 if anchor_building else None
+    b_hi = anchor_building * 1.6 if anchor_building else None
+
     def eval_tier(label, cands, room_set, ab, desc):
         lo, hi = ab
         pool = [c for c in cands
-                if _passes_tier(c, anchor_type_norm, room_set, lo, hi, price_lo, price_hi)
+                if _passes_tier(c, anchor_type_norm, room_set, lo, hi, price_lo, price_hi,
+                                 anchor_city=city, b_lo=b_lo, b_hi=b_hi)
                 and c.get('house_id') != anchor_house_id]
         ch, pr = _decoy_split(pool, anchor_price)
         a_lo = "—" if lo == float('-inf') else f"{lo:.1f}"
@@ -853,6 +882,17 @@ def recommend(short_url: str) -> dict:
     if _to_enrich:
         with ThreadPoolExecutor(max_workers=min(6, len(_to_enrich))) as ex:
             list(ex.map(_enrich_one, _to_enrich))
+
+    # enrich 後雙保險: detail breadcrumb 顯示跨縣市的剔除
+    # (list city 可能顯示 list 所在區=台中，但 detail 真實是台北→這裡擋掉)
+    if city:
+        before = len(cheap) + len(pricey)
+        cheap = [c for c in cheap if not (c.get('city') and c['city'] != city)]
+        pricey = [c for c in pricey if not (c.get('city') and c['city'] != city)]
+        dropped = before - len(cheap) - len(pricey)
+        if dropped:
+            warnings.append(f"⚠️ enrich 後剔除 {dropped} 筆跨縣市物件 (detail 顯示非 {city})")
+    _to_enrich = cheap + pricey
 
     # 把封面實景照 (cover_image_url) 排到 image_urls 第 1 張
     # → 點封面開 lightbox 從實景照開始，不會先看到格局圖 (永慶 detail 常把格局圖排前)
