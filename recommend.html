@@ -36,7 +36,7 @@
   .result-url { font-size: 15px; word-break: break-all; background: #fff; padding: 12px; border-radius: 10px; border: 1px solid #cdd9b5; margin-bottom: 12px; }
   .result-url a { color: #6B8E23; font-weight: 700; }
   .btn-row { display: flex; gap: 10px; }
-  .btn-row button { margin-top: 0; padding: 12px; font-size: 16px; border-radius: 20px; }
+  .btn-row button, .btn-row a { flex: 1; margin-top: 0; padding: 12px; font-size: 16px; font-weight: 700; border: none; border-radius: 20px; color: #fff; text-align: center; cursor: pointer; text-decoration: none; }
   .btn-copy { background: #6B8E23; }
   .btn-open { background: #5a6e2a; }
   .spin { display: inline-block; width: 16px; height: 16px; border: 2px solid #cdd9b5; border-top-color: #6B8E23; border-radius: 50%; animation: r .7s linear infinite; vertical-align: -3px; margin-right: 6px; }
@@ -65,7 +65,7 @@
         <div class="result-url" id="urlbox"></div>
         <div class="btn-row">
           <button class="btn-copy" id="copy">📋 複製連結</button>
-          <button class="btn-open" id="open">👁 開啟預覽</button>
+          <a class="btn-open" id="open" href="#" target="_blank" rel="noopener">👁 開啟預覽</a>
         </div>
       </div>
     </div>
@@ -121,6 +121,7 @@
       summaryEl.innerHTML = '錨點：<b>' + (j.anchor || '?') + '</b>（' + (j.anchor_price || '?') +
         ' 萬）<br>配出 <b>' + (j.cheap || 0) + '</b> 間更便宜 + <b>' + (j.pricey || 0) + '</b> 間升級選擇';
       urlboxEl.innerHTML = '<a href="' + j.url + '" target="_blank">' + j.url + '</a>';
+      document.getElementById('open').setAttribute('href', j.url);
       resultEl.className = 'result show';
     })
     .catch(function(e) {
@@ -136,9 +137,6 @@
       var t = b.textContent; b.textContent = '✓ 已複製';
       setTimeout(function(){ b.textContent = t; }, 1500);
     });
-  });
-  document.getElementById('open').addEventListener('click', function() {
-    if (lastUrl) window.open(lastUrl, '_blank');
   });
 </script>
 </body>
