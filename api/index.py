@@ -1570,7 +1570,65 @@ def publish_endpoint():
 
 @app.route("/api/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "ts": datetime.datetime.now().isoformat(), "build": "2026-05-10-quanzhuang"})
+    return jsonify({"status": "ok", "ts": datetime.datetime.now().isoformat(), "build": "2026-06-02-recommend"})
+
+
+@app.route("/api/recommend", methods=["POST", "OPTIONS"])
+def recommend_endpoint():
+    """猜你喜歡：吃 anchor 短網址 → 框檔次 decoy 配貨 → 渲染資訊卡頁 → push GitHub。"""
+    if request.method == "OPTIONS":
+        return ("", 204)
+    try:
+        body = request.get_json(silent=True) or {}
+        anchor_url = (body.get("anchor_url") or body.get("url") or "").strip()
+        client_name = (body.get("name") or "").strip()
+        if "ychouse.tw" not in anchor_url:
+            return jsonify({"error": "請貼 ycut 短網址（https://x.ychouse.tw/...）"}), 400
+
+        # lazy import pipeline (api/_lib/，底線目錄 = Vercel 打包但不當 function)
+        import sys
+        _HERE = os.path.dirname(os.path.abspath(__file__))  # api/
+        if _HERE not in sys.path:
+            sys.path.insert(0, _HERE)
+        from _lib.yungching_recommend import recommend as yc_recommend
+        from _lib.recommend_render import render_recommend_page
+
+        data = yc_recommend(anchor_url)
+        anchor = data.get("anchor") or {}
+        if not anchor.get("price_wan"):
+            return jsonify({
+                "error": "anchor 物件抓取失敗（URL 可能失效，或非台中物件）",
+                "warnings": data.get("warnings", [])[:5],
+            }), 400
+
+        share_id = gen_share_id()
+        contact = build_contact(body)
+        html = render_recommend_page(data, contact, share_id, client_name)
+
+        token = os.environ.get("GITHUB_TOKEN")
+        if not token:
+            return jsonify({"error": "Server 缺 GITHUB_TOKEN 環境變數"}), 500
+        github_push(
+            f"{share_id}/index.html", html,
+            f"recommend: {anchor.get('community_name', '?')} {anchor.get('price_wan')}萬 ({share_id})",
+            token,
+        )
+
+        return jsonify({
+            "url": f"{PAGES_BASE_URL}/{share_id}/",
+            "share_id": share_id,
+            "anchor": anchor.get("community_name"),
+            "anchor_price": anchor.get("price_wan"),
+            "cheap": len(data.get("cheap", [])),
+            "pricey": len(data.get("pricey", [])),
+            "tier": data.get("tier_conditions", {}).get("final_level"),
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "error": f"{type(e).__name__}: {e}",
+            "trace": traceback.format_exc()[-800:],
+        }), 500
 
 
 # ============== Notion 訪問追蹤 ==============
