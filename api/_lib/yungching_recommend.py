@@ -550,6 +550,20 @@ _TC_DISTRICTS = [
     "沙鹿區", "龍井區", "梧棲區", "清水區", "大甲區", "外埔區", "大安區",
 ]
 
+# 彰化縣 26 鄉鎮市 (景泰老家，偶爾會有彰化物件)
+_CHANGHUA_DISTRICTS = [
+    "彰化市", "員林市", "和美鎮", "鹿港鎮", "溪湖鎮", "二林鎮", "田中鎮", "北斗鎮",
+    "線西鄉", "伸港鄉", "福興鄉", "秀水鄉", "花壇鄉", "芬園鄉", "大村鄉", "埔鹽鄉",
+    "埔心鄉", "永靖鄉", "社頭鄉", "二水鄉", "田尾鄉", "埤頭鄉", "芳苑鄉", "大城鄉",
+    "竹塘鄉", "溪州鄉",
+]
+
+# city -> 全區清單。鄰近區 fallback 用「同縣市其他區」，不再寫死台中。
+_CITY_DISTRICTS = {
+    "台中市": _TC_DISTRICTS,
+    "彰化縣": _CHANGHUA_DISTRICTS,
+}
+
 
 def build_filter_url(city, district=None, room=None, price_min_wan=None,
                      price_max_wan=None, area_min_ping=None, area_max_ping=None,
@@ -766,7 +780,9 @@ def recommend(short_url: str) -> dict:
 
     neighbors = _NEIGHBOR_MAP.get(district)
     if neighbors is None:
-        neighbors = [d for d in _TC_DISTRICTS if d != district]
+        # 非台中核心區 → 用「同縣市其他區」當鄰近池 (彰化等)，不誤跳台中
+        same_city = _CITY_DISTRICTS.get(city, _TC_DISTRICTS)
+        neighbors = [d for d in same_city if d != district]
 
     # 預熱：一次並行抓「同區 + 前 4 鄰區」填 cache，後續階梯 get_pool 全命中
     # (Vercel timeout 友善 — 把逐區序列抓壓成單次並行)

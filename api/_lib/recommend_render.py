@@ -110,14 +110,14 @@ def _sellpoint_html(text, label="物件特色"):
     return f'<div class="sellpoint"><b>{label}</b><br>{"<br>".join(lines)}</div>'
 
 
-def _photo_strip(urls, limit=24):
-    """橫向 scroll 照片條，img lazy load，點開看大圖。"""
+def _photo_strip(urls, group_id, limit=24):
+    """橫向 scroll 照片條，點圖開 lightbox 輪播。"""
     if not urls:
         return ''
     items = ''.join(
-        f'<a class="ph" href="{_esc(u)}" target="_blank" rel="noopener">'
-        f'<img loading="lazy" src="{_esc(u)}" alt=""></a>'
-        for u in urls[:limit]
+        f'<img class="ph" loading="lazy" src="{_esc(u)}" alt="" '
+        f'onclick="openLB(\'{group_id}\',{i})">'
+        for i, u in enumerate(urls[:limit])
     )
     return f'<div class="photo-strip">{items}</div>'
 
@@ -128,7 +128,7 @@ def _anchor_card(anchor):
     img = _esc(anchor.get('image_url', ''))
     community = _esc(anchor.get('community_name', '社區資料整理中'))
     price = anchor.get('price_wan', 0) or 0
-    img_html = (f'<div class="anchor-img" style="background-image:url(\'{img}\')"></div>'
+    img_html = (f'<div class="anchor-img" style="background-image:url(\'{img}\')" onclick="openLB(\'anchor\',0)"></div>'
                 if img else '<div class="anchor-img anchor-img--placeholder"></div>')
     return f'''
     <div class="anchor-card">
@@ -139,7 +139,7 @@ def _anchor_card(anchor):
         <div class="anchor-price">{price:,} 萬</div>
         {_spec_table(_anchor_specs(anchor))}
         {_sellpoint_html(anchor.get('selling_point'))}
-        {_photo_strip(anchor.get('image_urls') or [])}
+        {_photo_strip(anchor.get('image_urls') or [], 'anchor')}
       </div>
     </div>'''
 
@@ -174,10 +174,10 @@ def _candidate_card(c, kind, anchor_price, idx):
     district = _esc((c.get('district') or '') + (c.get('street') or ''))
     district_html = f'<div class="cand-district">📍 {district}</div>' if district else ''
 
-    cover_html = (f'<div class="cand-cover" style="background-image:url(\'{cover}\')"></div>'
+    cover_html = (f'<div class="cand-cover" style="background-image:url(\'{cover}\')" onclick="openLB(\'cand{idx}\',0)"></div>'
                   if cover else '<div class="cand-cover cand-cover--ph"></div>')
     detail = (_spec_table(_cand_specs(c)) + _sellpoint_html(c.get('title'), "物件特色")
-              + _photo_strip(imgs))
+              + _photo_strip(imgs, f'cand{idx}'))
     nphoto = len(imgs)
     toggle_label = f"看完整規格＋{nphoto} 張照片 ▾" if nphoto else "看完整規格 ▾"
 
@@ -282,6 +282,20 @@ def render_recommend_page(data, contact, share_id, client_name=''):
     pricey = data.get('pricey', [])
     anchor_price = anchor.get('price_wan')
 
+    # 收集各 photo group 的 URL 陣列 (給 lightbox 輪播)
+    groups = {}
+    if anchor.get('image_urls'):
+        groups['anchor'] = anchor['image_urls'][:24]
+    gi = 0
+    for c in cheap + pricey:
+        imgs = c.get('image_urls') or []
+        if not imgs and c.get('cover_image_url'):
+            imgs = [c['cover_image_url']]  # enrich 失敗兜底，至少封面可點開
+        if imgs:
+            groups[f'cand{gi}'] = imgs[:24]
+        gi += 1
+    groups_json = json.dumps(groups)
+
     if cheap or pricey:
         cards, i = '', 0
         for c in cheap:
@@ -295,6 +309,7 @@ def render_recommend_page(data, contact, share_id, client_name=''):
     return _PAGE_TEMPLATE.replace('__ANCHOR__', _anchor_card(anchor)) \
                          .replace('__GRID__', grid) \
                          .replace('__FOOTER__', _footer(contact)) \
+                         .replace('__PHOTOGROUPS__', groups_json) \
                          .replace('__TRACKING__', _tracking_js(share_id, client_name))
 
 
@@ -370,6 +385,15 @@ _PAGE_TEMPLATE = '''<!DOCTYPE html>
   .footer-contact { font-size: 16px; color: #2C2C2C; line-height: 2; }
   .footer-contact a { color: #6B8E23; }
   .footer-disclaim { font-size: 12px; color: #a89c83; margin-top: 14px; line-height: 1.7; }
+  .photo-strip img.ph { cursor: pointer; }
+  .anchor-img, .cand-cover { cursor: pointer; }
+  .lb { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.93); z-index: 9999; align-items: center; justify-content: center; }
+  .lb.show { display: flex; }
+  .lb img { max-width: 94vw; max-height: 82vh; border-radius: 6px; object-fit: contain; }
+  .lb-close { position: absolute; top: 12px; right: 18px; color: #fff; font-size: 36px; line-height: 1; cursor: pointer; z-index: 2; }
+  .lb-nav { position: absolute; top: 50%; transform: translateY(-50%); color: #fff; font-size: 48px; cursor: pointer; padding: 10px 16px; user-select: none; z-index: 2; opacity: .85; }
+  .lb-prev { left: 2px; } .lb-next { right: 2px; }
+  .lb-count { position: absolute; bottom: 16px; left: 0; right: 0; text-align: center; color: #fff; font-size: 16px; }
 </style>
 </head>
 <body>
@@ -384,6 +408,26 @@ _PAGE_TEMPLATE = '''<!DOCTYPE html>
     __GRID__
     __FOOTER__
   </div>
+  <div id="lightbox" class="lb" onclick="lbBg(event)">
+    <span class="lb-close" onclick="closeLB()">✕</span>
+    <span class="lb-nav lb-prev" onclick="lbNav(-1)">‹</span>
+    <img id="lb-img" src="" alt="">
+    <span class="lb-nav lb-next" onclick="lbNav(1)">›</span>
+    <div class="lb-count" id="lb-count"></div>
+  </div>
+  <script>
+    window.PHOTO_GROUPS = __PHOTOGROUPS__;
+    var LB_g=null, LB_i=0;
+    function openLB(g,i){ LB_g=g; LB_i=i; lbRender(); document.getElementById('lightbox').classList.add('show'); document.body.style.overflow='hidden'; }
+    function lbRender(){ var a=window.PHOTO_GROUPS[LB_g]||[]; if(!a.length)return; document.getElementById('lb-img').src=a[LB_i]; document.getElementById('lb-count').textContent=(LB_i+1)+' / '+a.length; }
+    function lbNav(d){ var a=window.PHOTO_GROUPS[LB_g]||[]; if(!a.length)return; LB_i=(LB_i+d+a.length)%a.length; lbRender(); }
+    function closeLB(){ document.getElementById('lightbox').classList.remove('show'); document.body.style.overflow=''; }
+    function lbBg(e){ if(e.target.id==='lightbox') closeLB(); }
+    document.addEventListener('keydown',function(e){ if(!document.getElementById('lightbox').classList.contains('show'))return; if(e.key==='ArrowLeft')lbNav(-1); else if(e.key==='ArrowRight')lbNav(1); else if(e.key==='Escape')closeLB(); });
+    (function(){ var tx=0, lb=document.getElementById('lightbox');
+      lb.addEventListener('touchstart',function(e){ tx=e.changedTouches[0].clientX; },{passive:true});
+      lb.addEventListener('touchend',function(e){ var dx=e.changedTouches[0].clientX-tx; if(Math.abs(dx)>40) lbNav(dx<0?1:-1); },{passive:true}); })();
+  </script>
   __TRACKING__
 </body>
 </html>'''
