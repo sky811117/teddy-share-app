@@ -119,8 +119,11 @@ def fetch_anchor(short_url: str) -> dict:
     image_url = ""
     if images:
         image_url = images[0].get("imgUrl", "") or ""
+        if image_url:  # ycut 預設縮圖 600x450 太糊，放大到 1280x960
+            image_url = re.sub(r'([?&])width=\d+', r'\g<1>width=1280', image_url)
+            image_url = re.sub(r'([?&])height=\d+', r'\g<1>height=960', image_url)
 
-    # 坪數欄位 (ycut ng-state data dict)，全部 try/float 容錯，抓不到給 None
+    # 數值欄位 (ycut ng-state data dict)，全部 try 容錯，抓不到給 None
     def _f(key):
         try:
             v = data.get(key)
@@ -128,26 +131,61 @@ def fetch_anchor(short_url: str) -> dict:
         except (TypeError, ValueError):
             return None
 
-    main_area_ping = _f("buiMPin")      # 主建物坪 (配對檔次最關鍵欄位)
-    building_area_ping = _f("buiTotPin")  # 建坪 (建物總坪)
-    land_area_ping = _f("landShPin")    # 土地坪 (持分)
-    public_ratio = _f("pubRate")        # 公設比 (照原樣，可能 0.xx 或 xx)
+    def _i(key):
+        v = _f(key)
+        return int(v) if v is not None else None
+
+    hall_count = _i("livingRm")
+    bath_count = _i("bathRm")
+
+    # 樓層: floorSt~floorEn / upFloor。單層 6/21，跨層 6-8/21
+    fl_st, fl_en, fl_up = _i("floorSt"), _i("floorEn"), _i("upFloor")
+    if fl_st and fl_up:
+        floor = (f"{fl_st}/{fl_up}" if (not fl_en or fl_en == fl_st)
+                 else f"{fl_st}-{fl_en}/{fl_up}")
+    else:
+        floor = None
+
+    # 車位 (隱私: 只給類型，不給車位編號 parkingNO)
+    parking = None
+    if (data.get("parkingSpace") or "").strip() in ("有", "Y", "1"):
+        pm = (data.get("parkingMode") or "").replace("/", "").strip()
+        parking = f"{pm}車位" if pm else "有車位"
+
+    # 管理費
+    mg_expense = _i("mgExpense")
+    mg_code = data.get("mgCode") or ""
+    mg_fee = (f"{mg_expense:,} 元/{mg_code}" if (mg_expense and mg_code)
+              else (f"{mg_expense:,} 元" if mg_expense else None))
 
     result = {
         "price_wan": int(data["price"]) if data.get("price") is not None else None,
         "room_count": room_count,
+        "hall_count": hall_count,
+        "bath_count": bath_count,
         "district": district,
         "city": city,
         "type": data.get("typeCode", ""),
+        "use_code": data.get("useCode", ""),
         "image_url": image_url,
         "community_name": data.get("buildingName", ""),
         "address": addr_simp,
         "anchor_id": anchor_id,
         "age_years": age_years,
-        "main_area_ping": main_area_ping,
-        "building_area_ping": building_area_ping,
-        "land_area_ping": land_area_ping,
-        "public_ratio": public_ratio,
+        "main_area_ping": _f("buiMPin"),          # 主建物坪
+        "building_area_ping": _f("buiTotPin"),    # 權狀/建物總坪
+        "land_area_ping": _f("landShPin"),        # 土地持分坪
+        "public_area_ping": _f("buiPubPin"),      # 公設坪
+        "balcony_ping": _f("porchPin"),           # 陽台坪
+        "rainproof_ping": _f("rainproofPin"),     # 雨遮坪
+        "public_ratio": _f("pubRate"),            # 公設比 %
+        "floor": floor,
+        "parking": parking,
+        "mg_fee": mg_fee,
+        "pri_school": data.get("priSchoolName") or None,
+        "jun_school": data.get("junSchoolName") or None,
+        "selling_point": (data.get("caseSpec") or "").strip() or None,
+        "build_date": data.get("twDate") or None,
     }
     return result
 
@@ -346,6 +384,8 @@ def parse_detail(html_str: str) -> dict:
         "address_text": None,
         "case_id": None,                    # YC...
         "house_id": None,                   # URL /house/{id}
+        "parking": None,                    # 車位類型 (平面/坡道/機械...)
+        "parking_area_ping": None,          # 含車位坪數
         "image_urls": [],                   # list[str]
     }
 
@@ -441,6 +481,18 @@ def parse_detail(html_str: str) -> dict:
     ml = re.search(r"土地坪數\s*([\d.]+)\s*坪", text)
     if ml:
         out["land_area_ping"] = float(ml.group(1))
+
+    # 車位類型 + 含車位坪 (永慶 detail 文本)
+    mp = re.search(r"(坡道平面|坡道機械|升降平面|升降機械|平面|機械|塔式)(?:固定)?車位", text)
+    if mp:
+        out["parking"] = mp.group(1) + "車位"
+    mpa = re.search(r"含車位\s*([\d.]+)\s*坪", text)
+    if mpa:
+        out["parking_area_ping"] = float(mpa.group(1))
+
+    # 單價兜底: 沒抓到就用 總價/權狀坪 自算 (權狀單價)
+    if out["unit_price_wan_per_ping"] is None and out["price_wan"] and out["building_area_ping"]:
+        out["unit_price_wan_per_ping"] = round(out["price_wan"] / out["building_area_ping"], 1)
 
     # ---- 照片 photo-swiper -----------------------------------------
     swiper = re.search(

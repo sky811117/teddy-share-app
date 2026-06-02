@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-猜你喜歡 推薦頁 renderer（lib 模組版，供 /api/recommend 呼叫）。
+猜你喜歡 推薦頁 renderer (完整規格版)。
 
 render_recommend_page(data, contact, share_id, client_name) -> html_str
 
 設計 (2026-06-02 景泰拍板):
-  - 候選「無照片資訊卡」(永慶照片中央大浮水印不能用)，decoy 靠數字對比。
-  - anchor 主物件 = 景泰自家 ycut 圖 (無浮水印) -> 保留大圖。
-  - 候選卡不外連永慶，CTA 全回景泰。嵌 tracking JS (停留 / 電話 / LINE)。
+  - 資訊要完全、全部不能少 -> anchor + 候選都列完整規格表。
+  - anchor 大卡: 高解析首圖 + 完整規格 (全顯示)。
+  - 候選卡: 核心資訊 + 「看完整規格」展開完整 (= 點進去詳細)，並 track 展開事件。
+  - 候選不放同業浮水印照片、不外連永慶，CTA 全回景泰。
+  - 隱私: 車位編號 / 完整門牌不顯示 (parser 已過濾)。
 """
 import html as _html
 import json
@@ -19,28 +21,103 @@ def _esc(s):
     return _html.escape(str(s))
 
 
+def _ping(v):
+    return f"{v} 坪" if v not in (None, "", 0) else None
+
+
+def _floor(v):
+    return f"{v}F" if v else None
+
+
+def _layout(item):
+    """3房 + 2廳 + 2衛 -> '3房2廳2衛'。"""
+    room = (item.get("room_count") or "").strip()
+    if room and not room.endswith("房"):
+        room = room + "房" if room.isdigit() else room
+    h = item.get("hall_count")
+    b = item.get("bath_count")
+    if not room:
+        return None
+    s = room
+    if h is not None:
+        s += f"{h}廳"
+    if b is not None:
+        s += f"{b}衛"
+    return s
+
+
+def _spec_table(rows):
+    """rows = [(label, value), ...]，只列 value 非空。"""
+    cells = ''.join(
+        f'<div class="spec-row"><span class="spec-k">{_esc(k)}</span>'
+        f'<span class="spec-v">{_esc(v)}</span></div>'
+        for k, v in rows if v not in (None, "", 0)
+    )
+    return f'<div class="spec-table">{cells}</div>'
+
+
+def _anchor_specs(a):
+    rows = [("總價", f"{a['price_wan']:,} 萬" if a.get('price_wan') else None)]
+    if a.get('price_wan') and a.get('building_area_ping'):
+        rows.append(("單價", f"約 {round(a['price_wan']/a['building_area_ping'],1)} 萬/坪（權狀）"))
+    rows.append(("格局", _layout(a)))
+    rows.append(("權狀坪", _ping(a.get('building_area_ping'))))
+    rows.append(("主建坪", _ping(a.get('main_area_ping'))))
+    if a.get('public_area_ping'):
+        pr = f"（公設比 {a['public_ratio']}%）" if a.get('public_ratio') else ""
+        rows.append(("公設坪", f"{a['public_area_ping']} 坪{pr}"))
+    rows.append(("陽台", _ping(a.get('balcony_ping'))))
+    rows.append(("雨遮", _ping(a.get('rainproof_ping'))))
+    rows.append(("土地持分", _ping(a.get('land_area_ping'))))
+    rows.append(("樓層", _floor(a.get('floor'))))
+    rows.append(("屋齡", f"{a['age_years']} 年" if a.get('age_years') else None))
+    rows.append(("車位", a.get('parking')))
+    rows.append(("管理費", a.get('mg_fee')))
+    t, uc = a.get('type', ''), a.get('use_code', '')
+    rows.append(("類型", f"{t}／{uc}" if (t and uc) else (t or uc or None)))
+    sch = '／'.join(x for x in [a.get('pri_school'), a.get('jun_school')] if x)
+    rows.append(("學區", sch or None))
+    rows.append(("地址", a.get('address')))
+    rows.append(("建照", a.get('build_date')))
+    return rows
+
+
+def _cand_specs(c):
+    rows = [("總價", f"{c['price_wan']:,} 萬" if c.get('price_wan') else None)]
+    if c.get('unit_price_wan_per_ping'):
+        rows.append(("單價", f"約 {c['unit_price_wan_per_ping']} 萬/坪（權狀）"))
+    rows.append(("格局", _layout(c)))
+    rows.append(("權狀坪", _ping(c.get('building_area_ping'))))
+    rows.append(("主建坪", _ping(c.get('main_area_ping'))))
+    if c.get('parking_area_ping'):
+        rows.append(("含車位坪", _ping(c.get('parking_area_ping'))))
+    rows.append(("土地坪", _ping(c.get('land_area_ping'))))
+    rows.append(("樓層", _floor(c.get('floor'))))
+    age = c.get('age_years') or c.get('building_age')
+    rows.append(("屋齡", f"{age} 年" if age else None))
+    rows.append(("車位", c.get('parking')))
+    rows.append(("類型", c.get('case_type')))
+    rows.append(("地址", c.get('address_text') or c.get('street')))
+    return rows
+
+
+def _sellpoint_html(text, label="物件特色"):
+    if not text:
+        return ''
+    lines = [_esc(ln.strip()) for ln in str(text).split('\n') if ln.strip()]
+    if not lines:
+        return ''
+    return f'<div class="sellpoint"><b>{label}</b><br>{"<br>".join(lines)}</div>'
+
+
 def _anchor_card(anchor):
     if not anchor:
         return '<div class="anchor-empty">尚未取得物件資料</div>'
     img = _esc(anchor.get('image_url', ''))
     community = _esc(anchor.get('community_name', '社區資料整理中'))
     price = anchor.get('price_wan', 0) or 0
-    room = _esc(anchor.get('room_count', ''))
-    typ = _esc(anchor.get('type', ''))
-    addr = _esc(anchor.get('address', ''))
-    age = anchor.get('age_years')
-    ping = anchor.get('main_area_ping')
-
     img_html = (f'<div class="anchor-img" style="background-image:url(\'{img}\')"></div>'
                 if img else '<div class="anchor-img anchor-img--placeholder"></div>')
-    chips = [f'<span class="chip">{room}</span>'] if room else []
-    if typ:
-        chips.append(f'<span class="chip">{_esc(typ)}</span>')
-    if ping:
-        chips.append(f'<span class="chip">{ping} 坪</span>')
-    if age is not None:
-        chips.append(f'<span class="chip">屋齡 {age} 年</span>')
-
     return f'''
     <div class="anchor-card">
       {img_html}
@@ -48,50 +125,49 @@ def _anchor_card(anchor):
         <div class="anchor-label">您正在看的物件</div>
         <h2 class="anchor-community">{community}</h2>
         <div class="anchor-price">{price:,} 萬</div>
-        <div class="anchor-meta">{''.join(chips)}</div>
-        <div class="anchor-addr">{addr}</div>
+        {_spec_table(_anchor_specs(anchor))}
+        {_sellpoint_html(anchor.get('selling_point'))}
       </div>
     </div>'''
 
 
-def _candidate_card(c, kind, anchor_price):
+def _candidate_card(c, kind, anchor_price, idx):
     community = _esc(c.get('community_name') or '社區資料整理中')
     price = c.get('price_wan', 0) or 0
-    room = _esc(c.get('room_count', ''))
-    ping = c.get('main_area_ping')
-    age = c.get('age_years')
-    if age is None:
-        age = c.get('building_age')
-    district = _esc(c.get('district') or '')
-
+    house_id = _esc(c.get('house_id', ''))
     if anchor_price and price:
-        diff = (anchor_price - price) if kind == 'cheap' else (price - anchor_price)
+        diff = abs((anchor_price - price) if kind == 'cheap' else (price - anchor_price))
     else:
         diff = 0
-    diff = abs(diff)
-
     if kind == 'cheap':
         chip = f'<span class="cand-chip cand-chip--cheap">💎 省 {diff:,} 萬</span>'
     else:
         chip = f'<span class="cand-chip cand-chip--pricey">🌟 多 {diff:,} 萬・升級選擇</span>'
 
-    parts = []
-    if room:
-        parts.append(room)
-    if ping:
-        parts.append(f"{ping} 坪")
-    if age is not None:
-        parts.append(f"屋齡 {age} 年")
-    meta = ' · '.join(parts)
+    core = []
+    g = _layout(c)
+    if g:
+        core.append(g)
+    if c.get('building_area_ping'):
+        core.append(f"權狀 {c['building_area_ping']}坪")
+    age = c.get('age_years') or c.get('building_age')
+    if age:
+        core.append(f"屋齡 {age}年")
+    core_str = ' · '.join(core)
+    district = _esc((c.get('district') or '') + (c.get('street') or ''))
     district_html = f'<div class="cand-district">📍 {district}</div>' if district else ''
+
+    detail = _spec_table(_cand_specs(c)) + _sellpoint_html(c.get('title'), "物件特色")
 
     return f'''
     <div class="cand-card cand-card--{kind}">
       {chip}
       <div class="cand-community">{community}</div>
       <div class="cand-price">{price:,} 萬</div>
-      <div class="cand-meta">{_esc(meta)}</div>
+      <div class="cand-core">{_esc(core_str)}</div>
       {district_html}
+      <div class="cand-detail" id="d{idx}">{detail}</div>
+      <button class="cand-toggle" onclick="toggleDetail({idx},'{_esc(community)}','{house_id}')">看完整規格 ▾</button>
     </div>'''
 
 
@@ -151,49 +227,42 @@ def _tracking_js(share_id, client_name):
     cname = json.dumps(client_name or "FB猜你喜歡")
     return '''
 <script>
-(function(){
-  var IS_ADMIN=false;
-  try{ IS_ADMIN=(localStorage.getItem('teddy_admin')==='1'); }catch(e){}
   var SHARE_ID=__SID__;
   var CLIENT_NAME=__CNAME__;
   var TRACK_API='https://teddy-share-app.vercel.app/api/track';
-  var startTime=Date.now();
-  var visitSent=false;
-  function postTrack(p){
-    if(IS_ADMIN)return;
-    try{ fetch(TRACK_API,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(p),keepalive:true}); }catch(e){}
-  }
-  function trackVisit(){
-    if(visitSent)return;
-    var d=Math.round((Date.now()-startTime)/1000);
-    if(d<3)return;
-    visitSent=true;
-    postTrack({client:CLIENT_NAME,share_id:SHARE_ID,duration:d,url:location.href,referrer:document.referrer||''});
-  }
-  function trackCta(t){
-    var d=Math.round((Date.now()-startTime)/1000);
-    postTrack({client:CLIENT_NAME,share_id:SHARE_ID,cta_type:t,duration:d,url:location.href,referrer:document.referrer||''});
+  var IS_ADMIN=false; try{ IS_ADMIN=(localStorage.getItem('teddy_admin')==='1'); }catch(e){}
+  var startTime=Date.now(), visitSent=false;
+  function postTrack(p){ if(IS_ADMIN)return; try{ fetch(TRACK_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p),keepalive:true}); }catch(e){} }
+  function trackVisit(){ if(visitSent)return; var d=Math.round((Date.now()-startTime)/1000); if(d<3)return; visitSent=true; postTrack({client:CLIENT_NAME,share_id:SHARE_ID,duration:d,url:location.href,referrer:document.referrer||''}); }
+  function trackCta(t){ var d=Math.round((Date.now()-startTime)/1000); postTrack({client:CLIENT_NAME,share_id:SHARE_ID,cta_type:t,duration:d,url:location.href,referrer:document.referrer||''}); }
+  function toggleDetail(idx, name, houseId){
+    var el=document.getElementById('d'+idx);
+    var btn=el.nextElementSibling;
+    var open=el.classList.toggle('show');
+    btn.innerHTML = open ? '收合 ▴' : '看完整規格 ▾';
+    if(open){ var d=Math.round((Date.now()-startTime)/1000);
+      postTrack({client:CLIENT_NAME,share_id:SHARE_ID,clicked_slug:houseId,clicked_name:name,duration:d,url:location.href,referrer:document.referrer||''}); }
   }
   document.querySelectorAll('.cta-btn--tel').forEach(function(el){el.addEventListener('click',function(){trackCta('phone');});});
   document.querySelectorAll('.cta-btn--line').forEach(function(el){el.addEventListener('click',function(){trackCta('line');});});
   window.addEventListener('beforeunload',trackVisit);
   document.addEventListener('visibilitychange',function(){if(document.hidden)trackVisit();});
   setTimeout(trackVisit,20000);
-})();
 </script>'''.replace('__SID__', sid).replace('__CNAME__', cname)
 
 
 def render_recommend_page(data, contact, share_id, client_name=''):
-    """data = recommend() 輸出 (anchor/cheap/pricey)；contact = DEFAULT_CONTACT。"""
     anchor = data.get('anchor') or {}
     cheap = data.get('cheap', [])
     pricey = data.get('pricey', [])
     anchor_price = anchor.get('price_wan')
 
     if cheap or pricey:
-        cards = ''.join(_candidate_card(c, 'cheap', anchor_price) for c in cheap)
-        cards += ''.join(_candidate_card(c, 'pricey', anchor_price) for c in pricey)
+        cards, i = '', 0
+        for c in cheap:
+            cards += _candidate_card(c, 'cheap', anchor_price, i); i += 1
+        for c in pricey:
+            cards += _candidate_card(c, 'pricey', anchor_price, i); i += 1
         grid = f'<div class="cards-grid">{cards}</div>' + _cta(contact)
     else:
         grid = _empty_state() + _cta(contact)
@@ -221,41 +290,39 @@ _PAGE_TEMPLATE = '''<!DOCTYPE html>
   .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
   .page-title { font-size: 28px; font-weight: 700; text-align: center; margin: 16px 0 8px; letter-spacing: 1px; }
   .page-subtitle { text-align: center; font-size: 15px; color: #7a6f5e; margin-bottom: 32px; }
-  .anchor-card { background: #fff; border-radius: 16px; overflow: hidden;
-    box-shadow: 0 2px 12px rgba(60,45,20,0.08); margin-bottom: 36px; border: 1px solid rgba(212,185,150,0.4); }
+  .anchor-card { background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(60,45,20,.08); margin-bottom: 36px; border: 1px solid rgba(212,185,150,.4); }
   .anchor-img { width: 100%; aspect-ratio: 4/3; background-size: cover; background-position: center; background-color: #e8e0d3; }
   .anchor-img--placeholder { background: linear-gradient(135deg,#e8e0d3 0%,#d4b996 100%); }
-  .anchor-body { padding: 24px 20px; }
-  .anchor-label { display: inline-block; background: #D4B996; color: #fff; padding: 4px 12px;
-    border-radius: 20px; font-size: 13px; margin-bottom: 10px; letter-spacing: 1px; }
-  .anchor-community { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
-  .anchor-price { font-size: 32px; font-weight: 800; color: #6B8E23; margin-bottom: 12px; }
-  .anchor-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-  .chip { display: inline-block; background: #F5F1EB; border: 1px solid #D4B996; color: #6b5b3a;
-    padding: 4px 12px; border-radius: 16px; font-size: 14px; }
-  .anchor-addr { font-size: 15px; color: #7a6f5e; }
+  .anchor-body { padding: 22px 20px; }
+  .anchor-label { display: inline-block; background: #D4B996; color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 13px; margin-bottom: 10px; letter-spacing: 1px; }
+  .anchor-community { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+  .anchor-price { font-size: 32px; font-weight: 800; color: #6B8E23; margin-bottom: 6px; }
+  .spec-table { margin-top: 12px; border-top: 1px solid #ece2d0; }
+  .spec-row { display: flex; padding: 9px 2px; border-bottom: 1px solid #f2ecde; font-size: 16px; }
+  .spec-k { width: 76px; flex-shrink: 0; color: #9a8f7a; }
+  .spec-v { color: #2C2C2C; font-weight: 600; flex: 1; }
+  .sellpoint { margin-top: 14px; font-size: 15px; color: #5d5340; line-height: 1.8; background: #faf6ee; padding: 12px 14px; border-radius: 10px; border: 1px solid #ece2d0; }
+  .sellpoint b { color: #6B8E23; }
   .section-header { display: flex; align-items: center; gap: 12px; margin: 32px 0 16px; }
   .section-header h3 { font-size: 20px; font-weight: 700; white-space: nowrap; }
-  .section-line { flex: 1; height: 1px; background: #D4B996; opacity: 0.5; }
+  .section-line { flex: 1; height: 1px; background: #D4B996; opacity: .5; }
   .cards-grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
-  @media (min-width:640px){ .cards-grid{ grid-template-columns:1fr 1fr; } }
-  @media (min-width:960px){ .cards-grid{ grid-template-columns:1fr 1fr 1fr; } }
-  .cand-card { position: relative; background: #fff; border-radius: 14px; padding: 20px 20px 18px 24px;
-    box-shadow: 0 2px 10px rgba(60,45,20,0.07); border: 1px solid rgba(212,185,150,0.3);
-    border-left: 5px solid #D4B996; transition: transform .2s ease, box-shadow .2s ease; }
-  .cand-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(60,45,20,0.12); }
+  @media (min-width:720px){ .cards-grid { grid-template-columns: 1fr 1fr; } }
+  .cand-card { position: relative; background: #fff; border-radius: 14px; padding: 20px 18px 16px 22px; box-shadow: 0 2px 10px rgba(60,45,20,.07); border: 1px solid rgba(212,185,150,.3); border-left: 5px solid #D4B996; }
   .cand-card--cheap { border-left-color: #6B8E23; }
   .cand-card--pricey { border-left-color: #6A5ACD; }
-  .cand-chip { display: inline-block; padding: 5px 13px; border-radius: 16px; color: #fff;
-    font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+  .cand-chip { display: inline-block; padding: 5px 13px; border-radius: 16px; color: #fff; font-size: 15px; font-weight: 700; margin-bottom: 12px; }
   .cand-chip--cheap { background: #6B8E23; }
   .cand-chip--pricey { background: #6A5ACD; }
-  .cand-community { font-size: 19px; font-weight: 700; margin-bottom: 4px; }
+  .cand-community { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
   .cand-price { font-size: 28px; font-weight: 800; color: #2C2C2C; margin-bottom: 8px; }
-  .cand-meta { font-size: 16px; color: #5a5040; margin-bottom: 6px; }
+  .cand-core { font-size: 16px; color: #5a5040; margin-bottom: 6px; }
   .cand-district { font-size: 15px; color: #7a6f5e; }
-  .cta-banner { margin-top: 28px; padding: 28px 20px; background: #fff; border-radius: 16px;
-    text-align: center; border: 1px solid rgba(212,185,150,0.4); box-shadow: 0 2px 12px rgba(60,45,20,0.06); }
+  .cand-detail { display: none; }
+  .cand-detail.show { display: block; }
+  .cand-toggle { margin-top: 12px; width: 100%; background: #fbf8f1; border: 1px solid #D4B996; color: #6b5b3a; padding: 10px; border-radius: 18px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .cand-toggle:active { background: #f3ead8; }
+  .cta-banner { margin-top: 28px; padding: 28px 20px; background: #fff; border-radius: 16px; text-align: center; border: 1px solid rgba(212,185,150,.4); box-shadow: 0 2px 12px rgba(60,45,20,.06); }
   .cta-text { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
   .cta-sub { font-size: 15px; color: #7a6f5e; margin-bottom: 18px; }
   .cta-btns { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
@@ -266,8 +333,7 @@ _PAGE_TEMPLATE = '''<!DOCTYPE html>
   .empty-icon { font-size: 48px; color: #D4B996; margin-bottom: 12px; line-height: 1; }
   .empty-title { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
   .empty-desc { font-size: 16px; color: #6b5b3a; max-width: 480px; margin: 0 auto; }
-  .footer { margin-top: 40px; padding: 24px 16px; background: #fff; border-radius: 14px;
-    text-align: center; border: 1px solid rgba(212,185,150,0.4); }
+  .footer { margin-top: 40px; padding: 24px 16px; background: #fff; border-radius: 14px; text-align: center; border: 1px solid rgba(212,185,150,.4); }
   .footer-tagline { font-size: 15px; color: #6b5b3a; margin-bottom: 14px; }
   .footer-name { font-size: 19px; font-weight: 700; margin-bottom: 8px; }
   .footer-contact { font-size: 16px; color: #2C2C2C; line-height: 2; }
