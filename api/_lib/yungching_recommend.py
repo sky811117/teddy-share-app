@@ -684,12 +684,18 @@ def _decoy_split(pool, anchor_price):
     去重 (house_id)。
     """
     seen = set()
+    seen_comm = set()
     dedup = []
     for c in pool:
         hid = c.get('house_id')
+        comm = (c.get('community_name') or '').strip()
         if hid in seen:
             continue
+        if comm and comm in seen_comm:
+            continue  # 同社區只取一戶，避免「春風得意」出現兩次的重複感
         seen.add(hid)
+        if comm:
+            seen_comm.add(comm)
         dedup.append(c)
 
     cheap_pool = [c for c in dedup if c['price_wan'] < anchor_price]
