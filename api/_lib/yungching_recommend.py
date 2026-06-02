@@ -694,8 +694,9 @@ def _decoy_split(pool, anchor_price):
 
     cheap_pool = [c for c in dedup if c['price_wan'] < anchor_price]
     pricey_pool = [c for c in dedup if c['price_wan'] > anchor_price]
-    cheap = sorted(cheap_pool, key=lambda c: -c['price_wan'])[:4]
-    pricey = sorted(pricey_pool, key=lambda c: c['price_wan'])[:1]
+    # 多取 buffer (cheap 6 / pricey 2)，enrich 後過濾跨市再截前 4/1，避免剔除後不足
+    cheap = sorted(cheap_pool, key=lambda c: -c['price_wan'])[:6]
+    pricey = sorted(pricey_pool, key=lambda c: c['price_wan'])[:2]
     return cheap, pricey
 
 
@@ -875,6 +876,11 @@ def recommend(short_url: str) -> dict:
                 if k in c and c[k] not in (None, "", []):
                     continue  # list 已有值不覆蓋
                 c[k] = v
+            # city/district 例外: detail 比 list 準 (永慶 list 推薦位會把台北物件標成台中區)
+            if detail.get('city'):
+                c['city'] = detail['city']
+            if detail.get('district'):
+                c['district'] = detail['district']
         except Exception as e:
             c['enrich_error'] = str(e)
 
@@ -892,6 +898,9 @@ def recommend(short_url: str) -> dict:
         dropped = before - len(cheap) - len(pricey)
         if dropped:
             warnings.append(f"⚠️ enrich 後剔除 {dropped} 筆跨縣市物件 (detail 顯示非 {city})")
+    # buffer 過濾後截前 4 便宜 + 1 貴
+    cheap = cheap[:4]
+    pricey = pricey[:1]
     _to_enrich = cheap + pricey
 
     # 把封面實景照 (cover_image_url) 排到 image_urls 第 1 張
