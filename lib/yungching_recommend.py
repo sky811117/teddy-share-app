@@ -854,6 +854,14 @@ def recommend(short_url: str) -> dict:
         with ThreadPoolExecutor(max_workers=min(6, len(_to_enrich))) as ex:
             list(ex.map(_enrich_one, _to_enrich))
 
+    # 把封面實景照 (cover_image_url) 排到 image_urls 第 1 張
+    # → 點封面開 lightbox 從實景照開始，不會先看到格局圖 (永慶 detail 常把格局圖排前)
+    for c in _to_enrich:
+        cov = c.get('cover_image_url')
+        if cov:
+            rest = [u for u in (c.get('image_urls') or []) if u != cov]
+            c['image_urls'] = [cov] + rest
+
     # ---- tier_conditions 摘要 ----
     a_lo, a_hi = (used_area_band or (None, None))
     tier_conditions = {
