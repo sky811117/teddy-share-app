@@ -110,6 +110,18 @@ def _sellpoint_html(text, label="物件特色"):
     return f'<div class="sellpoint"><b>{label}</b><br>{"<br>".join(lines)}</div>'
 
 
+def _photo_strip(urls, limit=24):
+    """橫向 scroll 照片條，img lazy load，點開看大圖。"""
+    if not urls:
+        return ''
+    items = ''.join(
+        f'<a class="ph" href="{_esc(u)}" target="_blank" rel="noopener">'
+        f'<img loading="lazy" src="{_esc(u)}" alt=""></a>'
+        for u in urls[:limit]
+    )
+    return f'<div class="photo-strip">{items}</div>'
+
+
 def _anchor_card(anchor):
     if not anchor:
         return '<div class="anchor-empty">尚未取得物件資料</div>'
@@ -127,6 +139,7 @@ def _anchor_card(anchor):
         <div class="anchor-price">{price:,} 萬</div>
         {_spec_table(_anchor_specs(anchor))}
         {_sellpoint_html(anchor.get('selling_point'))}
+        {_photo_strip(anchor.get('image_urls') or [])}
       </div>
     </div>'''
 
@@ -144,6 +157,10 @@ def _candidate_card(c, kind, anchor_price, idx):
     else:
         chip = f'<span class="cand-chip cand-chip--pricey">🌟 多 {diff:,} 萬・升級選擇</span>'
 
+    imgs = c.get('image_urls') or []
+    # 封面優先用 list 主推照 (永慶選的封面實景照)，避免 detail 第一張是格局圖
+    cover = _esc(c.get('cover_image_url') or (imgs[0] if imgs else ''))
+
     core = []
     g = _layout(c)
     if g:
@@ -157,17 +174,25 @@ def _candidate_card(c, kind, anchor_price, idx):
     district = _esc((c.get('district') or '') + (c.get('street') or ''))
     district_html = f'<div class="cand-district">📍 {district}</div>' if district else ''
 
-    detail = _spec_table(_cand_specs(c)) + _sellpoint_html(c.get('title'), "物件特色")
+    cover_html = (f'<div class="cand-cover" style="background-image:url(\'{cover}\')"></div>'
+                  if cover else '<div class="cand-cover cand-cover--ph"></div>')
+    detail = (_spec_table(_cand_specs(c)) + _sellpoint_html(c.get('title'), "物件特色")
+              + _photo_strip(imgs))
+    nphoto = len(imgs)
+    toggle_label = f"看完整規格＋{nphoto} 張照片 ▾" if nphoto else "看完整規格 ▾"
 
     return f'''
     <div class="cand-card cand-card--{kind}">
-      {chip}
-      <div class="cand-community">{community}</div>
-      <div class="cand-price">{price:,} 萬</div>
-      <div class="cand-core">{_esc(core_str)}</div>
-      {district_html}
-      <div class="cand-detail" id="d{idx}">{detail}</div>
-      <button class="cand-toggle" onclick="toggleDetail({idx},'{_esc(community)}','{house_id}')">看完整規格 ▾</button>
+      {cover_html}
+      <div class="cand-body">
+        {chip}
+        <div class="cand-community">{community}</div>
+        <div class="cand-price">{price:,} 萬</div>
+        <div class="cand-core">{_esc(core_str)}</div>
+        {district_html}
+        <div class="cand-detail" id="d{idx}">{detail}</div>
+        <button class="cand-toggle" onclick="toggleDetail({idx},'{_esc(community)}','{house_id}')">{toggle_label}</button>
+      </div>
     </div>'''
 
 
@@ -308,7 +333,13 @@ _PAGE_TEMPLATE = '''<!DOCTYPE html>
   .section-line { flex: 1; height: 1px; background: #D4B996; opacity: .5; }
   .cards-grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
   @media (min-width:720px){ .cards-grid { grid-template-columns: 1fr 1fr; } }
-  .cand-card { position: relative; background: #fff; border-radius: 14px; padding: 20px 18px 16px 22px; box-shadow: 0 2px 10px rgba(60,45,20,.07); border: 1px solid rgba(212,185,150,.3); border-left: 5px solid #D4B996; }
+  .cand-card { position: relative; background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 10px rgba(60,45,20,.07); border: 1px solid rgba(212,185,150,.3); border-left: 5px solid #D4B996; }
+  .cand-cover { width: 100%; aspect-ratio: 4/3; background-size: cover; background-position: center; background-color: #e8e0d3; }
+  .cand-cover--ph { background: linear-gradient(135deg,#e8e0d3,#d4b996); }
+  .cand-body { padding: 18px 18px 16px 20px; }
+  .photo-strip { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0 4px; -webkit-overflow-scrolling: touch; }
+  .photo-strip a { flex: 0 0 auto; }
+  .photo-strip img { height: 150px; width: auto; border-radius: 8px; display: block; background: #eee; }
   .cand-card--cheap { border-left-color: #6B8E23; }
   .cand-card--pricey { border-left-color: #6A5ACD; }
   .cand-chip { display: inline-block; padding: 5px 13px; border-radius: 16px; color: #fff; font-size: 15px; font-weight: 700; margin-bottom: 12px; }

@@ -116,12 +116,14 @@ def fetch_anchor(short_url: str) -> dict:
         age_years = None
 
     images = data.get("images") or []
-    image_url = ""
-    if images:
-        image_url = images[0].get("imgUrl", "") or ""
-        if image_url:  # ycut 預設縮圖 600x450 太糊，放大到 1280x960
-            image_url = re.sub(r'([?&])width=\d+', r'\g<1>width=1280', image_url)
-            image_url = re.sub(r'([?&])height=\d+', r'\g<1>height=960', image_url)
+    image_urls = []
+    for _im in images:
+        _u = _im.get("imgUrl", "") or ""
+        if _u:  # ycut 預設縮圖 600x450 太糊，放大到 1280x960
+            _u = re.sub(r'([?&])width=\d+', r'\g<1>width=1280', _u)
+            _u = re.sub(r'([?&])height=\d+', r'\g<1>height=960', _u)
+            image_urls.append(_u)
+    image_url = image_urls[0] if image_urls else ""
 
     # 數值欄位 (ycut ng-state data dict)，全部 try 容錯，抓不到給 None
     def _f(key):
@@ -168,6 +170,7 @@ def fetch_anchor(short_url: str) -> dict:
         "type": data.get("typeCode", ""),
         "use_code": data.get("useCode", ""),
         "image_url": image_url,
+        "image_urls": image_urls,
         "community_name": data.get("buildingName", ""),
         "address": addr_simp,
         "anchor_id": anchor_id,
