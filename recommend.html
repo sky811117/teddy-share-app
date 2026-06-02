@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>猜你喜歡 產生器</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #F5F1EB; color: #2C2C2C;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+    font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 540px; margin: 0 auto; padding: 28px 18px 80px; }
+  .title { font-size: 26px; font-weight: 800; text-align: center; margin-bottom: 6px; }
+  .sub { text-align: center; font-size: 15px; color: #7a6f5e; margin-bottom: 28px; }
+  .card { background: #fff; border-radius: 16px; padding: 24px 20px; box-shadow: 0 2px 12px rgba(60,45,20,.08); border: 1px solid rgba(212,185,150,.4); }
+  label { display: block; font-size: 15px; font-weight: 700; margin: 14px 0 6px; color: #5a5040; }
+  label:first-child { margin-top: 0; }
+  input {
+    width: 100%; font-size: 17px; padding: 13px 14px; border: 1.5px solid #D4B996;
+    border-radius: 12px; background: #fffdf9; color: #2C2C2C; -webkit-appearance: none;
+  }
+  input:focus { outline: none; border-color: #6B8E23; }
+  .hint { font-size: 13px; color: #a89c83; margin-top: 5px; }
+  button {
+    width: 100%; margin-top: 22px; padding: 15px; font-size: 18px; font-weight: 800;
+    color: #fff; background: #6B8E23; border: none; border-radius: 26px; cursor: pointer;
+  }
+  button:disabled { background: #c3bfb0; cursor: not-allowed; }
+  .status { margin-top: 18px; font-size: 15px; text-align: center; min-height: 24px; }
+  .status.err { color: #b5482e; }
+  .result { display: none; margin-top: 22px; padding: 20px; background: #f3f7ec; border: 1.5px solid #6B8E23; border-radius: 14px; }
+  .result.show { display: block; }
+  .result-summary { font-size: 15px; color: #4a5a26; margin-bottom: 12px; line-height: 1.7; }
+  .result-url { font-size: 15px; word-break: break-all; background: #fff; padding: 12px; border-radius: 10px; border: 1px solid #cdd9b5; margin-bottom: 12px; }
+  .result-url a { color: #6B8E23; font-weight: 700; }
+  .btn-row { display: flex; gap: 10px; }
+  .btn-row button { margin-top: 0; padding: 12px; font-size: 16px; border-radius: 20px; }
+  .btn-copy { background: #6B8E23; }
+  .btn-open { background: #5a6e2a; }
+  .spin { display: inline-block; width: 16px; height: 16px; border: 2px solid #cdd9b5; border-top-color: #6B8E23; border-radius: 50%; animation: r .7s linear infinite; vertical-align: -3px; margin-right: 6px; }
+  @keyframes r { to { transform: rotate(360deg); } }
+  .foot { text-align: center; font-size: 13px; color: #a89c83; margin-top: 26px; line-height: 1.7; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 class="title">🏡 猜你喜歡 產生器</h1>
+    <p class="sub">貼物件短網址 → 生成「同檔次 4 便宜 + 1 升級」推薦頁給客人</p>
+
+    <div class="card">
+      <label for="anchor">物件短網址 <span style="color:#b5482e">*</span></label>
+      <input id="anchor" type="url" inputmode="url" placeholder="https://x.ychouse.tw/743CgK" autocomplete="off">
+      <div class="hint">客人留言問的那間物件，貼它的 ycut 短網址</div>
+
+      <label for="cname">客戶稱呼（選填）</label>
+      <input id="cname" type="text" placeholder="例：王先生（不填預設 FB猜你喜歡）" autocomplete="off">
+
+      <button id="go">生成推薦頁</button>
+      <div class="status" id="status"></div>
+
+      <div class="result" id="result">
+        <div class="result-summary" id="summary"></div>
+        <div class="result-url" id="urlbox"></div>
+        <div class="btn-row">
+          <button class="btn-copy" id="copy">📋 複製連結</button>
+          <button class="btn-open" id="open">👁 開啟預覽</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">
+      陳景泰 · 一品不動產（有巢氏台中世界之心）<br>
+      生成的頁面會自動追蹤客人停留 / 點擊，可在後台看溫度
+    </div>
+  </div>
+
+<script>
+  var API = 'https://teddy-share-app.vercel.app/api/recommend';
+  var anchorEl = document.getElementById('anchor');
+  var cnameEl = document.getElementById('cname');
+  var goBtn = document.getElementById('go');
+  var statusEl = document.getElementById('status');
+  var resultEl = document.getElementById('result');
+  var summaryEl = document.getElementById('summary');
+  var urlboxEl = document.getElementById('urlbox');
+  var lastUrl = '';
+
+  function setStatus(msg, isErr) {
+    statusEl.innerHTML = msg;
+    statusEl.className = 'status' + (isErr ? ' err' : '');
+  }
+
+  goBtn.addEventListener('click', function() {
+    var anchor = (anchorEl.value || '').trim();
+    var name = (cnameEl.value || '').trim();
+    if (anchor.indexOf('ychouse.tw') === -1) {
+      setStatus('請貼有效的 ycut 短網址（含 x.ychouse.tw）', true);
+      return;
+    }
+    goBtn.disabled = true;
+    resultEl.className = 'result';
+    setStatus('<span class="spin"></span>生成中，抓永慶同檔次物件約需 10 秒…', false);
+
+    fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ anchor_url: anchor, name: name })
+    })
+    .then(function(r) { return r.json().then(function(j){ return { ok: r.ok, j: j }; }); })
+    .then(function(res) {
+      goBtn.disabled = false;
+      if (!res.ok || res.j.error) {
+        setStatus('✗ ' + (res.j.error || '生成失敗，請稍後再試'), true);
+        return;
+      }
+      var j = res.j;
+      lastUrl = j.url;
+      setStatus('✓ 生成成功！', false);
+      summaryEl.innerHTML = '錨點：<b>' + (j.anchor || '?') + '</b>（' + (j.anchor_price || '?') +
+        ' 萬）<br>配出 <b>' + (j.cheap || 0) + '</b> 間更便宜 + <b>' + (j.pricey || 0) + '</b> 間升級選擇';
+      urlboxEl.innerHTML = '<a href="' + j.url + '" target="_blank">' + j.url + '</a>';
+      resultEl.className = 'result show';
+    })
+    .catch(function(e) {
+      goBtn.disabled = false;
+      setStatus('✗ 連線失敗：' + e.message, true);
+    });
+  });
+
+  document.getElementById('copy').addEventListener('click', function() {
+    if (!lastUrl) return;
+    navigator.clipboard.writeText(lastUrl).then(function() {
+      var b = document.getElementById('copy');
+      var t = b.textContent; b.textContent = '✓ 已複製';
+      setTimeout(function(){ b.textContent = t; }, 1500);
+    });
+  });
+  document.getElementById('open').addEventListener('click', function() {
+    if (lastUrl) window.open(lastUrl, '_blank');
+  });
+</script>
+</body>
+</html>
