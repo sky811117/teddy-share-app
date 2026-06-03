@@ -17,7 +17,9 @@ from flask import Flask, request, jsonify, send_from_directory
 
 GITHUB_OWNER = "sky811117"
 GITHUB_REPO = "teddy-shares"
-PAGES_BASE_URL = f"https://{GITHUB_OWNER}.github.io/{GITHUB_REPO}"
+# 客戶看到的 URL 走 teddy-website Cloudflare Pages，內部 reverse-proxy 到 GitHub Pages
+# 流量算進個人網站 + URL 更漂亮（藏掉 sky811117）
+PAGES_BASE_URL = "https://teddy-website-blog.pages.dev/share"
 
 DEFAULT_CONTACT = {
     "company": "有巢氏房屋台中世界之心加盟店",
@@ -687,6 +689,7 @@ def gen_html(client_data, properties):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
 <title>{theme} · 給 {client_data["name"]} 的 {total_count} 戶整理</title>
 <meta property="og:title" content="{theme} · 給 {client_data["name"]} 的 {total_count} 戶整理">
 <meta property="og:description" content="{client_data["need"]}">
@@ -918,6 +921,9 @@ def gen_html(client_data, properties):
   .contact-item {{ display: flex; align-items: center; gap: 10px; font-size: 18px; color: #E8DFD2; text-decoration: none; transition: color 0.2s; }}
   .contact-item:hover {{ color: var(--accent); }}
   .contact-icon {{ font-size: 20px; }}
+  .footer-more {{ margin-bottom: 28px; font-size: 16px; letter-spacing: 1px; }}
+  .footer-more a {{ color: var(--accent); font-weight: 700; text-decoration: none; }}
+  .footer-more a:hover {{ color: var(--wood-light); }}
   .footer-license {{ font-size: 14px; color: var(--text-muted); letter-spacing: 1px; line-height: 2; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; }}
   .footer-date {{ font-size: 13px; color: rgba(232,223,210,0.4); margin-top: 16px; letter-spacing: 2px; }}
   .back-to-top {{
@@ -1003,6 +1009,9 @@ def gen_html(client_data, properties):
       <a class="contact-item" href="tel:{contact["phone_raw"]}"><span class="contact-icon">📞</span><span>{contact["phone"]}</span></a>
       <a class="contact-item" href="{contact["line_url"]}" target="_blank"><span class="contact-icon">💬</span><span>LINE：{contact["line"]}</span></a>
       <a class="contact-item" href="{contact["ig_url"]}" target="_blank"><span class="contact-icon">📷</span><span>IG：{contact["ig"]}</span></a>
+    </div>
+    <div class="footer-more">
+      <a href="https://teddy-website-blog.pages.dev/properties" target="_blank" rel="noopener">→ 看景泰自家更多在售物件</a>
     </div>
     <div class="footer-license">
       不動產經紀人 {contact["broker_name"]} 證號 {contact["broker_license"]}<br>

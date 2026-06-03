@@ -241,6 +241,9 @@ def _footer(contact, signature=''):
         電話 <a href="tel:{phone_raw}">{phone}</a><br>
         LINE：{line}　·　IG：<a href="{ig_url}" target="_blank">{ig}</a>
       </div>
+      <div class="footer-more">
+        <a href="https://teddy-website-blog.pages.dev/properties" target="_blank" rel="noopener">→ 看景泰自家更多在售物件</a>
+      </div>
       <div class="footer-disclaim">
         {company_full}（{company}）<br>
         經紀人 {broker} {broker_lic}　·　營業員 {agent} {agent_lic}
@@ -319,6 +322,7 @@ _PAGE_TEMPLATE = '''<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
 <title>為您挑的更多選擇</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -385,6 +389,9 @@ _PAGE_TEMPLATE = '''<!DOCTYPE html>
   .footer-name { font-size: 19px; font-weight: 700; margin-bottom: 8px; }
   .footer-contact { font-size: 16px; color: #2C2C2C; line-height: 2; }
   .footer-contact a { color: #6B8E23; }
+  .footer-more { margin-top: 12px; font-size: 15px; }
+  .footer-more a { color: #6B8E23; font-weight: 700; text-decoration: none; }
+  .footer-more a:hover { text-decoration: underline; }
   .footer-disclaim { font-size: 12px; color: #a89c83; margin-top: 14px; line-height: 1.7; }
   .photo-strip img.ph { cursor: pointer; }
   .anchor-img, .cand-cover { cursor: pointer; }
