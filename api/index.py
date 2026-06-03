@@ -921,9 +921,12 @@ def gen_html(client_data, properties):
   .contact-item {{ display: flex; align-items: center; gap: 10px; font-size: 18px; color: #E8DFD2; text-decoration: none; transition: color 0.2s; }}
   .contact-item:hover {{ color: var(--accent); }}
   .contact-icon {{ font-size: 20px; }}
-  .footer-more {{ margin-bottom: 28px; font-size: 16px; letter-spacing: 1px; }}
-  .footer-more a {{ color: var(--accent); font-weight: 700; text-decoration: none; }}
-  .footer-more a:hover {{ color: var(--wood-light); }}
+  .footer-site {{ margin-bottom: 32px; padding: 22px 18px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; }}
+  .footer-site-title {{ font-size: 17px; color: var(--wood-light); font-weight: 700; margin-bottom: 16px; letter-spacing: 1px; line-height: 1.6; }}
+  .footer-site-btns {{ display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }}
+  .footer-site-btn {{ display: inline-block; padding: 12px 22px; border-radius: 24px; font-size: 16px; font-weight: 700; border: 1.5px solid var(--accent); color: #FFF; background: transparent; text-decoration: none; transition: all 0.2s; }}
+  .footer-site-btn.primary {{ background: var(--accent); border-color: var(--accent); }}
+  .footer-site-btn:hover {{ background: var(--accent); border-color: var(--accent); transform: translateY(-2px); }}
   .footer-license {{ font-size: 14px; color: var(--text-muted); letter-spacing: 1px; line-height: 2; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; }}
   .footer-date {{ font-size: 13px; color: rgba(232,223,210,0.4); margin-top: 16px; letter-spacing: 2px; }}
   .back-to-top {{
@@ -1010,8 +1013,13 @@ def gen_html(client_data, properties):
       <a class="contact-item" href="{contact["line_url"]}" target="_blank"><span class="contact-icon">💬</span><span>LINE：{contact["line"]}</span></a>
       <a class="contact-item" href="{contact["ig_url"]}" target="_blank"><span class="contact-icon">📷</span><span>IG：{contact["ig"]}</span></a>
     </div>
-    <div class="footer-more">
-      <a href="https://teddy-website-blog.pages.dev/properties" target="_blank" rel="noopener">→ 看景泰自家更多在售物件</a>
+    <div class="footer-site">
+      <div class="footer-site-title">🏡 想看更多好屋？歡迎逛逛我的房仲官網</div>
+      <div class="footer-site-btns">
+        <a class="footer-site-btn primary" href="https://teddy-website-blog.pages.dev/properties" target="_blank" rel="noopener">在售物件</a>
+        <a class="footer-site-btn" href="https://teddy-website-blog.pages.dev/about" target="_blank" rel="noopener">認識景泰</a>
+        <a class="footer-site-btn" href="https://teddy-website-blog.pages.dev/" target="_blank" rel="noopener">房仲官網</a>
+      </div>
     </div>
     <div class="footer-license">
       不動產經紀人 {contact["broker_name"]} 證號 {contact["broker_license"]}<br>

@@ -241,8 +241,13 @@ def _footer(contact, signature=''):
         電話 <a href="tel:{phone_raw}">{phone}</a><br>
         LINE：{line}　·　IG：<a href="{ig_url}" target="_blank">{ig}</a>
       </div>
-      <div class="footer-more">
-        <a href="https://teddy-website-blog.pages.dev/properties" target="_blank" rel="noopener">→ 看景泰自家更多在售物件</a>
+      <div class="footer-site">
+        <div class="footer-site-title">🏡 想看更多好屋？歡迎逛逛我的房仲官網</div>
+        <div class="footer-site-btns">
+          <a class="footer-site-btn primary" href="https://teddy-website-blog.pages.dev/properties" target="_blank" rel="noopener">在售物件</a>
+          <a class="footer-site-btn" href="https://teddy-website-blog.pages.dev/about" target="_blank" rel="noopener">認識景泰</a>
+          <a class="footer-site-btn" href="https://teddy-website-blog.pages.dev/" target="_blank" rel="noopener">房仲官網</a>
+        </div>
       </div>
       <div class="footer-disclaim">
         {company_full}（{company}）<br>
@@ -389,9 +394,12 @@ _PAGE_TEMPLATE = '''<!DOCTYPE html>
   .footer-name { font-size: 19px; font-weight: 700; margin-bottom: 8px; }
   .footer-contact { font-size: 16px; color: #2C2C2C; line-height: 2; }
   .footer-contact a { color: #6B8E23; }
-  .footer-more { margin-top: 12px; font-size: 15px; }
-  .footer-more a { color: #6B8E23; font-weight: 700; text-decoration: none; }
-  .footer-more a:hover { text-decoration: underline; }
+  .footer-site { margin-top: 18px; padding: 18px 16px; background: #faf6ee; border: 1px solid #ece2d0; border-radius: 12px; }
+  .footer-site-title { font-size: 16px; color: #6b5b3a; font-weight: 700; margin-bottom: 14px; line-height: 1.6; }
+  .footer-site-btns { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .footer-site-btn { display: inline-block; padding: 11px 20px; border-radius: 22px; font-size: 16px; font-weight: 700; border: 1.5px solid #6B8E23; color: #6B8E23; background: #fff; }
+  .footer-site-btn.primary { background: #6B8E23; color: #fff; }
+  .footer-site-btn:hover { background: #6B8E23; color: #fff; }
   .footer-disclaim { font-size: 12px; color: #a89c83; margin-top: 14px; line-height: 1.7; }
   .photo-strip img.ph { cursor: pointer; }
   .anchor-img, .cand-cover { cursor: pointer; }
