@@ -57,6 +57,10 @@
       <label for="cname">客戶稱呼（選填）</label>
       <input id="cname" type="text" placeholder="例：王先生（不填預設 FB猜你喜歡）" autocomplete="off">
 
+      <label for="signature">業務員署名（選填）</label>
+      <input id="signature" type="text" placeholder="陳景泰 · 一品不動產（有巢氏台中世界之心）" autocomplete="off">
+      <div class="hint">填了會記住，下次自動帶；不填預設為你</div>
+
       <button id="go">生成推薦頁</button>
       <div class="status" id="status"></div>
 
@@ -71,21 +75,68 @@
     </div>
 
     <div class="foot">
-      陳景泰 · 一品不動產（有巢氏台中世界之心）<br>
+      <span id="foot-signature">陳景泰 · 一品不動產（有巢氏台中世界之心）</span><br>
       生成的頁面會自動追蹤客人停留 / 點擊，可在後台看溫度
     </div>
   </div>
 
 <script>
   var API = 'https://teddy-share-app.vercel.app/api/recommend';
+  var DEFAULT_SIG = '陳景泰 · 一品不動產（有巢氏台中世界之心）';
   var anchorEl = document.getElementById('anchor');
   var cnameEl = document.getElementById('cname');
+  var signatureEl = document.getElementById('signature');
+  var footSigEl = document.getElementById('foot-signature');
   var goBtn = document.getElementById('go');
+
+  try {
+    var savedSig = localStorage.getItem('teddy_signature');
+    if (savedSig) signatureEl.value = savedSig;
+  } catch (e) {}
+
+  function syncFooterSig() {
+    var v = (signatureEl.value || '').trim();
+    footSigEl.textContent = v || DEFAULT_SIG;
+  }
+  syncFooterSig();
+
+  signatureEl.addEventListener('input', function() {
+    syncFooterSig();
+    try {
+      var v = (signatureEl.value || '').trim();
+      if (v) localStorage.setItem('teddy_signature', v);
+      else localStorage.removeItem('teddy_signature');
+    } catch (e) {}
+  });
   var statusEl = document.getElementById('status');
   var resultEl = document.getElementById('result');
   var summaryEl = document.getElementById('summary');
   var urlboxEl = document.getElementById('urlbox');
   var lastUrl = '';
+
+  function extractUrl(s) {
+    if (!s) return s;
+    var m = s.match(/https?:\/\/[^\s，,。、）」』】＞>「『（()]+/i);
+    return m ? m[0] : s;
+  }
+
+  anchorEl.addEventListener('paste', function(e) {
+    var cd = e.clipboardData || window.clipboardData;
+    if (!cd) return;
+    var pasted = cd.getData('text');
+    var url = extractUrl(pasted);
+    if (url && url !== pasted) {
+      e.preventDefault();
+      anchorEl.value = url;
+    }
+  });
+
+  anchorEl.addEventListener('input', function() {
+    var v = anchorEl.value;
+    if (!/https?:\/\//i.test(v)) return;
+    var url = extractUrl(v);
+    if (url && url !== v) anchorEl.value = url;
+  });
 
   function setStatus(msg, isErr) {
     statusEl.innerHTML = msg;
@@ -93,7 +144,9 @@
   }
 
   goBtn.addEventListener('click', function() {
-    var anchor = (anchorEl.value || '').trim();
+    var raw = (anchorEl.value || '').trim();
+    var anchor = extractUrl(raw);
+    if (anchor !== raw) anchorEl.value = anchor;
     var name = (cnameEl.value || '').trim();
     if (anchor.indexOf('ychouse.tw') === -1) {
       setStatus('請貼有效的 ycut 短網址（含 x.ychouse.tw）', true);
@@ -103,10 +156,11 @@
     resultEl.className = 'result';
     setStatus('<span class="spin"></span>生成中，抓永慶同檔次物件約需 10 秒…', false);
 
+    var sig = (signatureEl.value || '').trim() || DEFAULT_SIG;
     fetch(API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ anchor_url: anchor, name: name })
+      body: JSON.stringify({ anchor_url: anchor, name: name, signature: sig })
     })
     .then(function(r) { return r.json().then(function(j){ return { ok: r.ok, j: j }; }); })
     .then(function(res) {

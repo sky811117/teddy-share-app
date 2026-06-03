@@ -220,7 +220,7 @@ def _cta(contact):
     </div>'''
 
 
-def _footer(contact):
+def _footer(contact, signature=''):
     company = _esc(contact.get('company', '有巢氏房屋台中世界之心加盟店'))
     company_full = _esc(contact.get('company_full', '一品不動產經紀股份有限公司'))
     phone_raw = _esc(contact.get('phone_raw', '0920118756'))
@@ -232,10 +232,11 @@ def _footer(contact):
     broker_lic = _esc(contact.get('broker_license', '113彰縣字第324號'))
     agent = _esc(contact.get('agent_name', '陳景泰'))
     agent_lic = _esc(contact.get('agent_license', '114年登字第488296號'))
+    sig_display = _esc(signature.strip()) if (signature and signature.strip()) else f'{agent} 房仲'
     return f'''
     <div class="footer">
       <div class="footer-tagline">為您智能挑選</div>
-      <div class="footer-name">{agent} 房仲</div>
+      <div class="footer-name">{sig_display}</div>
       <div class="footer-contact">
         電話 <a href="tel:{phone_raw}">{phone}</a><br>
         LINE：{line}　·　IG：<a href="{ig_url}" target="_blank">{ig}</a>
@@ -276,7 +277,7 @@ def _tracking_js(share_id, client_name):
 </script>'''.replace('__SID__', sid).replace('__CNAME__', cname)
 
 
-def render_recommend_page(data, contact, share_id, client_name=''):
+def render_recommend_page(data, contact, share_id, client_name='', signature=''):
     anchor = data.get('anchor') or {}
     cheap = data.get('cheap', [])
     pricey = data.get('pricey', [])
@@ -308,7 +309,7 @@ def render_recommend_page(data, contact, share_id, client_name=''):
 
     return _PAGE_TEMPLATE.replace('__ANCHOR__', _anchor_card(anchor)) \
                          .replace('__GRID__', grid) \
-                         .replace('__FOOTER__', _footer(contact)) \
+                         .replace('__FOOTER__', _footer(contact, signature)) \
                          .replace('__PHOTOGROUPS__', groups_json) \
                          .replace('__TRACKING__', _tracking_js(share_id, client_name))
 

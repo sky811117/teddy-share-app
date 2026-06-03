@@ -1582,6 +1582,7 @@ def recommend_endpoint():
         body = request.get_json(silent=True) or {}
         anchor_url = (body.get("anchor_url") or body.get("url") or "").strip()
         client_name = (body.get("name") or "").strip()
+        signature_input = (body.get("signature") or "").strip()
         if "ychouse.tw" not in anchor_url:
             return jsonify({"error": "請貼 ycut 短網址（https://x.ychouse.tw/...）"}), 400
 
@@ -1603,7 +1604,7 @@ def recommend_endpoint():
 
         share_id = gen_share_id()
         contact = build_contact(body)
-        html = render_recommend_page(data, contact, share_id, client_name)
+        html = render_recommend_page(data, contact, share_id, client_name, signature_input)
 
         token = os.environ.get("GITHUB_TOKEN")
         if not token:
