@@ -263,6 +263,17 @@ def card_html(p):
         f'<img src="{img}" loading="lazy" decoding="async" alt="" />'
         if img else ''
     )
+    note = (p.get("note") or "").strip()
+    if note:
+        safe_note = (note
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+            .replace("\n", "<br>"))
+        note_html = f'<div class="card-note"><div class="card-note-label">📝 景泰提醒</div><div class="card-note-body">{safe_note}</div></div>'
+    else:
+        note_html = ''
     parking_attr = 'yes' if has_parking else 'no'
     building_type = (p.get("building_type") or "").strip()
     type_attr = building_type if building_type else "其他"
@@ -287,6 +298,7 @@ def card_html(p):
           <div class="spec-item"><span class="spec-label">車位坪數</span><span class="spec-value">{p["parking_area"]}</span></div>
         </div>
         <div class="card-address">{p["address"]}</div>
+        {note_html}
         <div class="card-actions">
           <a class="card-cta" href="https://x.ychouse.tw/{p["slug"]}" target="_blank" rel="noopener">看完整資訊 與 全部照片 <span class="card-cta-arrow">→</span></a>
           <button class="card-like" data-slug="{p["slug"]}" data-name="{tagline}" aria-label="我喜歡這間" type="button">
@@ -952,9 +964,125 @@ def gen_html(client_data, properties):
     .footer-contact {{ flex-direction: column; gap: 16px; }}
     .footer-title {{ font-size: 26px; letter-spacing: 4px; }}
   }}
+
+  /* 景泰備註區(螢幕版)— 公開賣點補充,有填才出現 */
+  .card-note {{
+    background: linear-gradient(135deg, #FFF8EE 0%, #FFEFD9 100%);
+    border-left: 4px solid var(--accent);
+    border-radius: 0 10px 10px 0;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    box-shadow: inset 0 0 0 1px rgba(201,120,90,0.15);
+  }}
+  .card-note-label {{
+    font-size: 13px; font-weight: 700; color: var(--accent-deep);
+    letter-spacing: 1.5px; margin-bottom: 6px;
+  }}
+  .card-note-body {{
+    font-size: 16px; color: var(--text); line-height: 1.75;
+    white-space: pre-line;
+  }}
+
+  /* 浮動列印按鈕 — 你跟客戶都能按,觸發 A4 print 版型 */
+  .print-fab {{
+    position: fixed; bottom: 24px; right: 92px;
+    background: var(--accent-deep); color: #FFF;
+    border: 2px solid #FFF; border-radius: 28px;
+    padding: 12px 22px; font-size: 16px; font-weight: 700;
+    letter-spacing: 1.5px; cursor: pointer;
+    box-shadow: 0 6px 18px rgba(168,93,63,0.4);
+    z-index: 200; font-family: inherit;
+    transition: all 0.25s;
+  }}
+  .print-fab:hover {{ transform: translateY(-3px); box-shadow: 0 10px 24px rgba(168,93,63,0.55); }}
+  @media (max-width: 640px) {{
+    .print-fab {{ bottom: 86px; right: 16px; padding: 10px 16px; font-size: 14px; letter-spacing: 1px; }}
+  }}
+
+  /* ============== 列印 / 存 PDF 版型(1 筆 / A4 主推案精美版) ============== */
+  @media print {{
+    @page {{ size: A4 portrait; margin: 12mm 12mm 14mm 12mm; }}
+    html, body {{ background: #FFF !important; color: #000 !important; }}
+    body {{ font-size: 12pt; line-height: 1.55; }}
+    /* 砍掉螢幕專屬元素 */
+    .sticky-nav, .print-fab, .back-to-top, .card-actions, .card-like,
+    .hero-stats, .teddy-toast, .footer-site, .footer-date,
+    .summary, .for-client {{ display: none !important; }}
+    .container {{ padding: 0 !important; max-width: none !important; }}
+    /* hero 縮成第一頁標頭一條 */
+    .hero {{ background: none !important; padding: 0 0 6mm 0 !important; border-bottom: 2px solid #000; margin-bottom: 6mm; text-align: left !important; }}
+    .hero-tag {{ background: none !important; color: #000 !important; padding: 0 !important; font-size: 13pt !important; letter-spacing: 4px !important; }}
+    .hero h1 {{ font-size: 22pt !important; color: #000 !important; margin: 3mm 0 0 0 !important; letter-spacing: 2px; }}
+    /* 行政區 / 社區 header 在列印時全部塌縮 — 每筆物件獨立成頁,不需要分組 */
+    .district-section, .type-group, .community-sub {{ display: block !important; padding: 0 !important; margin: 0 !important; background: none !important; }}
+    .district-header, .district-meta, .district-communities, .district-price-tiers,
+    .type-group-header, .community-header {{ display: none !important; }}
+    .grid {{ display: block !important; gap: 0 !important; }}
+    /* 每張卡片 = 1 張 A4 */
+    .card {{
+      page-break-inside: avoid !important;
+      page-break-after: always !important;
+      break-inside: avoid !important;
+      break-after: page !important;
+      box-shadow: none !important;
+      border: 1.5px solid #333 !important;
+      border-radius: 0 !important;
+      margin: 0 0 6mm 0 !important;
+      display: block !important;
+      transform: none !important;
+    }}
+    .card:last-of-type {{ page-break-after: auto !important; break-after: auto !important; }}
+    .card-image {{ width: 100% !important; height: 92mm !important; border-bottom: 1.5px solid #333 !important; }}
+    .card-image::after {{ display: none !important; }}
+    .card-image img {{ width: 100% !important; height: 100% !important; object-fit: cover !important; }}
+    .card-content {{ padding: 6mm 8mm !important; }}
+    .card-tagline {{
+      font-size: 17pt !important; color: #000 !important;
+      font-weight: 800 !important; min-height: auto !important;
+      margin-bottom: 5mm !important; line-height: 1.35 !important;
+    }}
+    .card-price-row {{ margin-bottom: 4mm !important; padding-bottom: 3mm !important; border-bottom: 1px solid #999 !important; gap: 6mm !important; }}
+    .card-price {{ font-size: 32pt !important; color: #000 !important; line-height: 1 !important; }}
+    .card-price-unit {{ font-size: 13pt !important; color: #333 !important; }}
+    .card-floor {{ background: #F2EDE4 !important; color: #000 !important; font-size: 13pt !important; padding: 2mm 5mm !important; border-radius: 2mm !important; }}
+    .card-unit-price {{
+      background: #F8F4ED !important; color: #000 !important;
+      font-size: 12pt !important; padding: 2.5mm 5mm !important;
+      margin-bottom: 4mm !important; border-radius: 2mm !important;
+    }}
+    .card-unit-price strong {{ font-size: 14pt !important; }}
+    .card-spec {{ gap: 3mm 8mm !important; margin-bottom: 5mm !important; }}
+    .spec-label {{ font-size: 10pt !important; color: #555 !important; }}
+    .spec-value {{ font-size: 13pt !important; color: #000 !important; }}
+    .spec-value.highlight {{ color: #000 !important; font-weight: 800 !important; }}
+    .card-address {{
+      font-size: 11pt !important; color: #000 !important;
+      padding-top: 3mm !important; border-top: 1px solid #999 !important;
+      margin-bottom: 4mm !important;
+    }}
+    .card-note {{
+      background: #FFF8EE !important;
+      border-left: 3pt solid #A85D3F !important;
+      padding: 4mm 5mm !important; margin-bottom: 4mm !important;
+      box-shadow: none !important; border-radius: 0 !important;
+    }}
+    .card-note-label {{ font-size: 10pt !important; color: #A85D3F !important; letter-spacing: 1pt; }}
+    .card-note-body {{ font-size: 12pt !important; color: #000 !important; line-height: 1.7 !important; }}
+    /* 頁尾證號 — 最後一頁印 */
+    .footer {{ background: none !important; color: #000 !important; padding: 4mm 0 0 0 !important; margin-top: 6mm !important; border-top: 1.5px solid #000 !important; page-break-inside: avoid; }}
+    .footer-content {{ text-align: left !important; max-width: none !important; }}
+    .footer-title {{ font-size: 14pt !important; color: #000 !important; letter-spacing: 2px !important; margin-bottom: 1mm !important; }}
+    .footer-subtitle {{ font-size: 10pt !important; color: #333 !important; margin-bottom: 4mm !important; letter-spacing: 1pt !important; }}
+    .footer-contact {{ display: flex !important; gap: 6mm !important; margin-bottom: 3mm !important; justify-content: flex-start !important; flex-wrap: wrap !important; }}
+    .contact-item {{ font-size: 11pt !important; color: #000 !important; gap: 2mm !important; }}
+    .footer-license {{ font-size: 9.5pt !important; color: #333 !important; padding-top: 3mm !important; border-top: 1px solid #BBB !important; line-height: 1.7 !important; }}
+    a, a:visited {{ color: #000 !important; text-decoration: none !important; }}
+  }}
 </style>
 </head>
 <body>
+
+<button class="print-fab" onclick="window.print()" type="button" title="列印成 A4 售資 / 存 PDF">📄 列印 / 存 PDF</button>
 
 <section class="hero">
   <div class="hero-tag">{theme}</div>
@@ -1531,6 +1659,14 @@ def publish_endpoint():
         if not properties:
             return jsonify({"error": "全部物件抓取失敗（可能 URL 已失效）"}), 400
 
+        # 注入每筆物件的「景泰備註」— 前端 /api/preview 後讓景泰填的賣點補充
+        notes = body.get("notes") or {}
+        if isinstance(notes, dict):
+            for p in properties:
+                n = (notes.get(p.get("slug")) or "").strip()
+                if n:
+                    p["note"] = n
+
         # 「回去修改」模式 — 前端帶 share_id 過來就覆蓋既有檔案，不開新連結
         incoming_share_id = (body.get("share_id") or "").strip()
         is_update = False
@@ -1588,6 +1724,39 @@ def publish_endpoint():
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "ts": datetime.datetime.now().isoformat(), "build": "2026-06-02-recommend"})
+
+
+@app.route("/api/preview", methods=["POST", "OPTIONS"])
+def preview_endpoint():
+    """前端「預覽 & 加備註」階段 — 只 fetch ycut 物件、回精簡 JSON 給前端渲染備註欄,不 push GitHub。"""
+    if request.method == "OPTIONS":
+        return ("", 204)
+    try:
+        body = request.get_json(silent=True) or {}
+        text = body.get("urls_text", "")
+        slugs = extract_urls(text)
+        if not slugs:
+            return jsonify({"error": "找不到任何 ycut 短網址(https://x.ychouse.tw/...)"}), 400
+        properties = fetch_full_batch(slugs)
+        if not properties:
+            return jsonify({"error": "全部物件抓取失敗(可能 URL 已失效)"}), 400
+        items = []
+        for p in properties:
+            items.append({
+                "slug": p["slug"],
+                "tagline": clean_tagline(p.get("og_title", "")) or p.get("community_display", ""),
+                "community": p.get("community_display", ""),
+                "price": p.get("price", 0),
+                "address": p.get("address", ""),
+                "og_image": p.get("og_image", ""),
+                "area": p.get("area", 0),
+                "floor": p.get("floor", 0),
+                "floor_total": p.get("floor_total", 0),
+                "layout": p.get("layout", ""),
+            })
+        return jsonify({"items": items, "count": len(items)})
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
 
 
 @app.route("/api/recommend", methods=["POST", "OPTIONS"])

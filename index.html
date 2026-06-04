@@ -368,7 +368,21 @@
     <input type="text" id="line" placeholder="sky811117" autocomplete="off">
   </div>
 
-  <button class="submit" id="submit-btn">製 作 網 頁</button>
+  <div class="field" id="preview-zone" style="display:none; margin-top: 4px; padding-top: 18px; border-top: 1px dashed var(--border);">
+    <div style="font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px; letter-spacing: 1px;">
+      📋 物件預覽 · <span id="preview-count">0</span> 戶
+    </div>
+    <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.6;">
+      每筆可加「景泰提醒」(賣點補充)— 客戶頁 + A4 列印都會印出來。空白就不顯示。<br>
+      已輸入的備註自動存在這台裝置,同物件下次預覽會自動帶回。
+    </div>
+    <div id="preview-list"></div>
+  </div>
+
+  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top: 4px;">
+    <button class="submit" id="preview-btn" style="flex:1; min-width:160px; background:var(--card); color:var(--wood-deep); border:1.5px solid var(--wood-deep); letter-spacing:1.5px;">⏵ 預覽 & 加備註</button>
+    <button class="submit" id="submit-btn" style="flex:2; min-width:200px;">製 作 網 頁</button>
+  </div>
 
   <div class="error" id="error"></div>
 </div>
@@ -501,6 +515,105 @@ function restoreFormSnapshot() {
   } catch (e) {}
 }
 
+// ============== 預覽 & 加備註(兩階段流程第一階段) ==============
+const NOTES_KEY = 'teddy_share_notes';
+
+function loadSavedNotes() {
+  try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '{}') || {}; }
+  catch (e) { return {}; }
+}
+
+function saveNotesSnapshot() {
+  // 把當前 preview-list 內所有 textarea 內容 merge 進 localStorage
+  // (跨 share 共用 — 同 slug 下次預覽自動帶回)
+  const saved = loadSavedNotes();
+  document.querySelectorAll('#preview-list textarea[data-slug]').forEach(t => {
+    const v = (t.value || '').trim();
+    const slug = t.dataset.slug;
+    if (v) saved[slug] = v;
+    else delete saved[slug];
+  });
+  try { localStorage.setItem(NOTES_KEY, JSON.stringify(saved)); } catch (e) {}
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+function renderPreview(items) {
+  const zone = $('preview-zone');
+  const list = $('preview-list');
+  $('preview-count').textContent = items.length;
+  if (!items.length) {
+    list.innerHTML = '<div style="color:var(--danger); padding:16px;">沒抓到物件 — URL 可能失效</div>';
+    zone.style.display = '';
+    return;
+  }
+  const savedNotes = loadSavedNotes();
+  list.innerHTML = items.map(it => {
+    const note = savedNotes[it.slug] || '';
+    const img = it.og_image
+      ? `<img src="${escapeHtml(it.og_image)}" alt="" style="width:84px;height:84px;object-fit:cover;border-radius:10px;background:var(--bg-soft);flex-shrink:0;" loading="lazy">`
+      : `<div style="width:84px;height:84px;background:var(--bg-soft);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--text-muted);flex-shrink:0;">🏠</div>`;
+    const tagline = escapeHtml((it.tagline || '').slice(0, 70));
+    const community = escapeHtml(it.community || '未知社區');
+    const price = (it.price || 0).toLocaleString();
+    return `
+      <div class="preview-item" style="display:flex;gap:14px;padding:14px;background:var(--bg-soft);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;">
+        ${img}
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px;line-height:1.4;">${community} · ${price} 萬</div>
+          <div style="font-size:13px;color:var(--text-soft);margin-bottom:8px;line-height:1.5;">${tagline}</div>
+          <textarea data-slug="${escapeHtml(it.slug)}" placeholder="📝 景泰提醒(可留空)— 例:離捷運 3 分鐘 / 樓上沒住人 / 屋主能談"
+            style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:14px;line-height:1.6;font-family:inherit;background:#FFF;color:var(--text);min-height:56px;resize:vertical;">${escapeHtml(note)}</textarea>
+        </div>
+      </div>
+    `;
+  }).join('');
+  zone.style.display = '';
+  list.querySelectorAll('textarea[data-slug]').forEach(ta => {
+    ta.addEventListener('input', saveNotesSnapshot);
+  });
+}
+
+function collectNotes() {
+  const notes = {};
+  document.querySelectorAll('#preview-list textarea[data-slug]').forEach(ta => {
+    const v = (ta.value || '').trim();
+    if (v) notes[ta.dataset.slug] = v;
+  });
+  return notes;
+}
+
+$('preview-btn').addEventListener('click', async () => {
+  const urls_text = $('urls').value;
+  $('error').classList.remove('show');
+  if (!urls_text.trim()) { $('urls').focus(); return showError('請貼物件清單'); }
+
+  const btn = $('preview-btn');
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ 抓取中...';
+  try {
+    const r = await fetch('/api/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls_text })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || '伺服器錯誤');
+    renderPreview(data.items || []);
+    showToast(`抓到 ${data.count} 戶,可加備註`);
+  } catch (e) {
+    showError(e.message || '預覽失敗');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldText;
+  }
+});
+
 $('submit-btn').addEventListener('click', async () => {
   const name = $('name').value.trim();
   const need = $('need').value.trim();
@@ -511,6 +624,7 @@ $('submit-btn').addEventListener('click', async () => {
   const agent_license = $('agent_license').value.trim();
   const phone = $('phone').value.trim();
   const line = $('line').value.trim();
+  const notes = collectNotes();
 
   $('error').classList.remove('show');
 
@@ -519,6 +633,7 @@ $('submit-btn').addEventListener('click', async () => {
 
   // 送出前存 snapshot — 給「回去修改」按鈕用
   saveFormSnapshot();
+  saveNotesSnapshot();
 
   // 切到 loading
   $('form-card').style.display = 'none';
@@ -528,7 +643,7 @@ $('submit-btn').addEventListener('click', async () => {
   try {
     const wasEditing = !!editingShareId;
     setStep(wasEditing ? '更新原連結內容...' : '抓 ycut 物件資料 + 產生網頁...');
-    const payload = { name, need, urls_text, theme, signature, agent_name, agent_license, phone, line };
+    const payload = { name, need, urls_text, theme, signature, agent_name, agent_license, phone, line, notes };
     if (editingShareId) payload.share_id = editingShareId;
     const r = await fetch('/api/publish', {
       method: 'POST',
