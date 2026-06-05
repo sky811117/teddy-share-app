@@ -2117,16 +2117,30 @@ def telegram_notify_like(client_name, like_slug, like_name, page_url, duration, 
 
 # ============== Stats Dashboard ==============
 
-def notion_query_all(limit=None):
+def notion_query_all(limit=None, days_back=None):
     """Fetch all rows from Notion DB, paginated. Returns raw page objects.
     limit=None → 跑到 has_more=false 為止（拿全部資料）
-    limit=N → 拿到 N 筆就停（給有需要 quick query 的 caller 用）"""
+    limit=N → 拿到 N 筆就停（給有需要 quick query 的 caller 用）
+    days_back=N → Notion 端就 filter created_time 最近 N 天（大幅減少 paginate 次數）
+    days_back=None → 不 filter 時間"""
     if not NOTION_TOKEN or not NOTION_DB_ID:
         return []
     results = []
     cursor = None
+
+    filter_obj = None
+    if days_back is not None:
+        from datetime import datetime, timedelta, timezone
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days_back)).isoformat()
+        filter_obj = {
+            "timestamp": "created_time",
+            "created_time": {"on_or_after": cutoff},
+        }
+
     while True:
         body = {"page_size": 100, "sorts": [{"timestamp": "created_time", "direction": "descending"}]}
+        if filter_obj:
+            body["filter"] = filter_obj
         if cursor:
             body["start_cursor"] = cursor
         req = urllib.request.Request(
@@ -2406,6 +2420,18 @@ def render_stats_html(stats):
     from datetime import datetime, timezone, timedelta
     tw_now = (datetime.now(timezone.utc) + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
 
+    # 時間範圍切換器（保留 share_id 參數）
+    days_back = stats.get("days_back")
+    sid_qs = f"&share_id={stats['share_id_filter']}" if stats.get("share_id_filter") else ""
+    range_options = [(15, "15 天"), (30, "30 天"), (90, "90 天"), (None, "全部")]
+    range_links = []
+    for val, label in range_options:
+        is_active = (val == days_back)
+        href = f"/stats?days={'all' if val is None else val}{sid_qs}"
+        cls = "range-link active" if is_active else "range-link"
+        range_links.append(f'<a class="{cls}" href="{href}">{label}</a>')
+    range_html = f'<div class="range-bar">時間範圍：{"".join(range_links)}</div>'
+
     # 物件熱度榜：全部模式截 15，單篇模式顯示全部 (景泰要看單篇所有點擊明細)
     is_single = bool(stats.get("share_id_filter"))
     top_props_to_show = stats["top_properties"] if is_single else stats["top_properties"][:15]
@@ -2521,6 +2547,10 @@ def render_stats_html(stats):
   h1 {{ font-size: 30px; font-weight: 900; letter-spacing: 1px; }}
   .updated {{ font-size: 13px; color: var(--text-muted); margin-top: 6px; }}
   .back-link {{ display: inline-block; margin-top: 10px; color: var(--accent-deep); text-decoration: none; font-weight: 500; }}
+  .range-bar {{ display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; font-size: 14px; color: var(--text-muted); }}
+  .range-link {{ display: inline-block; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); color: var(--text); text-decoration: none; font-weight: 500; background: #fff; }}
+  .range-link:hover {{ background: var(--bg-soft); }}
+  .range-link.active {{ background: var(--accent-deep); border-color: var(--accent-deep); color: #fff; }}
   .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 30px; }}
   .stat-box {{ background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(139,115,85,0.04); }}
   .stat-label {{ font-size: 14px; color: var(--text-muted); letter-spacing: 1px; }}
@@ -2568,6 +2598,7 @@ def render_stats_html(stats):
   <h1>📊 統計儀表板{f' — {stats["share_id_filter"]} 單筆' if stats.get("share_id_filter") else ''}</h1>
   <div class="updated">最後更新：{tw_now}（台北時間）</div>
   {f'<a class="back-link" href="/stats">← 回全部統計</a>' if stats.get("share_id_filter") else '<a class="back-link" href="/">← 回表單</a>'}
+  {range_html}
 </header>
 
 <div class="stats-grid">
@@ -2878,13 +2909,24 @@ def _write_backfill_snapshot(slug, parsed):
 @app.route("/stats", methods=["GET"])
 def stats_endpoint():
     # ?share_id=XXX 只看該筆 stats；沒帶 → 全部 share_id 一覽（每筆一行）
+    # ?days=N → 只看最近 N 天（預設 15）；?days=all → 全部歷史
     share_id_filter = (request.args.get("share_id") or "").strip()
-    rows = notion_query_all(limit=None)  # 抓全部資料 paginate 到完
+    days_param = (request.args.get("days") or "15").strip().lower()
+    if days_param == "all":
+        days_back = None
+    else:
+        try:
+            days_back = max(1, int(days_param))
+        except ValueError:
+            days_back = 15
+
+    rows = notion_query_all(days_back=days_back)
     if share_id_filter:
         rows = [r for r in rows
                 if _row_field(r, "share_id", "rich_text") == share_id_filter]
     stats = compute_stats(rows)
     stats["share_id_filter"] = share_id_filter or None
+    stats["days_back"] = days_back  # render 用來高亮當前選項
     return render_stats_html(stats), 200, {"Content-Type": "text/html; charset=utf-8"}
 
 
