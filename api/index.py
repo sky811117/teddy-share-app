@@ -21,6 +21,11 @@ GITHUB_REPO = "teddy-shares"
 # 流量算進個人網站 + URL 更漂亮（藏掉 sky811117）
 PAGES_BASE_URL = "https://teddy-website-blog.pages.dev/share"
 
+# Google Maps Embed API key（卡片底下的「在地圖上看路段位置」用）
+# Console: https://console.cloud.google.com/google/maps-apis/credentials
+# 需 enable 「Maps Embed API」並鎖 HTTP referrer = https://teddy-website-blog.pages.dev/*
+GOOGLE_MAPS_EMBED_KEY = os.getenv("GOOGLE_MAPS_EMBED_KEY", "AIzaSyCr3x28KwPxPnRGsqXSjZC4zxF-7deAK5E")
+
 DEFAULT_CONTACT = {
     "company": "有巢氏房屋台中世界之心加盟店",
     "company_full": "一品不動產經紀股份有限公司",
@@ -298,6 +303,10 @@ def card_html(p):
           <div class="spec-item"><span class="spec-label">車位坪數</span><span class="spec-value">{p["parking_area"]}</span></div>
         </div>
         <div class="card-address">{p["address"]}</div>
+        <details class="card-map">
+          <summary><span class="card-map-icon">🗺️</span><span class="card-map-label">在地圖上看路段位置</span><span class="card-map-arrow">▾</span></summary>
+          <div class="card-map-frame"><iframe data-q="{p["address"]}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="路段位置地圖"></iframe></div>
+        </details>
         {note_html}
         <div class="card-actions">
           <a class="card-cta" href="https://x.ychouse.tw/{p["slug"]}" target="_blank" rel="noopener">看完整資訊 與 全部照片 <span class="card-cta-arrow">→</span></a>
@@ -907,8 +916,18 @@ def gen_html(client_data, properties):
   .spec-label {{ font-size: 14px; color: var(--text-muted); letter-spacing: 1px; }}
   .spec-value {{ font-size: 17px; color: var(--text); font-weight: 500; }}
   .spec-value.highlight {{ color: var(--wood-deep); font-weight: 700; }}
-  .card-address {{ font-size: 16px; color: var(--text-soft); margin-bottom: 18px; padding-top: 16px; border-top: 1px solid var(--bg-soft); display: flex; align-items: flex-start; gap: 7px; line-height: 1.6; }}
+  .card-address {{ font-size: 16px; color: var(--text-soft); margin-bottom: 14px; padding-top: 16px; border-top: 1px solid var(--bg-soft); display: flex; align-items: flex-start; gap: 7px; line-height: 1.6; }}
   .card-address::before {{ content: '📍'; flex-shrink: 0; }}
+  .card-map {{ margin-bottom: 18px; }}
+  .card-map summary {{ cursor: pointer; font-size: 15px; color: var(--wood-deep); padding: 10px 14px; background: var(--bg-soft); border-radius: 10px; font-weight: 600; list-style: none; display: flex; align-items: center; gap: 8px; user-select: none; transition: background 0.2s; }}
+  .card-map summary::-webkit-details-marker {{ display: none; }}
+  .card-map summary:hover {{ background: #EFE6D6; }}
+  .card-map-icon {{ flex-shrink: 0; }}
+  .card-map-label {{ flex: 1; }}
+  .card-map-arrow {{ font-size: 13px; transition: transform 0.2s; opacity: 0.7; }}
+  .card-map[open] .card-map-arrow {{ transform: rotate(180deg); }}
+  .card-map-frame {{ margin-top: 10px; border-radius: 10px; overflow: hidden; border: 1px solid var(--bg-soft); }}
+  .card-map-frame iframe {{ width: 100%; height: 220px; border: 0; display: block; }}
   .card-actions {{ display: flex; gap: 8px; margin-top: auto; }}
   .card-cta {{ flex: 1; background: var(--wood-deep); color: #FFF; text-align: center; text-decoration: none; padding: 14px 18px; border-radius: 12px; font-size: 17px; font-weight: 700; letter-spacing: 1.5px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }}
   .card-cta:hover {{ background: var(--accent); transform: translateY(-1px); }}
@@ -1549,6 +1568,18 @@ def gen_html(client_data, properties):
   window.addEventListener('beforeunload', trackVisit);
   // 也定期 ping 一次（讓還在閱讀的訪客也記到，避免關閉太快沒記到）
   setTimeout(trackVisit, 30000);
+
+  // 摺疊式路段地圖：展開時才把 src 灌進 iframe（lazy load 省流量、不影響未展開卡片的滑動）
+  var MAPS_EMBED_KEY = {json.dumps(GOOGLE_MAPS_EMBED_KEY)};
+  document.querySelectorAll('details.card-map').forEach(function(d) {{
+    d.addEventListener('toggle', function() {{
+      if (!d.open) return;
+      var iframe = d.querySelector('iframe');
+      if (iframe && !iframe.src && iframe.dataset.q) {{
+        iframe.src = 'https://www.google.com/maps/embed/v1/place?key=' + MAPS_EMBED_KEY + '&q=' + encodeURIComponent(iframe.dataset.q);
+      }}
+    }});
+  }});
 }})();
 </script>
 
