@@ -126,7 +126,7 @@ def _anchor_card(anchor):
     if not anchor:
         return '<div class="anchor-empty">尚未取得物件資料</div>'
     img = _esc(anchor.get('image_url', ''))
-    community = _esc(anchor.get('community_name', '社區資料整理中'))
+    community = _esc(anchor.get('community_name') or anchor.get('case_name') or '物件資料')
     price = anchor.get('price_wan', 0) or 0
     img_html = (f'<div class="anchor-img" style="background-image:url(\'{img}\')" onclick="openLB(\'anchor\',0)"></div>'
                 if img else '<div class="anchor-img anchor-img--placeholder"></div>')
@@ -145,7 +145,15 @@ def _anchor_card(anchor):
 
 
 def _candidate_card(c, kind, anchor_price, idx):
-    community = _esc(c.get('community_name') or '社區資料整理中')
+    comm_raw = (c.get('community_name') or '').strip()
+    title = (c.get('title') or '').strip()
+    if comm_raw:
+        community = _esc(comm_raw)
+        feature_html = _sellpoint_html(title, "物件特色")  # 標題另放特色
+    else:
+        # 老公寓/透天本來就沒社區名 → 用永慶案名(原物件案名)當標題,不再顯示「整理中」
+        community = _esc(title or ((c.get('district') or '') + (c.get('street') or '')) or '物件資料')
+        feature_html = ''  # 案名已升為標題,不重複放特色
     price = c.get('price_wan', 0) or 0
     house_id = _esc(c.get('house_id', ''))
     if anchor_price and price:
@@ -176,7 +184,7 @@ def _candidate_card(c, kind, anchor_price, idx):
 
     cover_html = (f'<div class="cand-cover" style="background-image:url(\'{cover}\')" onclick="openLB(\'cand{idx}\',0)"></div>'
                   if cover else '<div class="cand-cover cand-cover--ph"></div>')
-    detail = (_spec_table(_cand_specs(c)) + _sellpoint_html(c.get('title'), "物件特色")
+    detail = (_spec_table(_cand_specs(c)) + feature_html
               + _photo_strip(imgs, f'cand{idx}'))
     nphoto = len(imgs)
     toggle_label = f"看完整規格＋{nphoto} 張照片 ▾" if nphoto else "看完整規格 ▾"

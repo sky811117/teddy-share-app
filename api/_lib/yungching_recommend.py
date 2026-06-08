@@ -172,6 +172,7 @@ def fetch_anchor(short_url: str) -> dict:
         "image_url": image_url,
         "image_urls": image_urls,
         "community_name": data.get("buildingName", ""),
+        "case_name": case_name,                   # 永慶/ycut 案名 (無社區名時頂上當標題)
         "address": addr_simp,
         "anchor_id": anchor_id,
         "age_years": age_years,
@@ -630,19 +631,33 @@ def _room_num(room_count: str):
     return int(m.group(1)) if m else None
 
 
-def _fetch_list(city, district, warnings) -> list:
-    """抓某 (city, district) 的永慶 list page 並 parse。失敗回 []。"""
-    url = build_filter_url(city, district)
-    try:
-        resp = requests.get(url, headers={'User-Agent': _UA}, timeout=30)
-        resp.raise_for_status()
-        resp.encoding = 'utf-8'
-        cands = parse_list(resp.text)
-        warnings.append(f"list {city}-{district or '全市'}: 抓到 {len(cands)} 筆 ({url})")
-        return cands
-    except Exception as e:
-        warnings.append(f"list {city}-{district or '全市'} fetch 失敗: {e}")
-        return []
+def _fetch_list(city, district, warnings, pages=1) -> list:
+    """抓某 (city, district) 的永慶 list 並 parse。
+
+    pages>1 時用 ?pg=N 翻頁加大候選池 (永慶分頁參數 = pg，每頁約 30 筆)。
+    遇到「這頁沒新物件」就提早停 (到底了)。失敗回已抓到的部分。
+    """
+    url0 = build_filter_url(city, district)
+    out, seen = [], set()
+    for pg in range(1, pages + 1):
+        url = url0 if pg == 1 else f"{url0}?pg={pg}"
+        try:
+            resp = requests.get(url, headers={'User-Agent': _UA}, timeout=30)
+            resp.raise_for_status()
+            resp.encoding = 'utf-8'
+            cands = parse_list(resp.text)
+        except Exception as e:
+            warnings.append(f"list {city}-{district or '全市'} pg{pg} fetch 失敗: {e}")
+            break
+        fresh = [c for c in cands if c.get('house_id') not in seen]
+        for c in fresh:
+            seen.add(c.get('house_id'))
+        out.extend(fresh)
+        if not fresh:  # 這頁沒新東西 = 到底了，不再往下翻
+            break
+    tag = f"{pages}頁" if pages > 1 else url0
+    warnings.append(f"list {city}-{district or '全市'}: 抓到 {len(out)} 筆 ({tag})")
+    return out
 
 
 def _passes_tier(c, anchor_type_norm, room_set, area_lo, area_hi, price_lo, price_hi,
@@ -706,12 +721,14 @@ def _decoy_split(pool, anchor_price):
     return cheap, pricey
 
 
-def recommend(short_url: str) -> dict:
+def recommend(short_url: str, anchor: dict = None) -> dict:
     """
     主入口: 給 ychouse 短網址 → 框檔次 + decoy 配貨 (4 便宜 + 1 貴)。
 
     Args:
         short_url: e.g. "https://x.ychouse.tw/743CgK"
+        anchor:    可選。外部已重建好的 anchor dict (regen 時從既有頁面挖回來,
+                   免原始短網址)。給了就不打 ycut,直接拿來配貨 + 渲染。
 
     Returns:
         dict {
@@ -725,7 +742,9 @@ def recommend(short_url: str) -> dict:
     warnings = []
 
     # ---- Step 1: 抓 anchor ----
-    anchor = fetch_anchor(short_url)
+    # anchor 可由外部傳入 (regen 用既有頁面重建);否則照常從 short_url 抓 ycut
+    if anchor is None:
+        anchor = fetch_anchor(short_url)
     district = anchor.get('district') or ""
     city = anchor.get('city') or '台中市'
     anchor_price = anchor.get('price_wan')
@@ -867,6 +886,61 @@ def recommend(short_url: str) -> dict:
     if len(pricey) < 1:
         warnings.append(f"⚠️ 走完所有 fallback，pricey 仍 0 筆 (同檔次找不到更貴的)")
 
+    # ---- Step 3.5: 高保真補滿 (景泰 2026-06-08 拍板) ----
+    # 目標總卡數 = 5。高單價老公寓常找不到「更貴的同檔次」(pricey=0)。
+    # 補法：同類型 / 房型±1 / 坪數帶全保留，只放寬「便宜這側」價格下限到 0，
+    # 由最接近 anchor(越貴的便宜物)往下補。先吃已抓的第一頁池；不夠再從 anchor
+    # 區往外「翻深頁」永慶庫存(瓶頸其實是每區只抓第一頁 ~30 筆、公寓本來就少)。
+    TARGET_TOTAL = 5
+    need = TARGET_TOTAL - len(cheap) - len(pricey)
+    if need > 0:
+        chosen_ids = {c.get('house_id') for c in cheap + pricey}
+        chosen_comm = {(c.get('community_name') or '').strip()
+                       for c in cheap + pricey if (c.get('community_name') or '').strip()}
+        a_lo, a_hi = area_band(0.50)  # 跟最寬階梯一致的坪數帶
+
+        def _absorb(pool, src):
+            """從 pool 撈同類型/房型±1/坪數帶內、比 anchor 便宜的，越接近 anchor 越優先補。"""
+            nonlocal need
+            extra = [c for c in pool
+                     if _passes_tier(c, anchor_type_norm, room_pm1, a_lo, a_hi,
+                                     0, anchor_price, anchor_city=city, b_lo=b_lo, b_hi=b_hi)
+                     and c.get('house_id') not in chosen_ids
+                     and c.get('house_id') != anchor_house_id]
+            extra.sort(key=lambda c: -c['price_wan'])  # 越接近 anchor 越優先
+            added = 0
+            for c in extra:
+                if need <= 0:
+                    break
+                comm = (c.get('community_name') or '').strip()
+                if comm and comm in chosen_comm:
+                    continue  # 同社區只取一戶
+                chosen_ids.add(c.get('house_id'))
+                if comm:
+                    chosen_comm.add(comm)
+                cheap.append(c)
+                need -= 1
+                added += 1
+            if added:
+                warnings.append(f"[高保真補滿] {src} 補 {added} 筆 -> cheap {len(cheap)}")
+            return added
+
+        # (a) 先吃已抓的第一頁池子 (放寬下限至 0)
+        _absorb(get_pool([district] + neighbors), "第一頁池")
+
+        # (b) 還不夠 → 由 anchor 區往外翻深頁永慶庫存 (同類型同檔次，只是看更深)
+        DEEP_PAGES = 6
+        for d in [district] + neighbors:
+            if need <= 0:
+                break
+            _absorb(_fetch_list(city, d, warnings, pages=DEEP_PAGES), f"{d}翻{DEEP_PAGES}頁")
+
+        if need > 0:
+            warnings.append(
+                f"⚠️ 高保真補滿(含翻深頁)後仍只有 {len(cheap)+len(pricey)} 筆 (<5)，"
+                f"市場同類型 ({anchor_type_norm or '不限'}) 真的薄"
+            )
+
     # ---- Step 4: enrich cheap+pricey 補坪數/屋齡 (best-effort，並行，fail 不中斷) ----
     def _enrich_one(c):
         try:
@@ -904,9 +978,11 @@ def recommend(short_url: str) -> dict:
         dropped = before - len(cheap) - len(pricey)
         if dropped:
             warnings.append(f"⚠️ enrich 後剔除 {dropped} 筆跨縣市物件 (detail 顯示非 {city})")
-    # buffer 過濾後截前 4 便宜 + 1 貴
-    cheap = cheap[:4]
+    # 便宜側統一由「最接近 anchor(越貴)」往下排 → 最像的排前面,截斷也留最像的
+    cheap.sort(key=lambda c: -(c.get('price_wan') or 0))
+    # 截斷成總共 5 張: 有貴的就 4便宜+1貴, 沒貴的就用便宜的補到 5
     pricey = pricey[:1]
+    cheap = cheap[:TARGET_TOTAL - len(pricey)]
     _to_enrich = cheap + pricey
 
     # 把封面實景照 (cover_image_url) 排到 image_urls 第 1 張
