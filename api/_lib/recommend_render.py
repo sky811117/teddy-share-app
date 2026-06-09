@@ -64,8 +64,16 @@ def _anchor_specs(a):
     rows.append(("權狀坪", _ping(a.get('building_area_ping'))))
     rows.append(("主建坪", _ping(a.get('main_area_ping'))))
     if a.get('public_area_ping'):
-        pr = f"（公設比 {a['public_ratio']}%）" if a.get('public_ratio') else ""
-        rows.append(("公設坪", f"{a['public_area_ping']} 坪{pr}"))
+        # 公設比鐵則（景泰 2026-06-09）：永慶 buiPubPin(公設坪) 在有車位的物件會把車位坪
+        # 灌進去，pubRate(公設比)=公設坪/權狀坪 因此被灌水（常見 50%+，嚇買家又不實）。
+        # 主物件抓不到「單獨車位坪」→ 無法還原真實公設比 →
+        #   有車位：標明「含車位」、絕不顯示會誤導的公設比；
+        #   無車位：公設坪未含車位，公設比可信，照常顯示。
+        if a.get('parking'):
+            rows.append(("公設坪", f"{a['public_area_ping']} 坪（含車位）"))
+        else:
+            pr = f"（公設比 {a['public_ratio']}%）" if a.get('public_ratio') else ""
+            rows.append(("公設坪", f"{a['public_area_ping']} 坪{pr}"))
     rows.append(("陽台", _ping(a.get('balcony_ping'))))
     rows.append(("雨遮", _ping(a.get('rainproof_ping'))))
     rows.append(("土地持分", _ping(a.get('land_area_ping'))))
