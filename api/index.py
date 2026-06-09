@@ -714,9 +714,6 @@ def gen_html(client_data, properties):
 <title>{theme} · 給 {client_data["name"]} 的 {total_count} 戶整理</title>
 <meta property="og:title" content="{theme} · 給 {client_data["name"]} 的 {total_count} 戶整理">
 <meta property="og:description" content="{client_data["need"]}">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
 <style>
   :root {{
     --bg: #FAF7F2; --bg-soft: #F2EDE4; --card: #FFFFFF;
@@ -730,7 +727,7 @@ def gen_html(client_data, properties):
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   html {{ scroll-behavior: smooth; scroll-padding-top: 90px; }}
   body {{
-    font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'PingFang TC', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans CJK TC', 'Heiti TC', sans-serif;
     background: var(--bg); color: var(--text); line-height: 1.8;
     font-size: 17px; -webkit-font-smoothing: antialiased;
   }}
@@ -2558,7 +2555,6 @@ def render_stats_html(stats):
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>📊 統計儀表板 — 景泰客戶頁</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;900&display=swap" rel="stylesheet">
 <style>
   :root {{
     --bg: #FAF7F2; --bg-soft: #F2EDE4; --card: #FFFFFF;
@@ -2569,7 +2565,7 @@ def render_stats_html(stats):
   }}
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{
-    font-family: 'Noto Sans TC', -apple-system, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans CJK TC', 'Heiti TC', sans-serif;
     background: var(--bg); color: var(--text); line-height: 1.7;
     font-size: 16px; padding: 30px 16px 80px;
   }}
