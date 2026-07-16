@@ -1,6 +1,9 @@
 {
   "redirects": [
-    { "source": "/buyer-fee", "destination": "/buyer-fee/index.html", "permanent": false },
-    { "source": "/buyer-fee/", "destination": "/buyer-fee/index.html", "permanent": false }
+    { "source": "/buyer-fee2", "destination": "/buyer-fee2/index.html", "permanent": false },
+    { "source": "/buyer-fee2/", "destination": "/buyer-fee2/index.html", "permanent": false },
+    { "source": "/buyer-fee", "destination": "/buyer-fee2/index.html", "permanent": false },
+    { "source": "/buyer-fee/", "destination": "/buyer-fee2/index.html", "permanent": false },
+    { "source": "/buyer-fee/index.html", "destination": "/buyer-fee2/index.html", "permanent": false }
   ]
 }
