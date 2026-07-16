@@ -409,7 +409,7 @@
   <ul>
     <li><strong>現行新青安</strong>（青安2.0）受理至 <strong>2026/07/31</strong>，且<strong>撥款須在 2026/10/31 前</strong>完成。目前<strong>沒有</strong>年齡、所得、房屋總價限制。</li>
     <li><strong>青安3.0</strong> 經行政院 2026/07/16 院會拍板，<strong>2026/08/01 上路</strong>（受理至 2029/07/31）。新增三道門檻：<strong>申貸未滿 50 歲</strong>、<strong>本人年所得 200 萬以內</strong>、<strong>房屋總價上限（台中 2,000 萬）</strong>；並新增婚育加碼額度（新婚 1,200 萬／育有未成年子女 1,500 萬）。</li>
-    <li>青安3.0 的 1.775% 是<strong>機動利率</strong>、且<strong>只保障前 3 年</strong>，第 4 年起補貼逐年遞減，最終回到約 2.275%（現行制度無此設計）。</li>
+    <li>青安的 1.775% 是<strong>機動利率</strong>、且<strong>只全額補貼前 3 年</strong>，第 4 年起補貼每年減半碼、<strong>第 7 年起回到約 2.275%</strong>。此「3+3」設計依財政部 2026/07 定案，<strong>青安 2.0 貸戶一體適用</strong>。</li>
   </ul>
   <div class="src-note">
     📌 資料來源：財政部國庫署「青年安心成家購屋優惠貸款」貸款原則／問與答（<a href="https://www.nta.gov.tw/singlehtml/108" target="_blank" rel="noopener">nta.gov.tw</a>）；青安3.0 內容依 2026/07/16 行政院院會拍板後之媒體報導（中央社／自由財經／工商時報／經濟日報）整理。
@@ -775,7 +775,7 @@ const $ = (id) => document.getElementById(id);
 
 /* ===== 政策常數（2026-07-16 查證）=====
    來源：財政部國庫署 nta.gov.tw/singlehtml/108、/109（現行青安2.0）
-        青安3.0 依 2026/07/16 行政院院會拍板後媒體報導整理（中央社／自由財經／工商時報／經濟日報） */
+        青安3.0 依財政部「青安貸款3.0方案」懶人包（2026/07 定案）＋ 財政部國庫署問與答 */
 const QA2_DEADLINE = new Date(2026, 6, 31, 23, 59, 59);   // 2026/07/31 受理截止
 const QA3_START    = new Date(2026, 7, 1, 0, 0, 0);       // 2026/08/01 上路
 
@@ -828,19 +828,18 @@ function pmt(principal, annualRate, months) {
   return principal * r * Math.pow(1 + r, months) / (Math.pow(1 + r, months) - 1);
 }
 
-/* 青安3.0 分年利率：前 3 年全額補貼，第 4 年起每年減半碼
-   內政部 1.5 碼自第 4 年起逐年減半碼、第 6 年歸零；公股銀行半碼補到第 7 年；第 8 年起回復牌告
-   ⚠️ 依院會拍板後媒體報導推估，細則以財政部公告為準 */
+/* 青安 3+3 分年利率：前 3 年全額補貼（政府 1.5 碼＋銀行半碼＝2 碼），
+   滿 3 年之次日起「每年」補貼減少半碼，第 7 年起歸零、回復牌告（共 6 年補貼）
+   📌 財政部「青安貸款3.0方案」懶人包（2026/07 定案）；官方例示 1,000 萬 6 年共省
+   22.5 萬利息 = 2.25%-年（3×0.5 + 0.375 + 0.25 + 0.125），與本模型逐年吻合 */
 function qa3RateOfYear(y, baseRate) {   // y: 0-based
   const board = baseRate + QA_SPREAD;   // 牌告 ≒ 2.275%
-  let gov, bank;
-  if (y < 3)      { gov = SUB_GOV;                 bank = SUB_BANK; }
-  else if (y < 6) { gov = Math.max(0, SUB_GOV - 0.125 * (y - 2)); bank = SUB_BANK; }
-  else if (y < 7) { gov = 0;                       bank = SUB_BANK; }
-  else            { gov = 0;                       bank = 0; }
-  return +(board - gov - bank).toFixed(4);
+  const full = SUB_GOV + SUB_BANK;      // 0.5%
+  const sub = (y < 3) ? full : Math.max(0, full - 0.125 * (y - 2));
+  return +(board - sub).toFixed(4);
 }
-function qa2RateOfYear(_y, baseRate) { return +(baseRate + QA_SPREAD - SUB_GOV - SUB_BANK).toFixed(4); }
+/* 3.0 定案明文「利息補貼優惠…青安2.0一體適用」→ 2.0 貸戶同一條 3+3 階梯 */
+function qa2RateOfYear(y, baseRate) { return qa3RateOfYear(y, baseRate); }
 function flatRate(r) { return () => r; }
 
 /* 逐月攤還模擬（支援分年變動利率 + 寬限期）
@@ -992,7 +991,7 @@ function renderEligibility(elig, isQA3) {
   const name = isQA3 ? '青安3.0' : '現行新青安';
   if (elig.pass) {
     v.className = 'elig-verdict ok';
-    v.innerHTML = `✅ 初步符合${name}，額度上限 ${elig.cap.toLocaleString('zh-TW')} 萬<br><span style="font-size:13.5px;font-weight:400;">仍須經銀行審核（收入、信用、鑑價）。${isQA3 ? '青安3.0 細則以財政部正式公告為準。' : ''}</span>`;
+    v.innerHTML = `✅ 初步符合${name}，額度上限 ${elig.cap.toLocaleString('zh-TW')} 萬<br><span style="font-size:13.5px;font-weight:400;">仍須經銀行審核（收入、信用、鑑價）。${isQA3 ? '依財政部青安3.0定案方案（2026/07）。' : ''}</span>`;
   } else {
     v.className = 'elig-verdict no';
     const d = daysLeft();
@@ -1096,8 +1095,8 @@ function render() {
   $('loanNote').innerHTML = notes.join('<br>');
 
   $('qaNote').innerHTML = (plan === 'qa3')
-    ? `💡 青安3.0 的 1.775% 是<b>機動利率、只保障前 3 年</b>，第 4 年起補貼逐年遞減，第 8 年起回到約 ${(baseRate + QA_SPREAD).toFixed(3)}%。且已定調<b>央行升息時不再加碼補貼</b>，升息由借款人自行承擔。<br><span style="font-size:12.5px;">（分年利率依 2026/07/16 院會拍板後媒體報導推估，細則以財政部公告為準）</span>`
-    : `💡 現行青安為<b>機動利率</b>，隨郵政 2 年期定儲利率調整。除一段式外另有二段式（前 2 年 ${(baseRate + 0.345 - 0.5).toFixed(3)}%／第 3 年起 ${(baseRate + 0.645 - 0.5).toFixed(3)}%）與混合式，本表以最多人選用的<b>一段式</b>試算。<br><span style="font-size:12.5px;">資料來源：財政部國庫署問與答 nta.gov.tw/singlehtml/109</span>`;
+    ? `💡 青安3.0 的 1.775% 是<b>機動利率、只全額補貼前 3 年</b>，第 4 年起補貼每年減半碼，<b>第 7 年起回到約 ${(baseRate + QA_SPREAD).toFixed(3)}%</b>（官方例示：1,000 萬 6 年共省 22.5 萬利息，與本表模型一致）。另據媒體報導財政部已定調<b>央行升息時不再加碼補貼</b>，升息由借款人自行承擔。<br><span style="font-size:12.5px;">（分年利率依財政部「青安貸款3.0方案」懶人包，2026/07 定案）</span>`
+    : `💡 現行青安（2.0）為<b>機動利率</b>，隨郵政 2 年期定儲利率調整。⚠️ 3.0 定案後「滿 3 年補貼、之後每年減半碼、第 7 年起回牌告」<b>對青安 2.0 貸戶一體適用</b>，本表已按此試算。二段式與混合式計息自 3.0 起刪除（逾 9 成貸戶本就選一段式）。<br><span style="font-size:12.5px;">💒 7/31 前申請的<b>婚育家庭</b>：撥貸前可憑戶籍謄本／媽媽手冊撤案改申請 3.0（額度提高為 1,200／1,500 萬）。資料來源：財政部「青安貸款3.0方案」懶人包（2026/07）、國庫署問與答 nta.gov.tw/singlehtml/109</span>`;
 
   /* --- 一次性費用 --- */
   const landWan = +$('landValue').value || 0;
@@ -1212,12 +1211,12 @@ function render() {
     if (qaBlocked) {
       $('qaDetail').innerHTML = `<div style="padding:18px 0;color:var(--text-soft);font-size:15px;text-align:center;line-height:1.7;">不符合${isQA3 ? '青安3.0' : '青安'}資格<br><span style="font-size:13.5px;">請見上方資格檢核；左欄的一般房貸試算仍然有效</span></div>`;
     } else {
-      const rateFn = isQA3 ? (y) => qa3RateOfYear(y, baseRate) : (y) => qa2RateOfYear(y, baseRate);
+      const rateFn = (y) => qa3RateOfYear(y, baseRate);   // 3+3 階梯，2.0/3.0 一體適用（財政部定案）
       const qa = simulate(qaPart, rateFn, yQA, gQA);
       const ex = extraPart > 0 ? simulate(extraPart, flatRate(rGen), yGen, gGen) : null;
-      const rateLabel = isQA3 ? `${qaRate}% 起（階梯）` : `${qaRate}%`;
-      let html = renderLoanSplit(qa, ex, qaPart, extraPart, rateLabel, rGen, yQA, gQA, yGen, gGen, isQA3);
-      if (isQA3) html += renderStepTable(qa, baseRate);
+      const rateLabel = `${qaRate}% 起（階梯）`;
+      let html = renderLoanSplit(qa, ex, qaPart, extraPart, rateLabel, rGen, yQA, gQA, yGen, gGen, true);
+      html += renderStepTable(qa, baseRate);
       $('qaDetail').innerHTML = html;
     }
   }
@@ -1231,7 +1230,7 @@ function render() {
     gAlerts.push(`⚠️ <strong>兩筆貸款的寬限期可能不同步：</strong>青安寬限期最長 5 年，但搭配的一般房貸那筆由銀行自訂（可能只有 2~3 年，或完全沒有），<strong>現金流可能出現兩個跳升點</strong>。本表以你在左方設定的一般房貸寬限期試算，實際請以銀行核定為準。`);
   }
   if (plan === 'qa3') {
-    gAlerts.push(`⚠️ <strong>青安3.0 的利率會自己往上爬：</strong>1.775% 只保障前 3 年，第 4 年起補貼逐年遞減，第 8 年起回到約 ${(baseRate + QA_SPREAD).toFixed(3)}%。若同時搭 5 年寬限期，<strong>第 6 年會同時遇到「開始還本金」+「利率已調升」的雙重跳升</strong>，這是最需要提前準備的一年。`);
+    gAlerts.push(`⚠️ <strong>青安的利率會自己往上爬（2.0／3.0 都一樣）：</strong>1.775% 只全額補貼前 3 年，第 4 年起補貼每年減半碼，第 7 年起回到約 ${(baseRate + QA_SPREAD).toFixed(3)}%。若同時搭 5 年寬限期，<strong>第 6 年會同時遇到「開始還本金」+「利率已爬升」的雙重跳升</strong>，這是最需要提前準備的一年。`);
   }
   if (plan !== 'none') {
     gAlerts.push(`📌 青安為<strong>機動利率</strong>，上表以現行基準利率 ${baseRate}% 靜態試算，未預測未來央行升降息。${plan === 'qa3' ? '青安3.0 已定調升息時政府不再加碼補貼，升息風險由借款人承擔。' : ''}`);
@@ -1299,10 +1298,10 @@ function renderLoanSplit(qa, ex, qaPart, extraPart, qaRateLabel, rGen, yQA, gQA,
   }
   const cmp = afterGrace ? afterGrace.pay : firstPay.pay;
   const rows2 = [];
-  // 補貼退場後（第 8 年）— 必須取第 8 年的合併月付，不能取最後一年（那時一般房貸可能已繳清）
-  const y8 = merged[7];
-  if (isStep && y8 && Math.abs(y8.pay - cmp) > 1) {
-    rows2.push(`<div class="pay-row"><span class="lbl">補貼退場後（第 8 年起）</span><span class="val">${fmt(y8.pay)} 元/月</span></div>`);
+  // 補貼退場後（第 7 年）— 必須取第 7 年的合併月付，不能取最後一年（那時一般房貸可能已繳清）
+  const y7 = merged[6];
+  if (isStep && y7 && Math.abs(y7.pay - cmp) > 1) {
+    rows2.push(`<div class="pay-row"><span class="lbl">補貼退場後（第 7 年起）</span><span class="val">${fmt(y7.pay)} 元/月</span></div>`);
   }
   // 一般房貸先繳清後，月付下降
   if (ex && yGen < yQA && merged[yGen]) {
@@ -1370,7 +1369,7 @@ function renderLoan(calc, principal, rateLabel, years, grace, isStep) {
       </div>`;
   }
   const stepRow = (isStep && lastPay && Math.abs(lastPay.pay - (afterGrace ? afterGrace.pay : firstPay.pay)) > 1)
-    ? `<div class="pay-row"><span class="lbl">補貼退場後（第 8 年起）</span><span class="val">${fmt(lastPay.pay)} 元/月</span></div>` : '';
+    ? `<div class="pay-row"><span class="lbl">補貼退場後（第 7 年起）</span><span class="val">${fmt(lastPay.pay)} 元/月</span></div>` : '';
 
   return `
     <div class="pay-row">
@@ -1403,15 +1402,15 @@ function renderStepTable(calc, baseRate) {
     </tr>`).join('');
   return `
     <details class="step-detail">
-      <summary>📊 展開：青安3.0 分年利率與月付金變化</summary>
+      <summary>📊 展開：青安「3+3」分年利率與月付金變化</summary>
       <table class="step-table">
         <thead><tr><th>年度</th><th style="text-align:right;">利率</th><th style="text-align:right;">月付金</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
       <div style="font-size:12.5px;color:#6B6259;margin-top:8px;line-height:1.6;">
-        補貼結構：政府 ${SUB_GOV}%（1.5 碼）+ 銀行 ${SUB_BANK}%（0.5 碼）＝ ${SUB_GOV + SUB_BANK}%，前 3 年全額；第 4 年起政府補貼每年減半碼、第 6 年歸零，銀行補貼至第 7 年，第 8 年起回復牌告 ${(baseRate + QA_SPREAD).toFixed(3)}%。
+        補貼結構：政府 ${SUB_GOV}%（1.5 碼）+ 銀行 ${SUB_BANK}%（0.5 碼）＝ ${SUB_GOV + SUB_BANK}%，前 3 年全額；滿 3 年之次日起每年減少半碼，<b>第 7 年起回復牌告 ${(baseRate + QA_SPREAD).toFixed(3)}%</b>。青安 2.0 貸戶一體適用。
         （<b>1 碼 = 0.25%</b>，半碼 = 0.125%，是銀行業講利率的習慣單位）<br>
-        <b>⚠️ 分年遞減細節依 2026/07/16 院會拍板後媒體報導推估，實際以財政部正式公告為準。</b>
+        <b>📌 依財政部「青安貸款3.0方案」懶人包（2026/07 定案）；官方例示 1,000 萬 6 年共省 22.5 萬利息，與本表分年模型吻合。</b>
       </div>
     </details>`;
 }
