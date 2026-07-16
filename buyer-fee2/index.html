@@ -992,19 +992,24 @@ function render() {
     }
   }
 
-  /* --- 核貸金額：min(鑑價, 成交價) × 有效成數，再受青安額度上限 ---
-     有效成數：青安最高 8 成（QA_MAX_RATIO），一般房貸不夾 */
+  /* --- 核貸金額：min(鑑價, 成交價) × 成數 ---
+     ⚠️ 青安額度上限與 8 成限制「不會」壓低總核貸金額：超出青安的部分可搭配一般房貸
+        （實務常見做法：青安 1,000 萬 + 一般房貸補足到 8 成），不是貸不到 */
   const base = Math.min(apprValue, price);
   const useQA = (plan !== 'none') && !qaBlocked;
-  const effRatio = useQA ? Math.min(loanRatio, QA_MAX_RATIO) : loanRatio;
-  const bankMax = base * effRatio / 100;
+  const bankMax = base * loanRatio / 100;
   const capAmt = (capWan === Infinity) ? Infinity : capWan * 10000;
-  const suggested = Math.min(bankMax, capAmt);
+  const suggested = bankMax;
 
   if (!isUserEditingLoan) {
     $('loanAmount').value = Math.round(suggested / 10000);
   }
   const loanAmount = (+$('loanAmount').value || 0) * 10000;
+
+  /* 青安／一般房貸分流：青安部分受「房價 8 成」與「額度上限」雙重限制，其餘走一般房貸 */
+  const qaMaxByRatio = base * QA_MAX_RATIO / 100;
+  const qaPart = useQA ? Math.min(loanAmount, qaMaxByRatio, capAmt) : 0;
+  const extraPart = Math.max(0, loanAmount - qaPart);
 
   $('apprValLabel').textContent = `${apprRatio}%　約 ${wan(apprValue)} 萬`;
   $('ratioHint').innerHTML = (plan === 'none')
@@ -1017,15 +1022,15 @@ function render() {
   if (manual) {
     notes.push(`✏️ 核貸金額已<b>手動指定為 ${wan(loanAmount)} 萬</b>（試算依此金額）。自動試算值為 ${wan(suggested)} 萬 — 改動上方任一條件即可回復自動計算。`);
   } else {
-    notes.push(`核貸基準 = min(鑑價 ${wan(apprValue)} 萬, 成交價 ${wan(price)} 萬) = <b>${wan(base)} 萬</b>；× ${effRatio}% = <b>${wan(bankMax)} 萬</b>`);
+    notes.push(`核貸基準 = min(鑑價 ${wan(apprValue)} 萬, 成交價 ${wan(price)} 萬) = <b>${wan(base)} 萬</b>；× ${loanRatio}% = <b>${wan(bankMax)} 萬</b>`);
   }
   if (qaBlocked) {
-    notes.push(`❌ 目前不符${plan === 'qa3' ? '青安3.0' : '青安'}資格（見右方檢核），核貸金額已改用<b>一般房貸</b>條件計算，不受青安額度與 8 成限制。`);
-  } else if (capAmt !== Infinity && bankMax > capAmt) {
-    notes.push(`⚠️ 超過${plan === 'qa3' ? '青安3.0' : '現行青安'}額度上限 <b>${capWan.toLocaleString('zh-TW')} 萬</b>，已壓到上限。超出部分須自備，或另辦一般房貸（利率不同，非青安補貼利率）。`);
-  }
-  if (loanRatio > QA_MAX_RATIO && useQA) {
-    notes.push(`⚠️ 青安貸款成數最高 <b>8 成</b>，已自動以 8 成計算（你填的 ${loanRatio}% 不適用）。超過 8 成的部分須自備，或另辦一般房貸。`);
+    notes.push(`❌ 目前不符${plan === 'qa3' ? '青安3.0' : '青安'}資格（見右方檢核），全額以<b>一般房貸</b>條件計算。`);
+  } else if (useQA && extraPart > 0) {
+    const why = [];
+    if (capAmt !== Infinity && qaPart >= capAmt - 1) why.push(`青安額度上限 ${capWan.toLocaleString('zh-TW')} 萬`);
+    if (qaPart >= qaMaxByRatio - 1 && loanRatio > QA_MAX_RATIO) why.push('青安成數上限 8 成');
+    notes.push(`💡 <b>青安 ${wan(qaPart)} 萬</b>（受${why.join('＋') || '青安上限'}）<b> + 一般房貸 ${wan(extraPart)} 萬</b> 搭配承作 —— 超出青安的部分改用一般房貸利率，<b>不是貸不到</b>，頭期款不會因此變多。`);
   }
   $('loanNote').innerHTML = notes.join('<br>');
 
@@ -1088,7 +1093,7 @@ function render() {
   /* --- 自備款拆解 ---
      鑑價落差的影響 = 鑑價 100% 時的核貸 vs 目前鑑價的核貸，且要考慮額度上限與手動覆寫 */
   const downPay = Math.max(0, price - loanAmount);
-  const loanIfFullAppr = Math.min(price * effRatio / 100, capAmt === Infinity ? Infinity : capAmt);
+  const loanIfFullAppr = price * loanRatio / 100;   // 鑑價等於成交價時的核貸
   const gapExtra = (!isUserEditingLoan && apprValue < price) ? Math.max(0, loanIfFullAppr - loanAmount) : 0;
   const cashTotal = downPay + feeTotal;
 
@@ -1096,8 +1101,8 @@ function render() {
   if (isUserEditingLoan && Math.abs(loanAmount - suggested) > 5000) {
     loanSub = '手動指定的核貸金額';
   } else {
-    loanSub = `${wan(base)} 萬 × ${effRatio}%`
-      + ((capAmt !== Infinity && bankMax > capAmt) ? `，並受額度上限 ${capWan.toLocaleString('zh-TW')} 萬` : '');
+    loanSub = `${wan(base)} 萬 × ${loanRatio}%`
+      + ((useQA && extraPart > 0) ? `（青安 ${wan(qaPart)} 萬 + 一般房貸 ${wan(extraPart)} 萬）` : '');
   }
 
   const rows = [];
@@ -1147,9 +1152,10 @@ function render() {
       $('qaDetail').innerHTML = `<div style="padding:18px 0;color:var(--text-soft);font-size:15px;text-align:center;line-height:1.7;">不符合${isQA3 ? '青安3.0' : '青安'}資格<br><span style="font-size:13.5px;">請見上方資格檢核；左欄的一般房貸試算仍然有效</span></div>`;
     } else {
       const rateFn = isQA3 ? (y) => qa3RateOfYear(y, baseRate) : (y) => qa2RateOfYear(y, baseRate);
-      const qa = simulate(loanAmount, rateFn, yQA, gQA);
+      const qa = simulate(qaPart, rateFn, yQA, gQA);
+      const ex = extraPart > 0 ? simulate(extraPart, flatRate(rGen), yGen, gGen) : null;
       const rateLabel = isQA3 ? `${qaRate}% 起（階梯）` : `${qaRate}%`;
-      let html = renderLoan(qa, loanAmount, rateLabel, yQA, gQA, isQA3);
+      let html = renderLoanSplit(qa, ex, qaPart, extraPart, rateLabel, rGen, yQA, gQA, yGen, gGen, isQA3);
       if (isQA3) html += renderStepTable(qa, baseRate);
       $('qaDetail').innerHTML = html;
     }
@@ -1168,6 +1174,93 @@ function render() {
   }
   $('graceAlert').innerHTML = gAlerts.join('<br><br>');
   $('graceAlert').style.display = gAlerts.length ? '' : 'none';
+}
+
+/* 青安 + 一般房貸搭配的合併月付金
+   青安額度／8成上限只影響「哪一段用什麼利率」，不影響總核貸金額 */
+function renderLoanSplit(qa, ex, qaPart, extraPart, qaRateLabel, rGen, yQA, gQA, yGen, gGen, isStep) {
+  if (!qa.yearly.length) return `<div style="padding:18px 0;color:var(--text-soft);font-size:15px;text-align:center;">請輸入有效的貸款年限</div>`;
+  const total = qaPart + extraPart;
+  const maxYears = Math.max(yQA, ex ? yGen : 0);
+
+  // 逐年合併：某段年限到期後該段月付歸零
+  const merged = [];
+  for (let y = 0; y < maxYears; y++) {
+    const a = qa.yearly[y], b = ex ? ex.yearly[y] : null;
+    merged.push({
+      year: y + 1,
+      pay: (a ? a.pay : 0) + (b ? b.pay : 0),
+      inGrace: a ? a.inGrace : false
+    });
+  }
+  const totalInterest = qa.totalInterest + (ex ? ex.totalInterest : 0);
+  const firstPay = merged[0];
+  const afterGrace = merged.find(m => !m.inGrace);
+  const lastPay = merged[merged.length - 1];
+
+  const splitRows = extraPart > 0 ? `
+    <div class="pay-row" style="padding-left:14px;">
+      <span class="lbl">├ 青安部分</span>
+      <span class="val" style="font-size:16px;">${fmt(qaPart)} 元 @ ${qaRateLabel}</span>
+    </div>
+    <div class="pay-row" style="padding-left:14px;">
+      <span class="lbl">└ 一般房貸部分</span>
+      <span class="val" style="font-size:16px;">${fmt(extraPart)} 元 @ ${rGen}% / ${yGen} 年</span>
+    </div>` : `
+    <div class="pay-row">
+      <span class="lbl">利率 / 年限</span>
+      <span class="val">${qaRateLabel} / ${yQA} 年</span>
+    </div>`;
+
+  let payHTML;
+  if (gQA > 0) {
+    payHTML = `
+      <div class="pay-row big">
+        <span class="lbl">前 ${gQA} 年（青安寬限期）</span>
+        <span class="val">${fmt(firstPay.pay)} 元/月</span>
+      </div>
+      <div class="pay-row big">
+        <span class="lbl">第 ${gQA + 1} 年起（開始還本金）</span>
+        <span class="val">${fmt(afterGrace ? afterGrace.pay : 0)} 元/月</span>
+      </div>`;
+  } else {
+    payHTML = `
+      <div class="pay-row big">
+        <span class="lbl">每月月付${isStep ? '（第 1 年）' : ''}</span>
+        <span class="val">${fmt(firstPay.pay)} 元/月</span>
+      </div>`;
+  }
+  const cmp = afterGrace ? afterGrace.pay : firstPay.pay;
+  const rows2 = [];
+  // 補貼退場後（第 8 年）— 必須取第 8 年的合併月付，不能取最後一年（那時一般房貸可能已繳清）
+  const y8 = merged[7];
+  if (isStep && y8 && Math.abs(y8.pay - cmp) > 1) {
+    rows2.push(`<div class="pay-row"><span class="lbl">補貼退場後（第 8 年起）</span><span class="val">${fmt(y8.pay)} 元/月</span></div>`);
+  }
+  // 一般房貸先繳清後，月付下降
+  if (ex && yGen < yQA && merged[yGen]) {
+    rows2.push(`<div class="pay-row"><span class="lbl">第 ${yGen + 1} 年起<br><span style="font-size:12px;">一般房貸已繳清，只剩青安</span></span><span class="val">${fmt(merged[yGen].pay)} 元/月</span></div>`);
+  }
+  const stepRow = rows2.join('');
+
+  return `
+    <div class="pay-row">
+      <span class="lbl">貸款金額</span>
+      <span class="val">${fmt(total)} 元</span>
+    </div>
+    ${splitRows}
+    ${payHTML}
+    ${stepRow}
+    <div class="pay-row">
+      <span class="lbl">總利息</span>
+      <span class="val">${fmt(totalInterest)} 元</span>
+    </div>
+    <div class="pay-row">
+      <span class="lbl">本息合計</span>
+      <span class="val">${fmt(total + totalInterest)} 元</span>
+    </div>
+    ${extraPart > 0 ? `<div class="info-line" style="margin-top:10px;font-size:13px;">上列月付金為<b>青安 + 一般房貸兩筆合計</b>。青安 ${yQA} 年、一般房貸 ${yGen} 年，第 ${yGen + 1} 年起只剩青安要繳。</div>` : ''}
+  `;
 }
 
 function renderLoan(calc, principal, rateLabel, years, grace, isStep) {
