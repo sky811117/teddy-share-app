@@ -1280,9 +1280,10 @@ function renderLoanSplit(qa, ex, qaPart, extraPart, qaRateLabel, rGen, yQA, gQA,
 
   let payHTML;
   if (gQA > 0) {
+    /* 3+3 階梯下，寬限期第 4 年起利率已開始爬，寬限期內月付不是固定值 → 標「第 1 年」並導向下方分年表 */
     payHTML = `
       <div class="pay-row big">
-        <span class="lbl">前 ${gQA} 年（青安寬限期）</span>
+        <span class="lbl">寬限期第 1 年（前 ${gQA} 年只繳息${isStep && gQA > 3 ? '，第 4 年起利率爬升、逐年見下表' : ''}）</span>
         <span class="val">${fmt(firstPay.pay)} 元/月</span>
       </div>
       <div class="pay-row big">
