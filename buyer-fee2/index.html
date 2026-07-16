@@ -293,6 +293,22 @@
     cursor: pointer; font-size: 14.5px; color: var(--wood-deep);
     padding: 8px 0; font-weight: 600;
   }
+  details.topup-detail {
+    margin-top: 10px; background: var(--info-bg);
+    border-radius: 8px; border-left: 4px solid var(--wood);
+  }
+  details.topup-detail summary {
+    cursor: pointer; font-size: 14.5px; color: #7A5D2E;
+    padding: 10px 14px; font-weight: 600;
+  }
+  details.topup-detail .topup-body { padding: 0 14px 12px; }
+  details.topup-detail .topup-body p {
+    margin: 0 0 10px; font-size: 13.5px; color: #6B5A3C; line-height: 1.75;
+  }
+  details.topup-detail .topup-body p:last-child { margin-bottom: 0; }
+  details.topup-detail .topup-body p.src { font-size: 12px; color: var(--text-soft); }
+  details.topup-detail .topup-body a { color: var(--wood-deep); }
+  @media print { details.topup-detail { border-left-color: #999; } details.topup-detail[open] .topup-body { display: block; } }
 
   .alert-line {
     background: var(--warn-bg); border-left: 4px solid var(--warn);
@@ -1013,8 +1029,8 @@ function render() {
 
   $('apprValLabel').textContent = `${apprRatio}%　約 ${wan(apprValue)} 萬`;
   $('ratioHint').innerHTML = (plan === 'none')
-    ? `依央行規定：<b>首購（名下無房）不受成數限制</b>、<b>第 2 戶最高 6 成</b>（且不得有寬限期）、<b>第 3 戶以上最高 3 成</b>。全國核貸成數中位數約 <b>75.1%</b>（對鑑估值，聯徵中心 2026/03 期）— 8 成偏樂觀`
-    : `青安最高 <b>8 成</b>（走青安不受央行第 1／2 戶成數限制）。全國核貸成數中位數約 75.1%（對鑑估值，聯徵中心 2026/03 期）`;
+    ? `依央行規定：<b>第 1 戶（名下無房）未訂成數上限</b>、<b>第 2 戶最高 6 成</b>（2026/03/20 起由 5 成放寬，且不得有寬限期）、第 3 戶以上與高價住宅另有更嚴格限制（請洽銀行確認）。全國核貸成數中位數約 <b>75.1%</b>（對鑑估值，聯徵中心 2026/03 期）— 8 成偏樂觀`
+    : `青安最高 <b>8 成</b>（青安經央行明文排除，不受第 1／2 戶成數限制）。全國核貸成數中位數約 75.1%（對鑑估值，聯徵中心 2026/03 期）`;
 
   /* 核貸提示 */
   const notes = [];
@@ -1030,7 +1046,7 @@ function render() {
     const why = [];
     if (capAmt !== Infinity && qaPart >= capAmt - 1) why.push(`青安額度上限 ${capWan.toLocaleString('zh-TW')} 萬`);
     if (qaPart >= qaMaxByRatio - 1 && loanRatio > QA_MAX_RATIO) why.push('青安成數上限 8 成');
-    notes.push(`💡 <b>青安 ${wan(qaPart)} 萬</b>（受${why.join('＋') || '青安上限'}）<b> + 一般房貸 ${wan(extraPart)} 萬</b> 搭配承作 —— 超出青安的部分改用一般房貸利率，<b>不是貸不到</b>，頭期款不會因此變多。`);
+    notes.push(`💡 <b>青安 ${wan(qaPart)} 萬</b>（受${why.join('＋') || '青安上限'}）<b> + 一般房貸 ${wan(extraPart)} 萬</b> 搭配承作 —— 依財政部規定「超過額度部分適用<b>承貸銀行之其他貸款方案</b>」，也就是跟同一家銀行再辦一筆一般房貸。<b>不是貸不到，頭期款不會因此變多</b>，只是超出的那段沒有補貼、利率較高。詳細做法見下方「每月房貸月付金」的說明。`);
   }
   $('loanNote').innerHTML = notes.join('<br>');
 
@@ -1065,7 +1081,7 @@ function render() {
         ? '<span style="color:var(--warn);">↑ 需填土地申報地價 + 房屋契價</span>'
         : '(土地申報地價 + 房屋契價) × 0.1%',
       amount: (land + house) * 0.001, blank: noBase },
-    { name: '設定登記規費', formula: '貸款金額 × 1.2 × 0.1%', amount: loanAmount * 1.2 * 0.001 },
+    { name: '設定登記規費', formula: '擔保債權總額 × 0.1%<br><span style="font-size:12px;">（銀行設定的最高限額<b>常見為貸款金額 1.2 倍</b>，本表以此估算；實際倍數依銀行核定）</span>', amount: loanAmount * 1.2 * 0.001 },
     { name: '印花稅', formula: noBase
         ? '<span style="color:var(--warn);">↑ 需填土地公告現值（或申報地價）+ 房屋契價</span>'
         : `(土地公告現值 + 房屋契價) × 0.1%${stampNote}`,
@@ -1164,7 +1180,10 @@ function render() {
   /* 寬限期警語 */
   const gAlerts = [];
   if (gQA > 0 && plan !== 'none') {
-    gAlerts.push(`⚠️ <strong>寬限期 ${gQA} 年期間只繳利息、不還本金</strong>，寬限期一到月付金會大幅跳升（本金要用更短的年限攤還）。上表已分段列出跳升後的金額，請務必確認長期還款能力。`);
+    gAlerts.push(`⚠️ <strong>寬限期 ${gQA} 年期間只繳利息、不還本金</strong>，寬限期一到月付金會大幅跳升（本金要用更短的年限攤還）。上表已分段列出跳升後的金額，請務必<strong>用「寬限期結束後」的數字</strong>評估長期還款能力。`);
+  }
+  if (extraPart > 0 && plan !== 'none') {
+    gAlerts.push(`⚠️ <strong>兩筆貸款的寬限期可能不同步：</strong>青安寬限期最長 5 年，但搭配的一般房貸那筆由銀行自訂（可能只有 2~3 年，或完全沒有），<strong>現金流可能出現兩個跳升點</strong>。本表以你在左方設定的一般房貸寬限期試算，實際請以銀行核定為準。`);
   }
   if (plan === 'qa3') {
     gAlerts.push(`⚠️ <strong>青安3.0 的利率會自己往上爬：</strong>1.775% 只保障前 3 年，第 4 年起補貼逐年遞減，第 8 年起回到約 ${(baseRate + QA_SPREAD).toFixed(3)}%。若同時搭 5 年寬限期，<strong>第 6 年會同時遇到「開始還本金」+「利率已調升」的雙重跳升</strong>，這是最需要提前準備的一年。`);
@@ -1259,7 +1278,21 @@ function renderLoanSplit(qa, ex, qaPart, extraPart, qaRateLabel, rGen, yQA, gQA,
       <span class="lbl">本息合計</span>
       <span class="val">${fmt(total + totalInterest)} 元</span>
     </div>
-    ${extraPart > 0 ? `<div class="info-line" style="margin-top:10px;font-size:13px;">上列月付金為<b>青安 + 一般房貸兩筆合計</b>。青安 ${yQA} 年、一般房貸 ${yGen} 年，第 ${yGen + 1} 年起只剩青安要繳。</div>` : ''}
+    ${extraPart > 0 ? `
+    <div class="info-line" style="margin-top:10px;font-size:13px;">
+      上列月付金為<b>青安 + 一般房貸兩筆合計</b>。青安 ${yQA} 年、一般房貸 ${yGen} 年${yGen < yQA ? `，第 ${yGen + 1} 年起只剩青安要繳` : ''}。
+    </div>
+    <details class="topup-detail">
+      <summary>💡 超過青安額度的 ${wan(extraPart)} 萬要怎麼辦？（點開）</summary>
+      <div class="topup-body">
+        <p><b>跟承作青安的同一家銀行，再辦一筆該行的一般房貸補足。</b>財政部明文規定：「借款金額如逾 1,000 萬元，在最高 1,000 萬元之內，適用本項貸款，<b>超過 1,000 萬元部分，則適用承貸銀行之其他貸款方案</b>」。所以超過額度<b>不是貸不到</b>，只是超出的那段沒有政府補貼、利率照該行一般房貸走。</p>
+        <p><b>這不是二胎。</b>二胎是房貸辦完之後、再找別家銀行設第二順位的週轉型貸款，利率高一個級距。這裡講的是<b>買房當下、同一家銀行、同一間房子、一次送件</b>，只是把貸款拆成兩個帳戶、兩段利率。實務上一起送審、一次設定抵押權，不用跑兩趟。</p>
+        <p>⚠️ <b>簽約前一定要問清楚差額那筆的「年限」與「寬限期」。</b>青安最長可做 40 年、寬限 5 年，但差額那筆是銀行自己的方案，<b>條件由銀行自訂、不一定跟青安同步</b>（常見只給 30 年、寬限期也可能較短）。年限縮短，月付金差很多。本表的差額段是套用左欄「一般房貸」的利率與年限試算，你可以自行調整看看。</p>
+        <p>⛔ <b>如果有人建議用「修繕貸款」「周轉金」的名目來補差額，請拒絕。</b>央行明文規定：金融機構辦理購置住宅貸款，不得以修繕、周轉金或其他貸款名目承作。</p>
+        <p class="src">📌 資料來源：財政部國庫署「公股銀行辦理青年安心成家購屋優惠貸款問與答」第十一問（<a href="https://www.nta.gov.tw/singlehtml/109" target="_blank" rel="noopener">nta.gov.tw/singlehtml/109</a>）；中央銀行「對金融機構辦理不動產抵押貸款業務規定」問與答（<a href="https://www.cbc.gov.tw/tw/lp-1055-1.html" target="_blank" rel="noopener">cbc.gov.tw</a>）｜查證日 2026-07-16<br>
+        ⚠️ 差額由「同一家銀行」承作為<b>實務常態</b>，財政部並無「必須同一家」的明文規定；實際能否核准、額度、利率、年限，一律<b>以承貸銀行核定為準</b>，本表非核貸承諾。</p>
+      </div>
+    </details>` : ''}
   `;
 }
 
