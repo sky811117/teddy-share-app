@@ -84,11 +84,12 @@
     color: #2C4A2E; transition: all .15s;
   }
   .jump-cash:hover { background: #E4EEE1; border-color: var(--ok); }
-  .jump-cash .t { font-size: 17px; font-weight: 600; }
+  .jump-cash .t { font-size: 17px; font-weight: 600; min-width: 0; }
   .jump-cash .v {
     font-family: 'Inter', 'Noto Sans TC', sans-serif; font-size: 24px;
-    font-weight: 700; color: var(--num); white-space: nowrap;
+    font-weight: 700; color: var(--num); white-space: nowrap; flex-shrink: 0;
   }
+  @media (max-width: 400px) { .jump-cash { flex-wrap: wrap; } .jump-cash .v { margin-left: auto; } }
   @media print { .jump-cash { display: none; } }
   .disclaimer-top {
     background: var(--warn-bg); border-left: 4px solid var(--warn);
@@ -216,11 +217,11 @@
     display: flex; justify-content: space-between; align-items: baseline;
     gap: 12px; padding: 11px 0; border-bottom: 1px dashed #DCD2BB;
   }
-  .cash-row .k { font-size: 16px; color: var(--text); }
+  .cash-row .k { font-size: 16px; color: var(--text); min-width: 0; flex: 1 1 auto; }
   .cash-row .k small { display: block; font-size: 12.5px; color: var(--text-soft); margin-top: 2px; line-height: 1.5; }
   .cash-row .v {
     font-family: 'Inter', 'Noto Sans TC', sans-serif; font-size: 19px;
-    font-weight: 600; color: var(--num); white-space: nowrap;
+    font-weight: 600; color: var(--num); white-space: nowrap; flex-shrink: 0;
   }
   .cash-row.sub { padding-left: 18px; }
   .cash-row.sub .k { font-size: 14.5px; color: var(--text-soft); }
@@ -231,13 +232,24 @@
     gap: 12px; margin-top: 8px; padding: 18px 16px;
     background: #fff; border: 2px solid var(--wood); border-radius: 10px;
   }
-  .cash-total .k { font-size: 17px; font-weight: 700; color: var(--wood-deep); }
+  .cash-total .k { font-size: 17px; font-weight: 700; color: var(--wood-deep); min-width: 0; }
   .cash-total .k small { display: block; font-size: 12.5px; font-weight: 400; color: var(--text-soft); margin-top: 3px; }
   .cash-total .v {
     font-family: 'Inter', 'Noto Sans TC', sans-serif; font-size: 34px;
     font-weight: 700; color: var(--num); letter-spacing: .5px; white-space: nowrap;
+    flex-shrink: 0;
   }
-  .cash-total .v small { display: block; font-size: 13px; font-weight: 400; color: var(--text-soft); text-align: right; margin-top: 2px; }
+  /* 小字不可繼承 nowrap，否則會撐爆數值欄、把標籤擠成直排 */
+  .cash-total .v small {
+    display: block; font-size: 13px; font-weight: 400; color: var(--text-soft);
+    text-align: right; margin-top: 2px; white-space: normal;
+  }
+  /* 窄螢幕：標籤與大數字改上下排，數字更醒目也不會擠壓標籤 */
+  @media (max-width: 480px) {
+    .cash-total { flex-direction: column; align-items: stretch; gap: 10px; }
+    .cash-total .v { font-size: 38px; }
+    .cash-total .v, .cash-total .v small { text-align: left; }
+  }
 
   .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   table.fee-table { width: 100%; border-collapse: collapse; font-size: 16px; min-width: 460px; }
@@ -253,6 +265,25 @@
   table.fee-table tr.total { background: #F5EFE3; font-size: 18px; }
   table.fee-table tr.total td { border-bottom: none; padding: 14px 8px; color: var(--wood-deep); font-weight: 700; }
   table.fee-table tr.total td.num { color: var(--num); font-size: 22px; }
+  /* 窄螢幕：費用表改卡片式堆疊，不必左右捲動 */
+  @media (max-width: 560px) {
+    .table-scroll { overflow-x: visible; }
+    table.fee-table { min-width: 0; display: block; }
+    table.fee-table thead { display: none; }
+    table.fee-table tbody { display: block; }
+    table.fee-table tr {
+      display: block; padding: 12px 4px; border-bottom: 1px solid #F0E6D0;
+    }
+    table.fee-table td { display: block; border: none; padding: 0; }
+    table.fee-table td:first-child { font-weight: 600; font-size: 16.5px; color: var(--text); }
+    table.fee-table td .formula { margin-top: 3px; }
+    table.fee-table td.num {
+      text-align: left; font-size: 19px; margin-top: 6px;
+    }
+    table.fee-table tr.total { padding: 14px 4px; border-radius: 8px; margin-top: 6px; }
+    table.fee-table tr.total td { padding: 0; }
+    table.fee-table tr.total td.num { margin-top: 4px; }
+  }
 
   .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
   @media (max-width: 720px) { .compare-grid { grid-template-columns: 1fr; } }
@@ -273,12 +304,26 @@
     gap: 10px; padding: 8px 0; border-bottom: 1px dashed #DCD2BB; font-size: 16px;
   }
   .pay-row:last-child { border-bottom: none; }
-  .pay-row .lbl { color: var(--text-soft); }
+  .pay-row .lbl { color: var(--text-soft); min-width: 0; }
   .pay-row .val {
     font-family: 'Inter', 'Noto Sans TC', sans-serif; color: var(--num);
     font-weight: 600; font-size: 18px; white-space: nowrap;
+    flex-shrink: 0;   /* 數值不縮，但下面 min-width:0 讓標籤能正常換行而非逐字直排 */
   }
   .pay-row.big .val { font-size: 24px; color: var(--wood-deep); }
+  .pay-row.sub-loan { padding-left: 12px; }
+  .pay-row.sub-loan .lbl { font-size: 15px; }
+  .pay-row.sub-loan .lbl small {
+    display: block; font-size: 12.5px; color: var(--text-soft);
+    margin-top: 2px; font-family: 'Inter', 'Noto Sans TC', sans-serif;
+  }
+  .pay-row.sub-loan .val { font-size: 16px; }
+  /* 窄螢幕：擠得下就同一行，擠不下才讓數值換到下一行（不強制拆行、不擠扁標籤） */
+  @media (max-width: 480px) {
+    .pay-row { flex-wrap: wrap; }
+    .pay-row .lbl { flex: 1 1 auto; min-width: 0; }
+    .pay-row .val { flex: 0 0 auto; margin-left: auto; }
+  }
 
   /* 階梯利率表 */
   .step-table { width: 100%; border-collapse: collapse; font-size: 14.5px; margin-top: 10px; }
@@ -1217,14 +1262,17 @@ function renderLoanSplit(qa, ex, qaPart, extraPart, qaRateLabel, rGen, yQA, gQA,
   const afterGrace = merged.find(m => !m.inGrace);
   const lastPay = merged[merged.length - 1];
 
+  // 利率條件放標籤小字、數值欄只留金額 —— 否則手機版 nowrap 的數值會把標籤擠成直排
+  // 小字保持精簡：太長會撐開標籤、把金額擠到下一行（階梯細節由下方展開表說明）
+  const shortRate = isStep ? `${qaRateLabel.replace('（階梯）', '')}` : qaRateLabel;
   const splitRows = extraPart > 0 ? `
-    <div class="pay-row" style="padding-left:14px;">
-      <span class="lbl">├ 青安部分</span>
-      <span class="val" style="font-size:16px;">${fmt(qaPart)} 元 @ ${qaRateLabel}</span>
+    <div class="pay-row sub-loan">
+      <span class="lbl">├ 青安部分<small>${shortRate} / ${yQA} 年</small></span>
+      <span class="val">${fmt(qaPart)} 元</span>
     </div>
-    <div class="pay-row" style="padding-left:14px;">
-      <span class="lbl">└ 一般房貸部分</span>
-      <span class="val" style="font-size:16px;">${fmt(extraPart)} 元 @ ${rGen}% / ${yGen} 年</span>
+    <div class="pay-row sub-loan">
+      <span class="lbl">└ 一般房貸部分<small>${rGen}% / ${yGen} 年</small></span>
+      <span class="val">${fmt(extraPart)} 元</span>
     </div>` : `
     <div class="pay-row">
       <span class="lbl">利率 / 年限</span>
