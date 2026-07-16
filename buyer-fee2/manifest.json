@@ -1,7 +1,7 @@
 {
-  "name": "買房總費用試算 ─ 一品不動產",
+  "name": "買房自備款試算 ─ 一品不動產",
   "short_name": "買房試算",
-  "description": "成交時要付什麼．每月繳多少（含新青安試算）",
+  "description": "要準備多少現金．每月繳多少（含青安3.0 試算）",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
