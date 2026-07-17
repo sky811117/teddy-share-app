@@ -41,6 +41,13 @@ DEFAULT_CONTACT = {
     "agent_license": "114年登字第488296號",
 }
 
+# ============== buy.u-trust 官方前台（有巢氏）==============
+# 景泰的店＝有巢氏台中世界之心加盟店，店碼 0423120888。
+# 官方前台 house 頁客戶點進去會看到「承辦店 + 承辦業務電話」——別店的物件會露出它店資料，
+# 所以：① 帶入只抓物件本身，絕不抓 ShopInfo/Ivr ② 多媒體(VR/影片/AI)只掛本店 ③ 看完整資訊絕不外連 buy.u-trust。
+UTRUST_TEDDY_STORE = "0423120888"
+UTRUST_API = "https://buy.u-trust.com.tw/api/v2"
+
 
 # ============== Parser ==============
 
@@ -154,7 +161,9 @@ def parse_ycut_html(html, slug):
     price = int(pm2.group(1).replace(",", "")) if pm2 else 0
 
     return {
+        "source": "ycut",
         "slug": slug,
+        "detail_url": f"https://x.ychouse.tw/{slug}",
         "community_display": community,
         "price": price,
         "floor": floor,
@@ -188,15 +197,161 @@ def _fetch_one_full(slug):
         return {"slug": slug, "error": f"parse 失敗: {e}"}
 
 
-def fetch_full_batch(slugs):
+# ---------- buy.u-trust 官方前台解析 ----------
+
+def _http_json(url, timeout=12):
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode("utf-8", errors="ignore"))
+
+
+def _utrust_shop(case_id):
+    """查承辦店 → 回 (is_own_store, shop_name)。抓失敗一律當『非本店』(安全：不掛多媒體)。
+
+    ⚠️ 這支只拿來『判斷是不是景泰的店』決定多媒體掛不掛，
+    店名/電話/logo 絕不進客戶頁 — 避免露出它店資料把客戶讓給別家。
+    """
+    try:
+        d = (_http_json(f"{UTRUST_API}/Shop/ShopInfo?caseSId={case_id}", timeout=8) or {}).get("data") or {}
+    except Exception:
+        return False, ""
+    shop_url = d.get("shopUrl") or ""
+    return (UTRUST_TEDDY_STORE in shop_url), (d.get("shopName") or "")
+
+
+def parse_utrust_data(data, case_id, is_own_store, shop_name):
+    """把 /api/v2/Buy/Detail 的 data 轉成統一物件 schema(對齊 parse_ycut_html)。"""
+    def n(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return 0.0
+
+    community = (data.get("communityInfo") or {}).get("buildingName") or data.get("caseName") or ""
+    price = int(n(data.get("price")))
+    floor = int(n(data.get("fromFloor")))
+    floor_total = int(n(data.get("upFloor")))
+    pin = data.get("pinInfo") or {}
+    area = round(n(pin.get("regArea")), 2)
+    main_area = round(n(pin.get("mainArea")) + n(pin.get("totalAuxiArea")), 2)
+    age = int(n(data.get("buildAge")))
+
+    pinfo = data.get("parkingInfo") or {}
+    has_parking = bool(pinfo.get("isParking"))
+    if has_parking:
+        parking = (pinfo.get("parkingName") or "").strip() or "含車位"
+        cm = re.search(r"([\d.]+)\s*坪", str(pin.get("publicCarArea") or ""))
+        parking_area = f"{float(cm.group(1)):g} 坪" if cm else "含於主建"
+    else:
+        parking, parking_area = "無車位", "無車位"
+
+    room, living, bath = int(n(data.get("room"))), int(n(data.get("livingRoom"))), int(n(data.get("bathRoom")))
+    layout = "".join(p for p in (
+        f"{room}房" if room else "",
+        f"{living}廳" if living else "",
+        f"{bath}衛" if bath else "",
+    ) if p)
+
+    pics = [(pp.get("photoUrl") or "") for pp in ((data.get("pictureInfo") or {}).get("pictures") or [])]
+    pics = [("https:" + u if u.startswith("//") else u) for u in pics if u]
+
+    vr = (data.get("iStagingUrl") or "").strip() or (data.get("iStaging3DUrl") or "").strip()
+    video = (data.get("introVideo") or "").strip()
+    ai_video = (data.get("aiUrl") or "").strip()
+
+    last_price = int(n(data.get("lastPrice")))
+    is_discount = bool(data.get("isDiscount")) and price > 0 and last_price > price
+
+    return {
+        "source": "utrust",
+        "case_id": str(case_id),
+        "slug": f"ut{case_id}",             # 合成 id，給追蹤/愛心用
+        "detail_url": None,                  # 一律不外連 buy.u-trust(會露出承辦店電話)
+        "community_display": community,
+        "price": price,
+        "floor": floor,
+        "floor_total": floor_total,
+        "area": area,
+        "main_area": main_area,
+        "age": age,
+        "has_parking": has_parking,
+        "parking": parking,
+        "parking_area": parking_area,
+        "building_type": (data.get("caseTypeName") or "").strip(),
+        "address": (data.get("address") or "").strip(),
+        "layout": layout,
+        "og_image": pics[0] if pics else "",
+        "og_title": data.get("caseName") or "",
+        "og_description": data.get("caseDes") or "",
+        # ---- 加值(善用官方前台)----
+        "gallery": pics[:8],
+        "is_own_store": is_own_store,
+        "store_name": shop_name,             # 只給預覽標示用，不進客戶頁
+        # VR 環景放寬:別店也給(360 內裝環景，靜態頁未見承辦店電話；景泰 2026-07-17 拍板)
+        "vr_url": vr,
+        # 影片(YouTube 可能是對方頻道/品牌)、AI 導覽(可能有業務浮水印)→ 仍只本店
+        "video_url": video if is_own_store else "",
+        "ai_video_url": ai_video if is_own_store else "",
+        "last_price": last_price,
+        "is_discount": is_discount,
+    }
+
+
+def _fetch_one_utrust(case_id):
+    try:
+        resp = _http_json(f"{UTRUST_API}/Buy/Detail?caseSId={case_id}") or {}
+        data = resp.get("data") or {}
+        if resp.get("status") != "Success" or not data:
+            return {"slug": f"ut{case_id}", "error": "官方前台抓取失敗"}
+    except Exception as e:
+        return {"slug": f"ut{case_id}", "error": str(e)}
+    is_own, shop_name = _utrust_shop(case_id)
+    try:
+        return parse_utrust_data(data, case_id, is_own, shop_name)
+    except Exception as e:
+        return {"slug": f"ut{case_id}", "error": f"parse 失敗: {e}"}
+
+
+def _fetch_one_ref(ref):
+    """ref = {'source': 'ycut'|'utrust', 'id': ...}。相容：字串 → 當 ycut slug。"""
+    if isinstance(ref, str):
+        return _fetch_one_full(ref)
+    if ref.get("source") == "utrust":
+        return _fetch_one_utrust(ref["id"])
+    return _fetch_one_full(ref["id"])
+
+
+def _merge_dup(keep, other):
+    """同一物件被同時貼了 ycut + 官方前台 → 合併進 keep(先到的那筆，就地改)。
+    外連走 ycut(乾淨、掛景泰)；美圖/相簿/多媒體走 utrust。"""
+    y = keep if keep.get("source") == "ycut" else (other if other.get("source") == "ycut" else None)
+    u = keep if keep.get("source") == "utrust" else (other if other.get("source") == "utrust" else None)
+    if y and y.get("detail_url"):
+        keep["detail_url"] = y["detail_url"]
+        keep["slug"] = y.get("slug", keep.get("slug"))   # 追蹤沿用 ycut slug
+    if u:
+        if u.get("og_image"):
+            keep["og_image"] = u["og_image"]
+        for k in ("gallery", "vr_url", "video_url", "ai_video_url",
+                  "is_own_store", "store_name", "last_price", "is_discount", "case_id"):
+            if u.get(k):
+                keep[k] = u[k]
+        for k in ("main_area", "layout", "parking", "parking_area", "building_type", "og_description"):
+            if not keep.get(k) and u.get(k):
+                keep[k] = u[k]
+        keep["source"] = "merged"
+    return keep
+
+
+def fetch_full_batch(refs):
     raw = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:
-        for r in pool.map(_fetch_one_full, slugs):
+        for r in pool.map(_fetch_one_ref, refs):
             if r.get("error") or not r.get("community_display") or not r.get("price"):
                 continue
             raw.append(r)
 
-    items, seen_fp = [], {}
+    items, by_fp = [], {}
     for it in raw:
         fp = (
             it.get("community_display", "").strip(),
@@ -205,9 +360,10 @@ def fetch_full_batch(slugs):
             round(it.get("area", 0), 2),
             it.get("price", 0),
         )
-        if fp in seen_fp:
+        if fp in by_fp:
+            _merge_dup(by_fp[fp], it)   # 就地合併(by_fp[fp] 已在 items 內)
             continue
-        seen_fp[fp] = it["slug"]
+        by_fp[fp] = it
         items.append(it)
     return items
 
@@ -222,6 +378,29 @@ def extract_urls(text):
             seen.add(s)
             out.append(s)
     return out
+
+
+_REF_RE = re.compile(
+    r"(?P<utrust>https?://buy\.u-trust\.com\.tw/house/(?P<cid>\d+))"
+    r"|https?://x\.ychouse\.tw/(?P<slug>[A-Za-z0-9]+?)(?=https?://|[^A-Za-z0-9]|$)"
+)
+
+
+def extract_refs(text):
+    """混貼辨識：ycut 短網址 + buy.u-trust 官方前台網址都吃，保留貼上順序、去重。
+    回傳 [{'source': 'ycut'|'utrust', 'id': ...}, ...]"""
+    refs, seen = [], set()
+    for m in _REF_RE.finditer(text or ""):
+        if m.group("utrust"):
+            key = ("utrust", m.group("cid"))
+            ref = {"source": "utrust", "id": m.group("cid")}
+        else:
+            key = ("ycut", m.group("slug"))
+            ref = {"source": "ycut", "id": m.group("slug")}
+        if key not in seen:
+            seen.add(key)
+            refs.append(ref)
+    return refs
 
 
 def gen_share_id():
@@ -284,9 +463,45 @@ def card_html(p):
     type_attr = building_type if building_type else "其他"
     unit_tier_key = unit_price_to_tier_key(unit_price)
     rooms_key = layout_to_rooms_key(p.get("layout"))
+    slug = p.get("slug", "")
+
+    # 降價徽章(官方前台有原價且高於現價才顯示)
+    badge_html = ''
+    if p.get("is_discount") and p.get("last_price") and p.get("price"):
+        cut = p["last_price"] - p["price"]
+        if cut > 0:
+            badge_html = f'<div class="card-badge">↓ 降 {cut:,} 萬</div>'
+
+    # 相簿橫向縮圖(官方前台多圖，≥2 張才顯示；只含物件實景，不含它店資料)
+    gallery = [g for g in (p.get("gallery") or []) if g]
+    gallery_html = ''
+    if len(gallery) > 1:
+        thumbs = ''.join(
+            f'<img src="{u}" loading="lazy" decoding="async" alt="" />' for u in gallery[:8]
+        )
+        gallery_html = f'<div class="card-gallery" aria-label="物件實景照片">{thumbs}</div>'
+
+    # 多媒體按鈕(VR/影片/AI — 只有景泰本店的物件才掛，避免露出它店品牌)
+    media_btns = []
+    if p.get("vr_url"):
+        media_btns.append(f'<a class="card-media-btn" href="{p["vr_url"]}" target="_blank" rel="noopener" data-media="vr">🏠 VR 環景</a>')
+    if p.get("video_url"):
+        media_btns.append(f'<a class="card-media-btn" href="{p["video_url"]}" target="_blank" rel="noopener" data-media="video">▶ 物件影片</a>')
+    if p.get("ai_video_url"):
+        media_btns.append(f'<a class="card-media-btn" href="{p["ai_video_url"]}" target="_blank" rel="noopener" data-media="ai">✨ AI 導覽</a>')
+    media_html = f'<div class="card-media">{"".join(media_btns)}</div>' if media_btns else ''
+
+    # 「看完整資訊」— 有 detail_url(ycut/合併) 才外連；純官方前台不外連(改軟性洽詢)
+    detail_url = p.get("detail_url")
+    if detail_url:
+        cta_html = (f'<a class="card-cta" href="{detail_url}" target="_blank" rel="noopener">'
+                    f'看完整資訊 與 全部照片 <span class="card-cta-arrow">→</span></a>')
+    else:
+        cta_html = '<div class="card-cta card-cta-soft">📸 更多照片與細節 · 歡迎洽詢景泰</div>'
+
     return f'''
-    <div class="card" data-district="{district}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="{parking_attr}" data-type="{type_attr}" data-unit-price-tier="{unit_tier_key}" data-rooms="{rooms_key}" data-community="{community}">
-      <div class="card-image">{img_html}</div>
+    <div class="card" data-slug="{slug}" data-district="{district}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="{parking_attr}" data-type="{type_attr}" data-unit-price-tier="{unit_tier_key}" data-rooms="{rooms_key}" data-community="{community}">
+      <div class="card-image">{badge_html}{img_html}</div>
       <div class="card-content">
         <div class="card-tagline">{tagline}</div>
         <div class="card-price-row">
@@ -302,15 +517,17 @@ def card_html(p):
           <div class="spec-item"><span class="spec-label">車位</span><span class="spec-value">{p["parking"]}</span></div>
           <div class="spec-item"><span class="spec-label">車位坪數</span><span class="spec-value">{p["parking_area"]}</span></div>
         </div>
+        {gallery_html}
         <div class="card-address">{p["address"]}</div>
         <details class="card-map">
           <summary><span class="card-map-icon">🗺️</span><span class="card-map-label">在地圖上看路段位置</span><span class="card-map-arrow">▾</span></summary>
           <div class="card-map-frame"><iframe data-q="{p["address"]}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="路段位置地圖"></iframe></div>
         </details>
         {note_html}
+        {media_html}
         <div class="card-actions">
-          <a class="card-cta" href="https://x.ychouse.tw/{p["slug"]}" target="_blank" rel="noopener">看完整資訊 與 全部照片 <span class="card-cta-arrow">→</span></a>
-          <button class="card-like" data-slug="{p["slug"]}" data-name="{tagline}" aria-label="我喜歡這間" type="button">
+          {cta_html}
+          <button class="card-like" data-slug="{slug}" data-name="{tagline}" aria-label="我喜歡這間" type="button">
             <span class="card-like-icon">♡</span>
             <span class="card-like-text">我喜歡</span>
           </button>
@@ -935,9 +1152,24 @@ def gen_html(client_data, properties):
   .card-like.liked {{ background: #FFEDED; border-color: #E74C3C; color: #E74C3C; cursor: default; }}
   .card-like-icon {{ font-size: 20px; line-height: 1; transition: transform 0.2s; }}
   .card-like.liked .card-like-icon {{ transform: scale(1.2); }}
+  .card-cta-soft {{ background: var(--bg-soft) !important; color: var(--wood-deep) !important; border: 1.5px dashed var(--wood-light); letter-spacing: 0.5px !important; cursor: default; }}
+  .card-cta-soft:hover {{ background: var(--bg-soft) !important; transform: none !important; }}
+  /* 降價徽章 */
+  .card-badge {{ position: absolute; top: 12px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 4px; background: #E74C3C; color: #FFF; font-size: 14px; font-weight: 800; padding: 5px 13px; border-radius: 20px; letter-spacing: 0.5px; box-shadow: 0 3px 10px rgba(231,76,60,0.40); }}
+  /* 官方前台相簿橫向縮圖 */
+  .card-gallery {{ display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 12px; margin-bottom: 14px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }}
+  .card-gallery img {{ width: 104px; height: 78px; object-fit: cover; border-radius: 9px; flex-shrink: 0; scroll-snap-align: start; background: var(--bg-soft); border: 1px solid var(--border); cursor: default; }}
+  .card-gallery::-webkit-scrollbar {{ height: 6px; }}
+  .card-gallery::-webkit-scrollbar-track {{ background: var(--bg-soft); border-radius: 3px; }}
+  .card-gallery::-webkit-scrollbar-thumb {{ background: var(--wood-light); border-radius: 3px; }}
+  /* 多媒體按鈕列(VR / 影片 / AI) */
+  .card-media {{ display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }}
+  .card-media-btn {{ display: inline-flex; align-items: center; gap: 6px; background: var(--bg-soft); color: var(--wood-deep); border: 1.5px solid var(--wood-light); border-radius: 10px; padding: 9px 14px; font-size: 15px; font-weight: 700; text-decoration: none; transition: all 0.2s; }}
+  .card-media-btn:hover {{ background: var(--wood-deep); color: #FFF; border-color: var(--wood-deep); transform: translateY(-1px); }}
   @media (max-width: 640px) {{
     .card-actions {{ flex-direction: column; }}
     .card-like {{ width: 100%; justify-content: center; padding: 13px 18px; }}
+    .card-gallery img {{ width: 92px; height: 69px; }}
   }}
   .teddy-toast {{ position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(120px); background: rgba(44,38,32,0.96); color: #FFF; padding: 14px 22px; border-radius: 28px; font-size: 16px; font-weight: 500; z-index: 9999; opacity: 0; transition: all 0.3s ease; box-shadow: 0 8px 28px rgba(0,0,0,0.28); max-width: calc(100vw - 40px); text-align: center; pointer-events: none; }}
   .teddy-toast.show {{ transform: translateX(-50%) translateY(0); opacity: 1; }}
@@ -1262,21 +1494,31 @@ def gen_html(client_data, properties):
     }});
   }}
 
-  // 綁定每張 card 的「看完整資訊」按鈕點擊事件
-  document.querySelectorAll('.card-cta').forEach(function(link) {{
+  // 從一張 card 撈 slug + tagline
+  function cardInfo(el) {{
+    var card = el.closest('.card');
+    var slug = card ? (card.dataset.slug || '') : '';
+    var tagline = '';
+    if (card) {{ var t = card.querySelector('.card-tagline'); if (t) tagline = (t.textContent || '').trim(); }}
+    return {{ slug: slug, tagline: tagline }};
+  }}
+
+  // 綁定每張 card 的「看完整資訊」按鈕點擊事件(純洽詢的軟提示不是 <a>，自動略過)
+  document.querySelectorAll('a.card-cta').forEach(function(link) {{
     link.addEventListener('click', function() {{
-      var ycutUrl = link.getAttribute('href') || '';
-      var m = ycutUrl.match(/x\\.ychouse\\.tw\\/(\\w+)/);
-      if (!m) return;
-      var slug = m[1];
-      // 從同一張 card 裡撈 tagline 當「物件名稱」
-      var card = link.closest('.card');
-      var tagline = '';
-      if (card) {{
-        var t = card.querySelector('.card-tagline');
-        if (t) tagline = (t.textContent || '').trim();
-      }}
-      trackClick(slug, ycutUrl, tagline);
+      var info = cardInfo(link);
+      if (!info.slug) return;
+      trackClick(info.slug, link.getAttribute('href') || '', info.tagline);
+    }});
+  }});
+
+  // 多媒體點擊(VR / 影片 / AI 導覽)= 高強度看屋興趣訊號
+  document.querySelectorAll('.card-media-btn').forEach(function(link) {{
+    link.addEventListener('click', function() {{
+      var info = cardInfo(link);
+      if (!info.slug) return;
+      var kind = link.getAttribute('data-media') || 'media';
+      trackClick(info.slug, link.getAttribute('href') || '', info.tagline + ' [' + kind + ']');
     }});
   }});
 
@@ -1679,11 +1921,11 @@ def publish_endpoint():
         signature = (body.get("signature") or "").strip()
         contact = build_contact(body)
 
-        slugs = extract_urls(text)
-        if not slugs:
-            return jsonify({"error": "找不到任何 ycut 短網址（https://x.ychouse.tw/...）"}), 400
+        refs = extract_refs(text)
+        if not refs:
+            return jsonify({"error": "找不到任何物件網址（ycut https://x.ychouse.tw/... 或官方前台 https://buy.u-trust.com.tw/house/...）"}), 400
 
-        properties = fetch_full_batch(slugs)
+        properties = fetch_full_batch(refs)
         if not properties:
             return jsonify({"error": "全部物件抓取失敗（可能 URL 已失效）"}), 400
 
@@ -1762,14 +2004,25 @@ def preview_endpoint():
     try:
         body = request.get_json(silent=True) or {}
         text = body.get("urls_text", "")
-        slugs = extract_urls(text)
-        if not slugs:
-            return jsonify({"error": "找不到任何 ycut 短網址(https://x.ychouse.tw/...)"}), 400
-        properties = fetch_full_batch(slugs)
+        refs = extract_refs(text)
+        if not refs:
+            return jsonify({"error": "找不到任何物件網址(ycut https://x.ychouse.tw/... 或官方前台 https://buy.u-trust.com.tw/house/...)"}), 400
+        properties = fetch_full_batch(refs)
         if not properties:
             return jsonify({"error": "全部物件抓取失敗(可能 URL 已失效)"}), 400
         items = []
         for p in properties:
+            source = p.get("source", "ycut")
+            # 來源標示 — 讓景泰預覽時一眼看清是不是自己店、多媒體會不會掛
+            if source == "merged":
+                src_label, src_tone = "🔗 已合併 ycut＋官方前台", "ok"
+            elif source == "utrust" and p.get("is_own_store"):
+                src_label, src_tone = "✅ 官方前台 · 你的店", "ok"
+            elif source == "utrust":
+                src_label, src_tone = f"⚠️ 官方前台 · 別店：{p.get('store_name') or '未知'}（無外連，影片/AI 不帶）", "warn"
+            else:
+                src_label, src_tone = "", ""
+            has_media = bool(p.get("vr_url") or p.get("video_url") or p.get("ai_video_url"))
             items.append({
                 "slug": p["slug"],
                 "tagline": clean_tagline(p.get("og_title", "")) or p.get("community_display", ""),
@@ -1781,6 +2034,11 @@ def preview_endpoint():
                 "floor": p.get("floor", 0),
                 "floor_total": p.get("floor_total", 0),
                 "layout": p.get("layout", ""),
+                "source": source,
+                "src_label": src_label,
+                "src_tone": src_tone,
+                "has_media": has_media,
+                "gallery_count": len(p.get("gallery") or []),
             })
         return jsonify({"items": items, "count": len(items)})
     except Exception as e:
@@ -1938,7 +2196,11 @@ def notion_log_snapshot(share_id, client_name, properties_list):
         slug = p.get("slug", "")
         if not slug:
             continue
-        target_url = f"https://x.ychouse.tw/{slug}"
+        # 內部 dashboard 參照用(非客戶頁)：優先 detail_url，官方前台來源退回 house 頁
+        target_url = (
+            p.get("detail_url")
+            or (f"https://buy.u-trust.com.tw/house/{p['case_id']}" if p.get("case_id") else f"https://x.ychouse.tw/{slug}")
+        )
         # 摘要：北屯區 · 建興大樓 950萬 3F/7 30坪 12年
         district = parse_district(p.get("address", ""))
         summary_parts = [

@@ -319,7 +319,7 @@
   <div class="field">
     <label class="field-label" for="urls">物件清單</label>
     <div class="field-hint">
-      永慶後台一鍵複製、手機分享、純 URL 都可以貼進來。我只認 ycut 短網址（<code>https://x.ychouse.tw/...</code>），其他文字會自動忽略。重複物件自動過濾。
+      永慶後台一鍵複製、手機分享、純 URL 都可以貼進來。認 ycut 短網址（<code>https://x.ychouse.tw/...</code>）＋ 有巢氏官方前台（<code>https://buy.u-trust.com.tw/house/...</code>），可混貼、自動辨識，其他文字自動忽略。重複物件自動過濾。
     </div>
     <textarea id="urls" placeholder="把整段貼進來，多少物件都行..."></textarea>
   </div>
@@ -560,10 +560,20 @@ function renderPreview(items) {
     const tagline = escapeHtml((it.tagline || '').slice(0, 70));
     const community = escapeHtml(it.community || '未知社區');
     const price = (it.price || 0).toLocaleString();
+    let srcBadge = '';
+    if (it.src_label) {
+      const warn = it.src_tone === 'warn';
+      const bg = warn ? '#FDECEC' : '#EAF5EC';
+      const col = warn ? '#C0392B' : '#2E7D46';
+      const mediaNote = it.has_media ? ' · 🎬 多媒體' : '';
+      const galNote = (it.gallery_count > 1) ? ` · 🖼️ ${it.gallery_count} 圖` : '';
+      srcBadge = `<div style="display:inline-block;font-size:12px;font-weight:700;color:${col};background:${bg};padding:2px 9px;border-radius:20px;margin-bottom:6px;line-height:1.6;">${escapeHtml(it.src_label)}${mediaNote}${galNote}</div>`;
+    }
     return `
       <div class="preview-item" style="display:flex;gap:14px;padding:14px;background:var(--bg-soft);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;">
         ${img}
         <div style="flex:1; min-width:0;">
+          ${srcBadge}
           <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px;line-height:1.4;">${community} · ${price} 萬</div>
           <div style="font-size:13px;color:var(--text-soft);margin-bottom:8px;line-height:1.5;">${tagline}</div>
           <textarea data-slug="${escapeHtml(it.slug)}" placeholder="📝 景泰提醒(可留空)— 例:離捷運 3 分鐘 / 樓上沒住人 / 屋主能談"
