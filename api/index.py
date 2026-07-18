@@ -41,12 +41,20 @@ DEFAULT_CONTACT = {
     "agent_license": "114年登字第488296號",
 }
 
-# ============== buy.u-trust 官方前台（有巢氏）==============
+# ============== 永慶房產集團官方前台（有巢氏 / 台慶 / 永義 + 永慶直營）==============
 # 景泰的店＝有巢氏台中世界之心加盟店，店碼 0423120888。
-# 官方前台 house 頁客戶點進去會看到「承辦店 + 承辦業務電話」——別店的物件會露出它店資料，
-# 所以：① 帶入只抓物件本身，絕不抓 ShopInfo/Ivr ② 多媒體(VR/影片/AI)只掛本店 ③ 看完整資訊絕不外連 buy.u-trust。
+# 官方前台 house 頁客戶點進去會看到「承辦店 + 承辦業務電話」——別店/別品牌的物件會露出它店資料，
+# 所以：① 帶入只抓物件本身，絕不抓 ShopInfo/Ivr ② 影片/AI 只掛本店 ③ 看完整資訊絕不外連官方前台。
 UTRUST_TEDDY_STORE = "0423120888"
-UTRUST_API = "https://buy.u-trust.com.tw/api/v2"
+# 加盟平台(共用 /api/v2/Buy/Detail)：buy.<host>/house/<caseSId>  域名→品牌
+PLATFORM_BRANDS = {
+    "u-trust.com.tw": "有巢氏",
+    "taiching.com.tw": "台慶",
+    "yungyi-house.com.tw": "永義",
+}
+# 永慶直營(buy.yungching.com.tw)物件資料加密(/api/v2/house 回 base64 密文)，
+# 只能靠 og 標籤出「照片+名稱+地址」精簡卡
+YUNGCHING_HOST = "yungching.com.tw"
 
 
 # ============== Parser ==============
@@ -205,22 +213,32 @@ def _http_json(url, timeout=12):
         return json.loads(r.read().decode("utf-8", errors="ignore"))
 
 
-def _utrust_shop(case_id):
-    """查承辦店 → 回 (is_own_store, shop_name)。抓失敗一律當『非本店』(安全：不掛多媒體)。
+def _fill_pic(u):
+    """yccdn 圖片網址：補 https、把未填模板 width={0}&height={1} 換成真實尺寸(否則回 500 破圖)。"""
+    if not u:
+        return ""
+    u = ("https:" + u) if u.startswith("//") else u
+    return u.replace("{0}", "1024").replace("{1}", "768")
 
-    ⚠️ 這支只拿來『判斷是不是景泰的店』決定多媒體掛不掛，
-    店名/電話/logo 絕不進客戶頁 — 避免露出它店資料把客戶讓給別家。
+
+def _platform_shop(host, case_id):
+    """查承辦店 → 回 (is_own_store, shop_name)。抓失敗一律當『非本店』(安全：不掛多媒體)。
+    is_own 只有『有巢氏(u-trust) + 景泰店碼』才成立 — 台慶/永義/永慶都不是景泰的店。
+
+    ⚠️ 這支只拿來判斷多媒體掛不掛，店名/電話/logo 絕不進客戶頁。
     """
     try:
-        d = (_http_json(f"{UTRUST_API}/Shop/ShopInfo?caseSId={case_id}", timeout=8) or {}).get("data") or {}
+        d = (_http_json(f"https://buy.{host}/api/v2/Shop/ShopInfo?caseSId={case_id}", timeout=8) or {}).get("data") or {}
     except Exception:
         return False, ""
     shop_url = d.get("shopUrl") or ""
-    return (UTRUST_TEDDY_STORE in shop_url), (d.get("shopName") or "")
+    is_own = (host == "u-trust.com.tw") and (UTRUST_TEDDY_STORE in shop_url)
+    return is_own, (d.get("shopName") or "")
 
 
-def parse_utrust_data(data, case_id, is_own_store, shop_name):
-    """把 /api/v2/Buy/Detail 的 data 轉成統一物件 schema(對齊 parse_ycut_html)。"""
+def parse_platform_data(data, case_id, host, is_own_store, shop_name, brand):
+    """把 buy.<host>/api/v2/Buy/Detail 的 data 轉成統一物件 schema(對齊 parse_ycut_html)。
+    有巢氏/台慶/永義共用此路徑。"""
     def n(v):
         try:
             return float(v)
@@ -252,14 +270,7 @@ def parse_utrust_data(data, case_id, is_own_store, shop_name):
         f"{bath}衛" if bath else "",
     ) if p)
 
-    # ⚠️ pictureInfo.photoUrl 的尺寸是「未填模板」width={0}&height={1}(前端 JS 才代入)，
-    # 直接用會被 yccdn 回 500 破圖 → 這裡補上真實尺寸(1024x768，key 不變、任何尺寸皆可)
-    def _pic_url(u):
-        if not u:
-            return ""
-        u = ("https:" + u) if u.startswith("//") else u
-        return u.replace("{0}", "1024").replace("{1}", "768")
-    pics = [_pic_url(pp.get("photoUrl") or "") for pp in ((data.get("pictureInfo") or {}).get("pictures") or [])]
+    pics = [_fill_pic(pp.get("photoUrl") or "") for pp in ((data.get("pictureInfo") or {}).get("pictures") or [])]
     pics = [u for u in pics if u]
 
     vr = (data.get("iStagingUrl") or "").strip() or (data.get("iStaging3DUrl") or "").strip()
@@ -270,10 +281,12 @@ def parse_utrust_data(data, case_id, is_own_store, shop_name):
     is_discount = bool(data.get("isDiscount")) and price > 0 and last_price > price
 
     return {
-        "source": "utrust",
+        "source": "utrust",                  # 加盟平台共用值(有巢氏/台慶/永義)
+        "brand": brand,
+        "host": host,
         "case_id": str(case_id),
-        "slug": f"ut{case_id}",             # 合成 id，給追蹤/愛心用
-        "detail_url": None,                  # 一律不外連 buy.u-trust(會露出承辦店電話)
+        "slug": f"c{case_id}",               # 合成 id，給追蹤/愛心用
+        "detail_url": None,                  # 一律不外連官方前台(會露出承辦店電話)
         "community_display": community,
         "price": price,
         "floor": floor,
@@ -304,27 +317,85 @@ def parse_utrust_data(data, case_id, is_own_store, shop_name):
     }
 
 
-def _fetch_one_utrust(case_id):
+def _fetch_one_platform(host, case_id):
+    """加盟平台(有巢氏/台慶/永義)：走 buy.<host>/api/v2/Buy/Detail。"""
+    base = f"https://buy.{host}/api/v2"
     try:
-        resp = _http_json(f"{UTRUST_API}/Buy/Detail?caseSId={case_id}") or {}
+        resp = _http_json(f"{base}/Buy/Detail?caseSId={case_id}") or {}
         data = resp.get("data") or {}
         if resp.get("status") != "Success" or not data:
-            return {"slug": f"ut{case_id}", "error": "官方前台抓取失敗"}
+            return {"slug": f"c{case_id}", "error": "官方前台抓取失敗"}
     except Exception as e:
-        return {"slug": f"ut{case_id}", "error": str(e)}
-    is_own, shop_name = _utrust_shop(case_id)
+        return {"slug": f"c{case_id}", "error": str(e)}
+    is_own, shop_name = _platform_shop(host, case_id)
+    brand = PLATFORM_BRANDS.get(host, "永慶房產集團")
     try:
-        return parse_utrust_data(data, case_id, is_own, shop_name)
+        return parse_platform_data(data, case_id, host, is_own, shop_name, brand)
     except Exception as e:
-        return {"slug": f"ut{case_id}", "error": f"parse 失敗: {e}"}
+        return {"slug": f"c{case_id}", "error": f"parse 失敗: {e}"}
+
+
+def _fetch_one_yungching(case_id):
+    """永慶直營(buy.yungching.com.tw)：物件資料加密，只靠 og 出精簡卡(照片+名稱+地址)。"""
+    url = f"https://buy.{YUNGCHING_HOST}/house/{case_id}"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=12) as r:
+            html = r.read().decode("utf-8", errors="ignore")
+    except Exception as e:
+        return {"slug": f"yc{case_id}", "error": str(e)}
+
+    def og(prop):
+        m = re.search(rf'<meta property="{re.escape(prop)}" content="([^"]+)"', html)
+        return m.group(1).replace("&amp;", "&") if m else ""
+
+    title, desc, img = og("og:title"), og("og:description"), _fill_pic(og("og:image"))
+    if not title and not img:
+        return {"slug": f"yc{case_id}", "error": "永慶頁解析失敗"}
+
+    # og:title 尾巴是「… | 買房 | 永慶房屋」— 砍掉品牌/樣板段，避免幫競品打廣告
+    _JUNK = {"買房", "賣屋", "租屋", "永慶房屋", "永慶", "台慶不動產", "台慶",
+             "永義房屋", "永義", "有巢氏房屋", "有巢氏"}
+    segs = [s.strip() for s in re.split(r"[|｜]", title) if s.strip() and s.strip() not in _JUNK]
+    title = " · ".join(segs)
+    community = (segs[0] if segs else "") or "永慶物件"
+    am = re.search(r"位於(.+?)[，,、]", desc)
+    address = am.group(1).strip() if am else ""
+    rm = re.search(r"(\d+)\s*房", desc)
+    layout = f"{rm.group(1)}房" if rm else ""
+    pm = re.search(r"([\d,]+)\s*萬", f"{desc} {title}")
+    price = int(pm.group(1).replace(",", "")) if pm else 0
+
+    return {
+        "source": "yungching",
+        "brand": "永慶",
+        "host": YUNGCHING_HOST,
+        "case_id": str(case_id),
+        "slug": f"yc{case_id}",
+        "detail_url": None,
+        "lite": True,                        # 精簡卡:資料加密，只有照片+名稱+地址
+        "community_display": community,
+        "price": price,
+        "floor": 0, "floor_total": 0, "area": 0.0, "main_area": 0.0, "age": 0,
+        "has_parking": None, "parking": "", "parking_area": "",
+        "building_type": "", "address": address, "layout": layout,
+        "og_image": img, "og_title": title, "og_description": desc,
+        "gallery": [img] if img else [],
+        "is_own_store": False, "store_name": "永慶房屋",
+        "vr_url": "", "video_url": "", "ai_video_url": "",
+        "last_price": 0, "is_discount": False,
+    }
 
 
 def _fetch_one_ref(ref):
-    """ref = {'source': 'ycut'|'utrust', 'id': ...}。相容：字串 → 當 ycut slug。"""
+    """ref = {'source': 'ycut'|'utrust'|'yungching', 'id':..., 'host':...}。相容：字串→ycut slug。"""
     if isinstance(ref, str):
         return _fetch_one_full(ref)
-    if ref.get("source") == "utrust":
-        return _fetch_one_utrust(ref["id"])
+    s = ref.get("source")
+    if s == "utrust":
+        return _fetch_one_platform(ref.get("host", "u-trust.com.tw"), ref["id"])
+    if s == "yungching":
+        return _fetch_one_yungching(ref["id"])
     return _fetch_one_full(ref["id"])
 
 
@@ -354,7 +425,9 @@ def fetch_full_batch(refs):
     raw = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:
         for r in pool.map(_fetch_one_ref, refs):
-            if r.get("error") or not r.get("community_display") or not r.get("price"):
+            if r.get("error") or not r.get("community_display"):
+                continue
+            if not r.get("price") and not r.get("lite"):   # 精簡卡(永慶直營)允許無價格
                 continue
             raw.append(r)
 
@@ -388,22 +461,26 @@ def extract_urls(text):
 
 
 _REF_RE = re.compile(
-    r"(?P<utrust>https?://buy\.u-trust\.com\.tw/house/(?P<cid>\d+))"
+    r"https?://buy\.(?P<host>u-trust\.com\.tw|taiching\.com\.tw|yungyi-house\.com\.tw|yungching\.com\.tw)/house/(?P<cid>\d+)"
     r"|https?://x\.ychouse\.tw/(?P<slug>[A-Za-z0-9]+?)(?=https?://|[^A-Za-z0-9]|$)"
 )
 
 
 def extract_refs(text):
-    """混貼辨識：ycut 短網址 + buy.u-trust 官方前台網址都吃，保留貼上順序、去重。
-    回傳 [{'source': 'ycut'|'utrust', 'id': ...}, ...]"""
+    """混貼辨識：ycut 短網址 + 永慶集團官方前台(有巢氏/台慶/永義/永慶直營)都吃，保留貼上順序、去重。
+    回傳 [{'source': 'ycut'|'utrust'|'yungching', 'id':..., 'host':...}, ...]"""
     refs, seen = [], set()
     for m in _REF_RE.finditer(text or ""):
-        if m.group("utrust"):
-            key = ("utrust", m.group("cid"))
-            ref = {"source": "utrust", "id": m.group("cid")}
+        host = m.group("host")
+        if host:
+            cid = m.group("cid")
+            src = "yungching" if host == YUNGCHING_HOST else "utrust"
+            key = (host, cid)
+            ref = {"source": src, "id": cid, "host": host}
         else:
-            key = ("ycut", m.group("slug"))
-            ref = {"source": "ycut", "id": m.group("slug")}
+            slug = m.group("slug")
+            key = ("ycut", slug)
+            ref = {"source": "ycut", "id": slug}
         if key not in seen:
             seen.add(key)
             refs.append(ref)
@@ -438,6 +515,33 @@ def card_html(p):
     tier_key = price_to_tier_key(p.get("price", 0))
     age_key = age_to_tier_key(p.get("age"))
     community = (p.get("community_display") or "").strip()
+
+    # 永慶直營精簡卡:物件資料加密，只有封面+名稱+格局+地址(封面可點放大)，不硬塞空的價格/坪數欄位。
+    # 刻意不顯示「永慶」品牌名給客戶 — 跟不露承辦店一致，不幫別家打廣告。
+    if p.get("lite"):
+        slug = p.get("slug", "")
+        layout_l = (p.get("layout") or "").strip()
+        addr_l = (p.get("address") or "").strip()
+        img_l = f'<img src="{img}" loading="lazy" decoding="async" alt="" />' if img else ''
+        layout_html = f'<div class="card-lite-spec">🛏️ {layout_l}</div>' if layout_l else ''
+        addr_html = f'<div class="card-address">{addr_l}</div>' if addr_l else ''
+        return f'''
+    <div class="card" data-slug="{slug}" data-district="{district}" data-price-tier="" data-age-tier="" data-parking="" data-type="其他" data-unit-price-tier="" data-rooms="{layout_to_rooms_key(p.get("layout"))}" data-community="{community}">
+      <div class="card-image">{img_l}</div>
+      <div class="card-content">
+        <div class="card-tagline">{tagline}</div>
+        {layout_html}
+        {addr_html}
+        <div class="card-actions">
+          <div class="card-cta card-cta-soft">📸 更多照片與細節 · 歡迎洽詢景泰</div>
+          <button class="card-like" data-slug="{slug}" data-name="{tagline}" aria-label="我喜歡這間" type="button">
+            <span class="card-like-icon">♡</span>
+            <span class="card-like-text">我喜歡</span>
+          </button>
+        </div>
+      </div>
+    </div>'''
+
     has_parking = p.get("has_parking")
     if has_parking is None:
         has_parking = not (
@@ -1163,6 +1267,7 @@ def gen_html(client_data, properties):
   .card-like.liked .card-like-icon {{ transform: scale(1.2); }}
   .card-cta-soft {{ background: var(--bg-soft) !important; color: var(--wood-deep) !important; border: 1.5px dashed var(--wood-light); letter-spacing: 0.5px !important; cursor: default; }}
   .card-cta-soft:hover {{ background: var(--bg-soft) !important; transform: none !important; }}
+  .card-lite-spec {{ display: inline-block; font-size: 16px; color: var(--wood-deep); background: var(--bg-soft); padding: 8px 14px; border-radius: 10px; margin-bottom: 14px; font-weight: 600; }}
   /* 降價徽章 */
   .card-badge {{ position: absolute; top: 12px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 4px; background: #E74C3C; color: #FFF; font-size: 14px; font-weight: 800; padding: 5px 13px; border-radius: 20px; letter-spacing: 0.5px; box-shadow: 0 3px 10px rgba(231,76,60,0.40); }}
   /* 官方前台相簿橫向縮圖(可點放大) */
@@ -2115,13 +2220,16 @@ def preview_endpoint():
         items = []
         for p in properties:
             source = p.get("source", "ycut")
-            # 來源標示 — 讓景泰預覽時一眼看清是不是自己店、多媒體會不會掛
+            brand = p.get("brand") or "官方前台"
+            # 來源標示 — 讓景泰預覽時一眼看清品牌/是不是自己店、多媒體會不會掛
             if source == "merged":
                 src_label, src_tone = "🔗 已合併 ycut＋官方前台", "ok"
             elif source == "utrust" and p.get("is_own_store"):
-                src_label, src_tone = "✅ 官方前台 · 你的店", "ok"
+                src_label, src_tone = f"✅ {brand} · 你的店", "ok"
             elif source == "utrust":
-                src_label, src_tone = f"⚠️ 官方前台 · 別店：{p.get('store_name') or '未知'}（無外連，影片/AI 不帶）", "warn"
+                src_label, src_tone = f"⚠️ {brand} · 別店：{p.get('store_name') or '未知'}（無外連，影片/AI 不帶）", "warn"
+            elif source == "yungching":
+                src_label, src_tone = "⚠️ 永慶直營（資料加密：僅照片+名稱+地址，無外連）", "warn"
             else:
                 src_label, src_tone = "", ""
             has_media = bool(p.get("vr_url") or p.get("video_url") or p.get("ai_video_url"))
@@ -2298,10 +2406,10 @@ def notion_log_snapshot(share_id, client_name, properties_list):
         slug = p.get("slug", "")
         if not slug:
             continue
-        # 內部 dashboard 參照用(非客戶頁)：優先 detail_url，官方前台來源退回 house 頁
+        # 內部 dashboard 參照用(非客戶頁)：優先 detail_url，官方前台來源退回 house 頁(用正確品牌域名)
         target_url = (
             p.get("detail_url")
-            or (f"https://buy.u-trust.com.tw/house/{p['case_id']}" if p.get("case_id") else f"https://x.ychouse.tw/{slug}")
+            or (f"https://buy.{p.get('host', 'u-trust.com.tw')}/house/{p['case_id']}" if p.get("case_id") else f"https://x.ychouse.tw/{slug}")
         )
         # 摘要：北屯區 · 建興大樓 950萬 3F/7 30坪 12年
         district = parse_district(p.get("address", ""))
