@@ -3763,11 +3763,9 @@ def fetch_external(url):
     if not d.get("community_display") and not d.get("og_title") and not d.get("price"):
         return {"error": "empty parse"}
 
-    if brand in _CLEAN_IMG_BRANDS:
-        cover = d.get("cover_image") or ""
-        gallery = [g for g in (d.get("gallery") or []) if g]
-    else:
-        cover, gallery = "", []   # 有品牌浮水印 → 不放競品圖
+    # 景泰要求:照片直接擷取顯示(私下給客戶看、他自己約看房)。文字層仍剝品牌/業務/電話。
+    cover = d.get("cover_image") or ""
+    gallery = [g for g in (d.get("gallery") or []) if g]
 
     has_specs = bool(d.get("price")) and bool(d.get("area")) and bool(d.get("layout"))
     import hashlib
