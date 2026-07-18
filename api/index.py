@@ -482,11 +482,13 @@ def card_html(p):
     # 相簿橫向縮圖(官方前台多圖，≥2 張才顯示；只含物件實景，不含它店資料)
     gallery = [g for g in (p.get("gallery") or []) if g]
     gallery_html = ''
+    photocount_html = ''
     if len(gallery) > 1:
         thumbs = ''.join(
             f'<img src="{u}" loading="lazy" decoding="async" alt="" />' for u in gallery[:8]
         )
         gallery_html = f'<div class="card-gallery" aria-label="物件實景照片">{thumbs}</div>'
+        photocount_html = f'<div class="card-photo-count">📷 {len(gallery)} 張 · 點看大圖</div>'
 
     # 多媒體按鈕(VR/影片/AI — 只有景泰本店的物件才掛，避免露出它店品牌)
     media_btns = []
@@ -508,7 +510,7 @@ def card_html(p):
 
     return f'''
     <div class="card" data-slug="{slug}" data-district="{district}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="{parking_attr}" data-type="{type_attr}" data-unit-price-tier="{unit_tier_key}" data-rooms="{rooms_key}" data-community="{community}">
-      <div class="card-image">{badge_html}{img_html}</div>
+      <div class="card-image">{badge_html}{photocount_html}{img_html}</div>
       <div class="card-content">
         <div class="card-tagline">{tagline}</div>
         <div class="card-price-row">
@@ -1163,20 +1165,37 @@ def gen_html(client_data, properties):
   .card-cta-soft:hover {{ background: var(--bg-soft) !important; transform: none !important; }}
   /* 降價徽章 */
   .card-badge {{ position: absolute; top: 12px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 4px; background: #E74C3C; color: #FFF; font-size: 14px; font-weight: 800; padding: 5px 13px; border-radius: 20px; letter-spacing: 0.5px; box-shadow: 0 3px 10px rgba(231,76,60,0.40); }}
-  /* 官方前台相簿橫向縮圖 */
+  /* 官方前台相簿橫向縮圖(可點放大) */
   .card-gallery {{ display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 12px; margin-bottom: 14px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }}
-  .card-gallery img {{ width: 104px; height: 78px; object-fit: cover; border-radius: 9px; flex-shrink: 0; scroll-snap-align: start; background: var(--bg-soft); border: 1px solid var(--border); cursor: default; }}
+  .card-gallery img {{ width: 120px; height: 90px; object-fit: cover; border-radius: 9px; flex-shrink: 0; scroll-snap-align: start; background: var(--bg-soft); border: 1px solid var(--border); cursor: zoom-in; transition: transform 0.15s; }}
+  .card-gallery img:hover {{ transform: scale(1.05); }}
   .card-gallery::-webkit-scrollbar {{ height: 6px; }}
   .card-gallery::-webkit-scrollbar-track {{ background: var(--bg-soft); border-radius: 3px; }}
   .card-gallery::-webkit-scrollbar-thumb {{ background: var(--wood-light); border-radius: 3px; }}
+  .card-image img {{ cursor: zoom-in; }}
+  /* 封面右下「照片張數」提示(點看大圖) */
+  .card-photo-count {{ position: absolute; right: 12px; bottom: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.60); color: #FFF; font-size: 14px; font-weight: 700; padding: 5px 12px; border-radius: 20px; letter-spacing: 0.5px; pointer-events: none; }}
   /* 多媒體按鈕列(VR / 影片 / AI) */
   .card-media {{ display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }}
   .card-media-btn {{ display: inline-flex; align-items: center; gap: 6px; background: var(--bg-soft); color: var(--wood-deep); border: 1.5px solid var(--wood-light); border-radius: 10px; padding: 9px 14px; font-size: 15px; font-weight: 700; text-decoration: none; transition: all 0.2s; }}
   .card-media-btn:hover {{ background: var(--wood-deep); color: #FFF; border-color: var(--wood-deep); transform: translateY(-1px); }}
+  /* 照片燈箱(點圖全螢幕看大圖) */
+  .lb-overlay {{ position: fixed; inset: 0; z-index: 10000; background: rgba(20,16,12,0.94); display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }}
+  .lb-overlay.show {{ display: flex; opacity: 1; }}
+  .lb-img {{ max-width: 94vw; max-height: 86vh; object-fit: contain; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); user-select: none; }}
+  .lb-close {{ position: absolute; top: 16px; right: 20px; width: 46px; height: 46px; border-radius: 50%; border: none; background: rgba(255,255,255,0.15); color: #FFF; font-size: 30px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }}
+  .lb-close:hover {{ background: rgba(255,255,255,0.30); }}
+  .lb-nav {{ position: absolute; top: 50%; transform: translateY(-50%); width: 54px; height: 54px; border-radius: 50%; border: none; background: rgba(255,255,255,0.15); color: #FFF; font-size: 34px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }}
+  .lb-nav:hover {{ background: rgba(255,255,255,0.30); }}
+  .lb-prev {{ left: 16px; }}
+  .lb-next {{ right: 16px; }}
+  .lb-counter {{ position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); color: #FFF; font-size: 16px; font-weight: 600; letter-spacing: 1px; background: rgba(0,0,0,0.40); padding: 6px 16px; border-radius: 20px; }}
   @media (max-width: 640px) {{
     .card-actions {{ flex-direction: column; }}
     .card-like {{ width: 100%; justify-content: center; padding: 13px 18px; }}
-    .card-gallery img {{ width: 92px; height: 69px; }}
+    .card-gallery img {{ width: 108px; height: 81px; }}
+    .lb-nav {{ width: 44px; height: 44px; font-size: 28px; }}
+    .lb-close {{ top: 10px; right: 12px; }}
   }}
   .teddy-toast {{ position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(120px); background: rgba(44,38,32,0.96); color: #FFF; padding: 14px 22px; border-radius: 28px; font-size: 16px; font-weight: 500; z-index: 9999; opacity: 0; transition: all 0.3s ease; box-shadow: 0 8px 28px rgba(0,0,0,0.28); max-width: calc(100vw - 40px); text-align: center; pointer-events: none; }}
   .teddy-toast.show {{ transform: translateX(-50%) translateY(0); opacity: 1; }}
@@ -1528,6 +1547,82 @@ def gen_html(client_data, properties):
       trackClick(info.slug, link.getAttribute('href') || '', info.tagline + ' [' + kind + ']');
     }});
   }});
+
+  // ============== 照片燈箱 ── 點封面/縮圖全螢幕看大圖 + 左右滑 ==============
+  (function() {{
+    var overlay = document.createElement('div');
+    overlay.className = 'lb-overlay';
+    overlay.innerHTML =
+      '<button class="lb-close" aria-label="關閉">&times;</button>' +
+      '<button class="lb-nav lb-prev" aria-label="上一張">&#8249;</button>' +
+      '<img class="lb-img" alt="物件照片" />' +
+      '<button class="lb-nav lb-next" aria-label="下一張">&#8250;</button>' +
+      '<div class="lb-counter"></div>';
+    document.body.appendChild(overlay);
+    var lbImg = overlay.querySelector('.lb-img');
+    var lbCounter = overlay.querySelector('.lb-counter');
+    var lbPrev = overlay.querySelector('.lb-prev');
+    var lbNext = overlay.querySelector('.lb-next');
+    var photos = [], idx = 0;
+
+    function hi(u) {{ return (u || '').replace('width=1024', 'width=1600').replace('height=768', 'height=1200'); }}
+    function show(i) {{
+      if (!photos.length) return;
+      idx = (i + photos.length) % photos.length;
+      lbImg.src = hi(photos[idx]);
+      var multi = photos.length > 1;
+      lbCounter.textContent = (idx + 1) + ' / ' + photos.length;
+      lbPrev.style.display = multi ? '' : 'none';
+      lbNext.style.display = multi ? '' : 'none';
+      lbCounter.style.display = multi ? '' : 'none';
+    }}
+    function openLb(list, start) {{
+      photos = list || [];
+      if (!photos.length) return;
+      show(start || 0);
+      overlay.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }}
+    function closeLb() {{
+      overlay.classList.remove('show');
+      document.body.style.overflow = '';
+      lbImg.src = '';
+    }}
+    function photosOf(card) {{
+      var g = card.querySelectorAll('.card-gallery img'), arr = [];
+      if (g.length) {{ g.forEach(function(im) {{ arr.push(im.getAttribute('src')); }}); }}
+      else {{ var c = card.querySelector('.card-image img'); if (c) arr.push(c.getAttribute('src')); }}
+      return arr;
+    }}
+    document.querySelectorAll('.card-image img').forEach(function(im) {{
+      im.addEventListener('click', function() {{
+        var card = im.closest('.card'); if (card) openLb(photosOf(card), 0);
+      }});
+    }});
+    document.querySelectorAll('.card-gallery img').forEach(function(im) {{
+      im.addEventListener('click', function() {{
+        var card = im.closest('.card'); if (!card) return;
+        var list = photosOf(card), start = list.indexOf(im.getAttribute('src'));
+        openLb(list, start < 0 ? 0 : start);
+      }});
+    }});
+    overlay.querySelector('.lb-close').addEventListener('click', closeLb);
+    lbPrev.addEventListener('click', function(e) {{ e.stopPropagation(); show(idx - 1); }});
+    lbNext.addEventListener('click', function(e) {{ e.stopPropagation(); show(idx + 1); }});
+    overlay.addEventListener('click', function(e) {{ if (e.target === overlay) closeLb(); }});
+    document.addEventListener('keydown', function(e) {{
+      if (!overlay.classList.contains('show')) return;
+      if (e.key === 'Escape') closeLb();
+      else if (e.key === 'ArrowLeft') show(idx - 1);
+      else if (e.key === 'ArrowRight') show(idx + 1);
+    }});
+    var tx = 0;
+    overlay.addEventListener('touchstart', function(e) {{ tx = e.changedTouches[0].clientX; }}, {{passive: true}});
+    overlay.addEventListener('touchend', function(e) {{
+      var dx = e.changedTouches[0].clientX - tx;
+      if (Math.abs(dx) > 40 && photos.length > 1) show(idx + (dx < 0 ? 1 : -1));
+    }}, {{passive: true}});
+  }})();
 
   // 綁定上方 CTA 按鈕（電話 + LINE）— 真正轉換訊號
   document.querySelectorAll('.top-cta.primary, .card-cta-phone').forEach(function(el) {{
