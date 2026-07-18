@@ -2507,6 +2507,7 @@ def notion_log_snapshot(share_id, client_name, properties_list):
         # 內部 dashboard 參照用(非客戶頁)：優先 detail_url，官方前台來源退回 house 頁(用正確品牌域名)
         target_url = (
             p.get("detail_url")
+            or p.get("src_url")   # 競品來源網址(供日後重做,只存後台)
             or (f"https://buy.{p.get('host', 'u-trust.com.tw')}/house/{p['case_id']}" if p.get("case_id") else f"https://x.ychouse.tw/{slug}")
         )
         # 摘要：北屯區 · 建興大樓 950萬 3F/7 30坪 12年

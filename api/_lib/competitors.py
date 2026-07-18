@@ -3784,7 +3784,8 @@ def fetch_external(url):
         "brand": brand,
         "lite": not has_specs,
         "slug": slug,
-        "detail_url": None,             # 一律不外連競品站
+        "detail_url": None,             # 一律不外連競品站(客戶頁)
+        "src_url": url,                  # 來源網址:只存 Notion 私人後台供日後重做,不進客戶頁
         "community_display": _name,
         "price": int(d.get("price") or 0),
         "floor": int(d.get("floor") or 0),
