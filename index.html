@@ -336,6 +336,14 @@
     <input type="text" id="signature" placeholder="陳景泰" autocomplete="off">
   </div>
 
+  <div class="field">
+    <label class="field-label" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+      <input type="checkbox" id="hide_promo" style="width:20px;height:20px;flex-shrink:0;">
+      <span>隱藏官網推廣區塊（認識景泰／在售物件／房仲官網／IG）</span>
+    </label>
+    <div class="field-hint">給客戶看純物件、不想推自己官網時勾這個。白牌給別人用會自動隱藏，不用勾。</div>
+  </div>
+
   <div style="margin: 28px 0 16px; padding: 14px 16px; background: var(--bg-soft); border-radius: 10px; border-left: 3px solid var(--accent);">
     <div style="font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: 1px;">📇 聯絡資訊（全部可選）</div>
     <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.6;">
@@ -653,7 +661,8 @@ $('submit-btn').addEventListener('click', async () => {
   try {
     const wasEditing = !!editingShareId;
     setStep(wasEditing ? '更新原連結內容...' : '抓 ycut 物件資料 + 產生網頁...');
-    const payload = { name, need, urls_text, theme, signature, agent_name, agent_license, phone, line, notes };
+    const hide_promo = $('hide_promo') ? $('hide_promo').checked : false;
+    const payload = { name, need, urls_text, theme, signature, agent_name, agent_license, phone, line, notes, hide_promo };
     if (editingShareId) payload.share_id = editingShareId;
     const r = await fetch('/api/publish', {
       method: 'POST',

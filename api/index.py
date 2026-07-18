@@ -956,8 +956,10 @@ def gen_html(client_data, properties):
     theme = f"{theme} · {gen_date}"
     signature = f"{signature} · {gen_date}"
 
-    # 個人官網區塊(認識景泰/房仲官網)只在製作人是景泰本人時出現;白牌給別人用就隱藏
+    # 官網推廣區塊(認識景泰/房仲官網)顯示條件:製作人是景泰本人 且 沒勾「隱藏官網推廣」。
+    # 白牌給別人用(名字非景泰) 或 明確要求隱藏 → 都不出現。
     _is_teddy = (contact.get("agent_name") or "").strip() in ("", "陳景泰")
+    _show_promo = _is_teddy and not client_data.get("hide_promo")
     footer_site_html = (
         '<div class="footer-site">'
         '<div class="footer-site-title">🏡 想看更多好屋？歡迎逛逛我的房仲官網</div>'
@@ -966,11 +968,11 @@ def gen_html(client_data, properties):
         '<a class="footer-site-btn" href="https://teddy-website-blog.pages.dev/about" target="_blank" rel="noopener">認識景泰</a>'
         '<a class="footer-site-btn" href="https://teddy-website-blog.pages.dev/" target="_blank" rel="noopener">房仲官網</a>'
         '</div></div>'
-    ) if _is_teddy else ''
-    # IG 是景泰個人帳號(無表單欄位可換)→ 白牌給別人時隱藏
+    ) if _show_promo else ''
+    # IG 是景泰個人帳號(無表單欄位可換)→ 白牌 或 隱藏推廣時 都不出現
     ig_html = (
         f'<a class="contact-item" href="{contact["ig_url"]}" target="_blank"><span class="contact-icon">📷</span><span>IG：{contact["ig"]}</span></a>'
-        if _is_teddy else ''
+        if _show_promo else ''
     )
 
     # 兩層分組：行政區 → 社區
@@ -2254,6 +2256,7 @@ def publish_endpoint():
             "contact": contact,
             "theme": theme,
             "signature": signature,
+            "hide_promo": bool(body.get("hide_promo")),
         }
         html = gen_html(client_data, properties)
 
