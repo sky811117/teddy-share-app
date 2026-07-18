@@ -443,6 +443,10 @@ def fetch_full_batch(refs):
                 continue
             if not r.get("price") and not r.get("lite"):   # 精簡卡(永慶直營)允許無價格
                 continue
+            # 欄位級電話硬保險:社區/標題/地址/型態的電話一律清(連區塊標題都乾淨,競品業務電話零外洩)
+            for _k in ("community_display", "og_title", "address", "building_type", "layout"):
+                if r.get(_k):
+                    r[_k] = _CARD_PHONE_RE.sub("", str(r[_k])).strip(" ·,，、-")
             raw.append(r)
 
     items, by_fp = [], {}
@@ -531,7 +535,31 @@ def clean_tagline(og_title):
 
 # ============== HTML 產生 ==============
 
+# 物件卡「電話硬保險」：卡片本體(非景泰聯絡區)絕不該出現任何電話。
+# 不管來源/parser 怎麼變，卡片輸出前一律把台灣電話格式清掉 → 競品業務電話零外洩。
+# (景泰自己的電話在 hero/footer 聯絡區塊，不經過 card_html，不受影響)
+_CARD_PHONE_RE = re.compile(
+    r'(?<![\d])'
+    r'(?:'
+    r'\(0\d{1,2}\)\s?\d{3,4}[-\s]?\d{3,4}'      # (04)2315-0909
+    r'|0\d{1,2}[-\s]\d{3,4}[-\s]?\d{3,4}'        # 04-2315-0909 / 04-23150909
+    r'|09\d{2}[-\s]?\d{3}[-\s]?\d{3}'            # 0955-729-125
+    r'|09\d{8}'                                   # 0955729125
+    r')(?:\s*[#轉分機]+\s*\d{1,5})?'
+    r'(?![\d])'
+)
+
+
+def _strip_card_phones(card_html_str):
+    return _CARD_PHONE_RE.sub("", card_html_str or "")
+
+
 def card_html(p):
+    # 硬保險:卡片本體輸出前一律清掉任何電話號碼(競品業務電話零外洩)
+    return _strip_card_phones(_card_html_raw(p))
+
+
+def _card_html_raw(p):
     img = p.get("og_image") or ""
     tagline = clean_tagline(p.get("og_title", "")) or p.get("community_display", "")
     district = parse_district(p.get("address", ""))
