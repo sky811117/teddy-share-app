@@ -3770,13 +3770,22 @@ def fetch_external(url):
     has_specs = bool(d.get("price")) and bool(d.get("area")) and bool(d.get("layout"))
     import hashlib
     slug = "x" + hashlib.md5(url.encode("utf-8")).hexdigest()[:10]
+
+    # 物件名:社區名 → 標題 → (都空)用「地區路段+型態+格局」組描述名,不要掉到無意義「精選物件」
+    _name = _clean_name(d.get("community_display") or "") or _clean_name(d.get("og_title") or "")
+    if not _name:
+        _road = re.sub(r'^[^縣市]*[縣市]', '', _scrub_addr(d.get("address") or "")).strip()  # 去縣市前綴,留 區+路段
+        _bt = _scrub(d.get("building_type") or "").strip()
+        _lay = (d.get("layout") or "").strip()
+        _name = " ".join(x for x in (_road, _bt, _lay) if x).strip() or "精選物件"
+
     return {
         "source": "external",
         "brand": brand,
         "lite": not has_specs,
         "slug": slug,
         "detail_url": None,             # 一律不外連競品站
-        "community_display": _clean_name(d.get("community_display") or "") or _clean_name(d.get("og_title") or "") or "精選物件",
+        "community_display": _name,
         "price": int(d.get("price") or 0),
         "floor": int(d.get("floor") or 0),
         "floor_total": int(d.get("floor_total") or 0),
