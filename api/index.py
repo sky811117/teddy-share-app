@@ -15,6 +15,16 @@ import urllib.error
 import concurrent.futures
 from flask import Flask, request, jsonify, send_from_directory
 
+# 競品站解析器(信義/住商/台灣房屋/591/東森/中信/21世紀/太平洋/全國/大家/樂屋/好房)
+# 放 api/_competitors.py(底線檔=Vercel 打包但不當 function)。載入失敗不影響主流程。
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from _lib import competitors as _COMP
+except Exception as _e:
+    print(f"competitors module load failed: {_e}")
+    _COMP = None
+
 GITHUB_OWNER = "sky811117"
 GITHUB_REPO = "teddy-shares"
 # 客戶看到的 URL 走 teddy-website Cloudflare Pages，內部 reverse-proxy 到 GitHub Pages
@@ -396,6 +406,10 @@ def _fetch_one_ref(ref):
         return _fetch_one_platform(ref.get("host", "u-trust.com.tw"), ref["id"])
     if s == "yungching":
         return _fetch_one_yungching(ref["id"])
+    if s == "external":
+        if _COMP:
+            return _COMP.fetch_external(ref["url"])
+        return {"slug": "", "error": "competitors module unavailable"}
     return _fetch_one_full(ref["id"])
 
 
@@ -469,18 +483,27 @@ _REF_RE = re.compile(
 def extract_refs(text):
     """混貼辨識：ycut 短網址 + 永慶集團官方前台(有巢氏/台慶/永義/永慶直營)都吃，保留貼上順序、去重。
     回傳 [{'source': 'ycut'|'utrust'|'yungching', 'id':..., 'host':...}, ...]"""
-    refs, seen = [], set()
-    for m in _REF_RE.finditer(text or ""):
+    text = text or ""
+    hits = []  # (start_pos, key, ref)
+    for m in _REF_RE.finditer(text):
         host = m.group("host")
         if host:
             cid = m.group("cid")
             src = "yungching" if host == YUNGCHING_HOST else "utrust"
-            key = (host, cid)
-            ref = {"source": src, "id": cid, "host": host}
+            hits.append((m.start(), (host, cid), {"source": src, "id": cid, "host": host}))
         else:
             slug = m.group("slug")
-            key = ("ycut", slug)
-            ref = {"source": "ycut", "id": slug}
+            hits.append((m.start(), ("ycut", slug), {"source": "ycut", "id": slug}))
+    # 競品站(信義/住商/…)：交給 _competitors 掃描，依位置一起排序去重
+    if _COMP:
+        try:
+            for pos, url, brand in _COMP.scan_external(text):
+                hits.append((pos, ("ext", url), {"source": "external", "brand": brand, "url": url}))
+        except Exception as e:
+            print(f"scan_external error: {e}")
+    hits.sort(key=lambda x: x[0])
+    refs, seen = [], set()
+    for _pos, key, ref in hits:
         if key not in seen:
             seen.add(key)
             refs.append(ref)
@@ -522,14 +545,23 @@ def card_html(p):
         slug = p.get("slug", "")
         layout_l = (p.get("layout") or "").strip()
         addr_l = (p.get("address") or "").strip()
-        img_l = f'<img src="{img}" loading="lazy" decoding="async" alt="" />' if img else ''
-        layout_html = f'<div class="card-lite-spec">🛏️ {layout_l}</div>' if layout_l else ''
+        if img:
+            img_l = f'<img src="{img}" loading="lazy" decoding="async" alt="" />'
+        elif p.get("no_clean_photo") or p.get("source") == "external":
+            img_l = '<div class="card-noimg"><span class="card-noimg-ic">📸</span><span>更多實景照片 · 洽景泰</span></div>'
+        else:
+            img_l = ''
+        price_l = (f'<div class="card-price-row"><div><span class="card-price">{p["price"]:,}</span>'
+                   f'<span class="card-price-unit">萬</span></div></div>') if p.get("price") else ''
+        layout_l2 = layout_l + (("　·　屋齡 %s 年" % p["age"]) if p.get("age") else "")
+        layout_html = f'<div class="card-lite-spec">🛏️ {layout_l2}</div>' if layout_l else ''
         addr_html = f'<div class="card-address">{addr_l}</div>' if addr_l else ''
         return f'''
-    <div class="card" data-slug="{slug}" data-district="{district}" data-price-tier="" data-age-tier="" data-parking="" data-type="其他" data-unit-price-tier="" data-rooms="{layout_to_rooms_key(p.get("layout"))}" data-community="{community}">
+    <div class="card" data-slug="{slug}" data-district="{district}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="" data-type="{(p.get("building_type") or "其他").strip() or "其他"}" data-unit-price-tier="" data-rooms="{layout_to_rooms_key(p.get("layout"))}" data-community="{community}">
       <div class="card-image">{img_l}</div>
       <div class="card-content">
         <div class="card-tagline">{tagline}</div>
+        {price_l}
         {layout_html}
         {addr_html}
         <div class="card-actions">
@@ -554,10 +586,13 @@ def card_html(p):
         f'<div class="card-unit-price">單坪 <strong>{unit_price:g}</strong> 萬 / 權狀坪</div>'
         if unit_price else ''
     )
-    img_html = (
-        f'<img src="{img}" loading="lazy" decoding="async" alt="" />'
-        if img else ''
-    )
+    if img:
+        img_html = f'<img src="{img}" loading="lazy" decoding="async" alt="" />'
+    elif p.get("no_clean_photo") or p.get("source") == "external":
+        # 競品站的圖有品牌浮水印不放 → 乾淨佔位(景泰可另補自家實拍)
+        img_html = '<div class="card-noimg"><span class="card-noimg-ic">📸</span><span>更多實景照片 · 洽景泰</span></div>'
+    else:
+        img_html = ''
     note = (p.get("note") or "").strip()
     if note:
         safe_note = (note
@@ -604,13 +639,38 @@ def card_html(p):
         media_btns.append(f'<a class="card-media-btn" href="{p["ai_video_url"]}" target="_blank" rel="noopener" data-media="ai">✨ AI 導覽</a>')
     media_html = f'<div class="card-media">{"".join(media_btns)}</div>' if media_btns else ''
 
-    # 「看完整資訊」— 有 detail_url(ycut/合併) 才外連；純官方前台不外連(改軟性洽詢)
+    # 「看完整資訊」— 有 detail_url(ycut/合併) 才外連；純官方前台/競品不外連(改軟性洽詢)
     detail_url = p.get("detail_url")
     if detail_url:
         cta_html = (f'<a class="card-cta" href="{detail_url}" target="_blank" rel="noopener">'
                     f'看完整資訊 與 全部照片 <span class="card-cta-arrow">→</span></a>')
     else:
         cta_html = '<div class="card-cta card-cta-soft">📸 更多照片與細節 · 歡迎洽詢景泰</div>'
+
+    # 規格欄位改條件式:有值才顯示(競品/官方前台缺的欄位不留空格)
+    _cells = []
+    if p.get("area"):
+        _cells.append(f'<div class="spec-item"><span class="spec-label">權狀坪數</span><span class="spec-value highlight">{p["area"]} 坪</span></div>')
+    if p.get("main_area"):
+        _cells.append(f'<div class="spec-item"><span class="spec-label">主+附</span><span class="spec-value">{p["main_area"]} 坪</span></div>')
+    if (p.get("layout") or "").strip():
+        _cells.append(f'<div class="spec-item"><span class="spec-label">格局</span><span class="spec-value">{p["layout"]}</span></div>')
+    if p.get("age"):
+        _cells.append(f'<div class="spec-item"><span class="spec-label">屋齡</span><span class="spec-value">{p["age"]} 年</span></div>')
+    _pk = (str(p.get("parking") or "")).strip()
+    if _pk:
+        _cells.append(f'<div class="spec-item"><span class="spec-label">車位</span><span class="spec-value">{_pk}</span></div>')
+    _pa = (str(p.get("parking_area") or "")).strip()
+    if _pa and _pa not in ("無車位", "—"):
+        _cells.append(f'<div class="spec-item"><span class="spec-label">車位坪數</span><span class="spec-value">{_pa}</span></div>')
+    spec_cells = "".join(_cells)
+
+    if p.get("floor_total"):
+        floor_html = f'<div class="card-floor">{p["floor"]}F / {p["floor_total"]}F</div>'
+    elif p.get("floor"):
+        floor_html = f'<div class="card-floor">{p["floor"]}F</div>'
+    else:
+        floor_html = ''
 
     return f'''
     <div class="card" data-slug="{slug}" data-district="{district}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="{parking_attr}" data-type="{type_attr}" data-unit-price-tier="{unit_tier_key}" data-rooms="{rooms_key}" data-community="{community}">
@@ -619,17 +679,10 @@ def card_html(p):
         <div class="card-tagline">{tagline}</div>
         <div class="card-price-row">
           <div><span class="card-price">{p["price"]:,}</span><span class="card-price-unit">{price_unit}</span></div>
-          <div class="card-floor">{p["floor"]}F / {p["floor_total"]}F</div>
+          {floor_html}
         </div>
         {unit_price_html}
-        <div class="card-spec">
-          <div class="spec-item"><span class="spec-label">權狀坪數</span><span class="spec-value highlight">{p["area"]} 坪</span></div>
-          <div class="spec-item"><span class="spec-label">主+附</span><span class="spec-value">{p["main_area"]} 坪</span></div>
-          <div class="spec-item"><span class="spec-label">格局</span><span class="spec-value">{p.get("layout") or "—"}</span></div>
-          <div class="spec-item"><span class="spec-label">屋齡</span><span class="spec-value">{p["age"]} 年</span></div>
-          <div class="spec-item"><span class="spec-label">車位</span><span class="spec-value">{p["parking"]}</span></div>
-          <div class="spec-item"><span class="spec-label">車位坪數</span><span class="spec-value">{p["parking_area"]}</span></div>
-        </div>
+        <div class="card-spec">{spec_cells}</div>
         {gallery_html}
         <div class="card-address">{p["address"]}</div>
         <details class="card-map">
@@ -1280,6 +1333,9 @@ def gen_html(client_data, properties):
   .card-image img {{ cursor: zoom-in; }}
   /* 封面右下「照片張數」提示(點看大圖) */
   .card-photo-count {{ position: absolute; right: 12px; bottom: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.60); color: #FFF; font-size: 14px; font-weight: 700; padding: 5px 12px; border-radius: 20px; letter-spacing: 0.5px; pointer-events: none; }}
+  /* 無乾淨圖佔位(競品圖有浮水印不放) */
+  .card-noimg {{ width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, #F3EDE3 0%, #E8DECB 100%); color: var(--wood-deep); font-size: 16px; font-weight: 600; letter-spacing: 1px; text-align: center; padding: 12px; }}
+  .card-noimg-ic {{ font-size: 34px; opacity: 0.7; }}
   /* 多媒體按鈕列(VR / 影片 / AI) */
   .card-media {{ display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }}
   .card-media-btn {{ display: inline-flex; align-items: center; gap: 6px; background: var(--bg-soft); color: var(--wood-deep); border: 1.5px solid var(--wood-light); border-radius: 10px; padding: 9px 14px; font-size: 15px; font-weight: 700; text-decoration: none; transition: all 0.2s; }}
@@ -2230,6 +2286,10 @@ def preview_endpoint():
                 src_label, src_tone = f"⚠️ {brand} · 別店：{p.get('store_name') or '未知'}（無外連，影片/AI 不帶）", "warn"
             elif source == "yungching":
                 src_label, src_tone = "⚠️ 永慶直營（資料加密：僅照片+名稱+地址，無外連）", "warn"
+            elif source == "external":
+                _b = p.get("brand") or "競品站"
+                _photo = "含乾淨照片" if not p.get("no_clean_photo") else "無競品照片(建議補自家圖)"
+                src_label, src_tone = f"🔁 {_b} · 已洗淨變你的（{_photo}）", "warn"
             else:
                 src_label, src_tone = "", ""
             has_media = bool(p.get("vr_url") or p.get("video_url") or p.get("ai_video_url"))
