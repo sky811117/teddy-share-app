@@ -252,8 +252,15 @@ def parse_utrust_data(data, case_id, is_own_store, shop_name):
         f"{bath}衛" if bath else "",
     ) if p)
 
-    pics = [(pp.get("photoUrl") or "") for pp in ((data.get("pictureInfo") or {}).get("pictures") or [])]
-    pics = [("https:" + u if u.startswith("//") else u) for u in pics if u]
+    # ⚠️ pictureInfo.photoUrl 的尺寸是「未填模板」width={0}&height={1}(前端 JS 才代入)，
+    # 直接用會被 yccdn 回 500 破圖 → 這裡補上真實尺寸(1024x768，key 不變、任何尺寸皆可)
+    def _pic_url(u):
+        if not u:
+            return ""
+        u = ("https:" + u) if u.startswith("//") else u
+        return u.replace("{0}", "1024").replace("{1}", "768")
+    pics = [_pic_url(pp.get("photoUrl") or "") for pp in ((data.get("pictureInfo") or {}).get("pictures") or [])]
+    pics = [u for u in pics if u]
 
     vr = (data.get("iStagingUrl") or "").strip() or (data.get("iStaging3DUrl") or "").strip()
     video = (data.get("introVideo") or "").strip()
