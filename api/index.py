@@ -1564,7 +1564,7 @@ def gen_html(client_data, properties):
 
 <section class="top-contact">
   <div class="top-contact-inner">
-    <div class="top-contact-name">陳景泰　<span class="top-contact-role">{contact["company"]}</span></div>
+    <div class="top-contact-name">{contact["agent_name"]}　<span class="top-contact-role">{contact["company"]}</span></div>
     <div class="top-contact-btns">
       <a class="top-cta primary" href="tel:{contact["phone_raw"]}">📞 {contact["phone"]}</a>
       <a class="top-cta line" href="{contact["line_url"]}" target="_blank" rel="noopener">💬 LINE 我（{contact["line"]}）</a>
