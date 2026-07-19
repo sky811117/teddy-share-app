@@ -593,8 +593,7 @@ def _card_html_raw(p):
         {layout_html}
         {addr_html}
         <div class="card-actions">
-          <div class="card-cta card-cta-soft">📸 更多照片與細節 · 歡迎洽詢景泰</div>
-          <button class="card-like" data-slug="{slug}" data-name="{tagline}" aria-label="我喜歡這間" type="button">
+          <button class="card-like card-like-full" data-slug="{slug}" data-name="{tagline}" aria-label="我喜歡這間" type="button">
             <span class="card-like-icon">♡</span>
             <span class="card-like-text">我喜歡</span>
           </button>
@@ -673,7 +672,8 @@ def _card_html_raw(p):
         cta_html = (f'<a class="card-cta" href="{detail_url}" target="_blank" rel="noopener">'
                     f'看完整資訊 與 全部照片 <span class="card-cta-arrow">→</span></a>')
     else:
-        cta_html = '<div class="card-cta card-cta-soft">📸 更多照片與細節 · 歡迎洽詢景泰</div>'
+        cta_html = ''   # 無外連時不放軟性 CTA(景泰要求),只留「我喜歡」
+    like_full = '' if detail_url else ' card-like-full'
 
     # 規格欄位改條件式:有值才顯示(競品/官方前台缺的欄位不留空格)
     _cells = []
@@ -721,7 +721,7 @@ def _card_html_raw(p):
         {media_html}
         <div class="card-actions">
           {cta_html}
-          <button class="card-like" data-slug="{slug}" data-name="{tagline}" aria-label="我喜歡這間" type="button">
+          <button class="card-like{like_full}" data-slug="{slug}" data-name="{tagline}" aria-label="我喜歡這間" type="button">
             <span class="card-like-icon">♡</span>
             <span class="card-like-text">我喜歡</span>
           </button>
@@ -1365,6 +1365,7 @@ def gen_html(client_data, properties):
   .card-like.liked {{ background: #FFEDED; border-color: #E74C3C; color: #E74C3C; cursor: default; }}
   .card-like-icon {{ font-size: 20px; line-height: 1; transition: transform 0.2s; }}
   .card-like.liked .card-like-icon {{ transform: scale(1.2); }}
+  .card-like-full {{ flex: 1; justify-content: center; }}
   .card-cta-soft {{ background: var(--bg-soft) !important; color: var(--wood-deep) !important; border: 1.5px dashed var(--wood-light); letter-spacing: 0.5px !important; cursor: default; }}
   .card-cta-soft:hover {{ background: var(--bg-soft) !important; transform: none !important; }}
   .card-lite-spec {{ display: inline-block; font-size: 16px; color: var(--wood-deep); background: var(--bg-soft); padding: 8px 14px; border-radius: 10px; margin-bottom: 14px; font-weight: 600; }}
