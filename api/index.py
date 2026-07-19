@@ -607,7 +607,9 @@ def _card_html_raw(p):
             _is_no_parking_text(p.get("parking", ""))
             or _is_no_parking_text(p.get("parking_area", ""))
         )
-    price_unit = "萬 含車位" if has_parking else "萬"
+    # 透天/別墅不標「含車位」(車位欄位一律不顯示,價格也不標)
+    _house = any(k in (p.get("building_type") or "") for k in ("透天", "別墅", "透店", "店透", "農舍"))
+    price_unit = "萬 含車位" if (has_parking and not _house) else "萬"
     unit_price = unit_price_per_area(p.get("price"), p.get("area"))
     unit_price_html = (
         f'<div class="card-unit-price">單坪 <strong>{unit_price:g}</strong> 萬 / 權狀坪</div>'
@@ -685,12 +687,15 @@ def _card_html_raw(p):
         _cells.append(f'<div class="spec-item"><span class="spec-label">格局</span><span class="spec-value">{p["layout"]}</span></div>')
     if p.get("age"):
         _cells.append(f'<div class="spec-item"><span class="spec-label">屋齡</span><span class="spec-value">{p["age"]} 年</span></div>')
-    _pk = (str(p.get("parking") or "")).strip()
-    if _pk:
-        _cells.append(f'<div class="spec-item"><span class="spec-label">車位</span><span class="spec-value">{_pk}</span></div>')
-    _pa = (str(p.get("parking_area") or "")).strip()
-    if _pa and _pa not in ("無車位", "—"):
-        _cells.append(f'<div class="spec-item"><span class="spec-label">車位坪數</span><span class="spec-value">{_pa}</span></div>')
+    # 透天/別墅本來就自帶車庫,車位欄位意義不大又常誤判 → 一律不顯示車位/車位坪數
+    _is_house = any(k in (p.get("building_type") or "") for k in ("透天", "別墅", "透店", "店透", "農舍"))
+    if not _is_house:
+        _pk = (str(p.get("parking") or "")).strip()
+        if _pk:
+            _cells.append(f'<div class="spec-item"><span class="spec-label">車位</span><span class="spec-value">{_pk}</span></div>')
+        _pa = (str(p.get("parking_area") or "")).strip()
+        if _pa and _pa not in ("無車位", "—"):
+            _cells.append(f'<div class="spec-item"><span class="spec-label">車位坪數</span><span class="spec-value">{_pa}</span></div>')
     spec_cells = "".join(_cells)
 
     if p.get("floor_total"):
