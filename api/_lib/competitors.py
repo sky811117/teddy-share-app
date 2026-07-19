@@ -3674,7 +3674,7 @@ _ADAPTERS = [
     (re.compile(r"https?://(?:www\.)?sinyi\.com\.tw/buy/house/[A-Za-z0-9]+"), "信義", _p_sinyi),
     (re.compile(r"https?://(?:www\.)?hbhousing\.com\.tw/[Dd]etail/?\?[^\s\"'<>]*sn=[A-Za-z0-9]+"), "住商", _p_hb),
     (re.compile(r"https?://(?:www\.)?twhg\.com\.tw/buy/[A-Za-z]{2}\d+"), "台灣房屋", _p_twhg),
-    (re.compile(r"https?://sale\.591\.com\.tw/home/house/detail/\d+/\d+\.html"), "591", _p_h591),
+    (re.compile(r"https?://sale\.591\.com\.tw/home/house/detail/\d+/\d+\.html?"), "591", _p_h591),
     (re.compile(r"https?://(?:www\.)?etwarm\.com\.tw/houses/(?:buy|rent)/\d+(?:/\d+)?"), "東森", _p_et),
     (re.compile(r"https?://buy\.cthouse\.com\.tw/house/\d+\.html"), "中信", _p_ct),
     (re.compile(r"https?://(?:www\.)?century21\.com\.tw/buypage/\d+"), "21世紀", _p_c21),
