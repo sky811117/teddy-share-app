@@ -2818,6 +2818,41 @@ def _p_gh(url):
 
 # ==================== 樂屋 ====================
 # -*- coding: utf-8 -*-
+def _rakuya_derive_images(ehid, maxn=14):
+    """樂屋圖走 JS 注入、伺服器端 HTML 抓不到 → 從 ehid 純算圖網址(不需跑瀏覽器)。
+    規則(實測驗證):id=ehid[6:-1]; 路徑=r{id奇偶}/n{id末3}/{md5(ehid)前2}/{md5次2}/{id}_N_b.jpeg。
+    static.rakuya 圖床不擋伺服器端,HEAD 逐張確認;超範圍會回固定大小的預設圖→用它當邊界。"""
+    m = re.match(r'([0-9a-f]{15})', ehid or '')
+    if not m:
+        return []
+    e = m.group(1)
+    idd = e[6:-1]
+    if not idd.isdigit():
+        return []
+    hh = hashlib.md5(e.encode()).hexdigest()
+    base = "https://static.rakuya.com.tw/r%d/n%s/%s/%s/%s" % ((int(idd) % 2) + 1, idd[-3:], hh[0:2], hh[2:4], idd)
+
+    def _clen(n):
+        try:
+            req = urllib.request.Request("%s_%d_b.jpeg" % (base, n), method="HEAD",
+                                         headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=8) as rr:
+                return int(rr.headers.get("Content-Length") or 0) if rr.status == 200 else None
+        except Exception:
+            return None
+
+    placeholder = _clen(45)   # 超範圍 N → 固定大小的「查無圖」預設圖,當作真圖邊界
+    urls = []
+    for n in range(1, maxn + 1):
+        c = _clen(n)
+        if c is None:
+            break
+        if placeholder and c == placeholder:   # 到預設圖 = 沒有更多真圖
+            break
+        urls.append("%s_%d_b.jpeg" % (base, n))
+    return urls
+
+
 def _p_rakuya(url):
     """
     樂屋網 (rakuya.com.tw) sell_item parser -- self-contained, stdlib only.
@@ -3199,6 +3234,17 @@ def _p_rakuya(url):
         if not data["parking"]:
             data["parking"] = "無車位" if not data["has_parking"] else "有車位"
         data["gallery"] = [g for g in (data["gallery"] or []) if g][:12]
+    except Exception:
+        pass
+
+    # 圖片保底:從 ehid 純算樂屋圖網址(伺服器端 HTML 抓不到 JS 注入的圖)
+    try:
+        _m = re.search(r'ehid=([0-9a-f]{15})', url)
+        if _m:
+            _imgs = _rakuya_derive_images(_m.group(1))
+            if _imgs:
+                data["cover_image"] = _imgs[0]
+                data["gallery"] = _imgs[:12]
     except Exception:
         pass
 
