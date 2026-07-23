@@ -1310,6 +1310,158 @@ def _p_h591(url):
     return result
 
 
+def _clean_remark(html):
+    """591 remark（物件介紹，含 HTML）洗白：strip tags、在業務聯絡資訊處截斷、去殘留品牌/電話。
+    只留物件賣點，砍掉業務公司名/電話/LINE/經紀人/話術。"""
+    if not html:
+        return ""
+    t = re.sub(r'</p>|<br\s*/?>|</div>|</li>', '\n', str(html))
+    t = re.sub(r'<[^>]+>', '', t)
+    t = (t.replace('&nbsp;', ' ').replace('&amp;', '&')
+         .replace('&lt;', '<').replace('&gt;', '>'))
+    STOP = re.compile(r'09\d{8}|0\d{1,2}[-\s]?\d{6,8}|LINE|Line|line|ＬＩＮＥ|加盟店'
+                      r'|不動產|房屋|地產|房仲|建設公司|經紀人|營業員|託付|咨詢|諮詢'
+                      r'|為您服務|24小時|２４小時|ID[:：]|放心來|安心交|竭誠|敬上|歡迎來')
+    lines = []
+    for ln in t.split('\n'):
+        ln = ln.strip()
+        if STOP.search(ln):
+            break
+        lines.append(ln)
+    intro = re.sub(r'\n{3,}', '\n\n', '\n'.join(lines)).strip()
+    intro = re.sub(r'0\d{8,9}', '', intro)
+    intro = re.sub(r'[一-鿿]{2,5}(?:房屋|不動產|房產|地產)', '', intro)
+    return intro.strip()[:500]
+
+
+def _p_business591(url):
+    """591 商用頻道 business.591.com.tw/sale/{id}（店面 / 辦公 / 商辦）。
+
+    完整資料在 window.__NUXT__（`pinia['business-sale-detail'].detailInfo` = 樓層/屋齡/車位/
+    單價/主建/公設/管理費 + `pinia.album.albumData.items` = 相簿 + `detailInfo.remark` = 物件介紹）。
+    住宅 bff-house API 對商用 404、商用 bff 端點未公開 → 用 **quickjs**（Python JS 引擎，pip 裝、
+    Vercel 可跑）執行 __NUXT__ 取結構化資料。quickjs 不可用時退回 og meta 簡版（只封面+總價+坪數）。
+    ⚠️ 社區名不從 __NUXT__ id,"name" 抓（會誤中業務聯絡人「林先生/仲介」洩個資）→ 用行銷標題洗淨。
+    圖片直連 591 去浮水印版（`!1000x.jpg`；景泰 2026-07-23 定調「有浮水印沒關係、資料要完整」，
+    取去浮水印版較美；只用 type=3 實景照，type=4 格局圖去後綴仍有浮水印故跳過）。"""
+    out = _blank()
+    try:
+        html = _fetch(url)
+    except Exception:
+        return out
+
+    def _meta(prop):
+        m = re.search(
+            r'<meta[^>]+property=["\']%s["\'][^>]*content=["\']([^"\']*)["\']' % re.escape(prop), html)
+        if not m:
+            m = re.search(
+                r'<meta[^>]+content=["\']([^"\']*)["\'][^>]*property=["\']%s["\']' % re.escape(prop), html)
+        return m.group(1) if m else ""
+
+    title = _strip_tags(_meta("og:title"))
+    desc = _strip_tags(_meta("og:description"))
+    ogimg = _meta("og:image")
+
+    # 地址：og:description「位於…」路段級；退回行政區
+    m = re.search(r"位於([^，,。]+)", desc)
+    if m:
+        out["address"] = _road_level(m.group(1))
+    else:
+        m = re.search(r"([一-鿿]{2,3}[市縣][一-鿿]{1,4}區)", desc)
+        if m:
+            out["address"] = m.group(1)
+
+    # ── quickjs 執行 __NUXT__ 取完整資料 ──
+    dt, items = None, []
+    try:
+        import quickjs
+        mx = re.search(r'window\.__NUXT__=(.+?)</script>', html, re.S)
+        if mx:
+            ctx = quickjs.Context()
+            ctx.eval('var D=(' + mx.group(1).strip().rstrip(';') + ')')
+            _dj = ctx.eval("JSON.stringify((D.pinia&&D.pinia['business-sale-detail']&&D.pinia['business-sale-detail'].detailInfo)||null)")
+            dt = json.loads(_dj) if _dj else None
+            _aj = ctx.eval("JSON.stringify((D.pinia&&D.pinia.album&&D.pinia.album.albumData&&D.pinia.album.albumData.items)||[])")
+            items = json.loads(_aj) if _aj else []
+    except Exception:
+        dt = None
+
+    if dt and dt.get("baseInfo"):
+        bi = dt["baseInfo"]
+
+        def _lab(arr, l):
+            for i in (arr or []):
+                if isinstance(i, dict) and i.get("label") == l:
+                    return str(i.get("value", ""))
+            return ""
+
+        mainInfo = bi.get("mainInfo") or []
+        LI = bi.get("labelInfo") or {}
+        left, right, bottom = LI.get("left") or [], LI.get("right") or [], LI.get("bottom") or []
+        out["price"] = _to_int((bi.get("price") or {}).get("value"))
+        out["area"] = _to_float((bi.get("area") or {}).get("value"))
+        fm = re.search(r"(\d+)\D+(\d+)", _lab(mainInfo, "樓層"))
+        if fm:
+            out["floor"], out["floor_total"] = int(fm.group(1)), int(fm.group(2))
+        out["main_area"] = _to_float(_lab(bottom, "主建物"))
+        out["age"] = _to_float(_lab(left, "屋齡"))
+        carinfo = _lab(right, "車位")
+        if carinfo:
+            pa = re.search(r"([\d.]+)\s*坪", carinfo)
+            pt = re.search(r"[（(]([^）)]+)[）)]", carinfo)
+            out["parking"] = pt.group(1) if pt else "含車位"
+            out["parking_area"] = ("%g 坪" % _to_float(pa.group(1))) if pa else ""
+            out["has_parking"] = True
+        out["intro"] = _clean_remark(dt.get("remark", ""))
+        # 相簿：type=3 實景照、去浮水印(!1000x.jpg)、跳過封面行銷圖與 type=4 格局圖
+        gallery = []
+        for it in items:
+            if it.get("type") == 3 and not it.get("isCover"):
+                u = (it.get("origPhoto") or it.get("photo") or "").split("!")[0]
+                if u:
+                    gallery.append(u + "!1000x.jpg")
+        out["gallery"] = gallery[:12]
+        cov = ""
+        for it in items:
+            if it.get("isCover"):
+                cov = (it.get("origPhoto") or it.get("photo") or "").split("!")[0]
+                break
+        if not cov and items:
+            cov = (items[0].get("origPhoto") or items[0].get("photo") or "").split("!")[0]
+        out["cover_image"] = (cov + "!1000x.jpg") if cov else (ogimg or "")
+        title = _strip_tags(bi.get("title") or title)
+    else:
+        # quickjs 不可用 → og 簡版
+        m = re.search(r"總價\s*([\d,]+)\s*萬", desc)
+        if m:
+            out["price"] = _to_int(m.group(1))
+        m = re.search(r"面積\s*([\d.]+)\s*坪", desc)
+        if m:
+            out["area"] = _to_float(m.group(1))
+        out["cover_image"] = ogimg
+
+    out["building_type"] = "商辦"
+    if not out.get("has_parking") and re.search(r"(平車|坡道|機械車位|車位)", title + desc):
+        out["parking"] = "含車位"
+        out["has_parking"] = True
+
+    # 行銷標題 → 物件名：安全頭尾清理；殘留競品公司名/電話/過短 → 改「路段+商辦」
+    ct = re.sub('[\U0001F000-\U0001FAFF←-⇿⌀-➿⬀-⯿️⁉‼]', '', title)
+    ct = re.sub(r'\s*[|｜].*$', '', ct)
+    ct = re.sub(r'^\s*承辦[^！!，,。]{0,8}[！!]\s*', '', ct)
+    ct = re.sub(r'^\s*(專任|獨家|急售|自售|屋主自售|限量|稀有|全新)+', '', ct)
+    ct = re.sub(r'[一-鿿A-Za-z]{1,4}(嚴選|推薦|強推|力推|主打|精選)', '', ct)
+    ct = ct.strip(' ·•|｜/、,，.-–—★☆')
+    _dirty = (re.search(r'[一-鿿]{2,5}(?:房屋|不動產|房產|地產|物業|房仲|建設|開發)', ct)
+              or re.search(r'0\d{8,9}', ct) or len(ct) < 5)
+    if _dirty:
+        _road = (out.get("address") or "").split("區", 1)[-1].strip()
+        ct = (_road + " 商辦") if _road else "七期精選商辦"
+    out["community_display"] = ct
+    out["og_title"] = ct
+    return out
+
+
 if __name__ == "__main__":
     import sys
     sys.stdout.reconfigure(encoding="utf-8")
@@ -3721,6 +3873,7 @@ _ADAPTERS = [
     (re.compile(r"https?://(?:www\.)?hbhousing\.com\.tw/[Dd]etail/?\?[^\s\"'<>]*sn=[A-Za-z0-9]+"), "住商", _p_hb),
     (re.compile(r"https?://(?:www\.)?twhg\.com\.tw/buy/[A-Za-z]{2}\d+"), "台灣房屋", _p_twhg),
     (re.compile(r"https?://sale\.591\.com\.tw/home/house/detail/\d+/\d+\.html?"), "591", _p_h591),
+    (re.compile(r"https?://business\.591\.com\.tw/sale/\d+"), "591", _p_business591),
     (re.compile(r"https?://(?:www\.)?etwarm\.com\.tw/houses/(?:buy|rent)/\d+(?:/\d+)?"), "東森", _p_et),
     (re.compile(r"https?://buy\.cthouse\.com\.tw/house/\d+\.html"), "中信", _p_ct),
     (re.compile(r"https?://(?:www\.)?century21\.com\.tw/buypage/\d+"), "21世紀", _p_c21),
@@ -3854,4 +4007,5 @@ def fetch_external(url):
         "vr_url": "", "video_url": "", "ai_video_url": "",
         "last_price": 0, "is_discount": False,
         "no_clean_photo": (not cover),   # card 用來決定放不放「洽景泰」佔位
+        "intro": d.get("intro", ""),     # 591 商用物件介紹(remark 洗白)，card_html render 📋 物件介紹
     }

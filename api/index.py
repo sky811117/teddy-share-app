@@ -705,6 +705,17 @@ def _card_html_raw(p):
     else:
         floor_html = ''
 
+    # 物件介紹(remark 洗白後)—有值才顯示，inline style 不依賴 CSS 區
+    _intro = (p.get("intro") or "").strip()
+    if _intro:
+        _si = (_intro.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>"))
+        intro_html = ('<div class="card-intro" style="margin:12px 0;padding:13px 15px;'
+                      'background:var(--bg-soft);border-radius:10px;border-left:3px solid var(--wood-light);">'
+                      '<div style="font-size:13px;font-weight:700;color:var(--wood-deep);margin-bottom:6px;">📋 物件介紹</div>'
+                      f'<div style="font-size:14px;line-height:1.75;color:#5a4c38;white-space:normal;">{_si}</div></div>')
+    else:
+        intro_html = ''
+
     return f'''
     <div class="card" data-slug="{slug}" data-district="{district}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="{parking_attr}" data-type="{type_attr}" data-unit-price-tier="{unit_tier_key}" data-rooms="{rooms_key}" data-community="{community}">
       <div class="card-image">{badge_html}{photocount_html}{img_html}</div>
@@ -715,6 +726,7 @@ def _card_html_raw(p):
           {floor_html}
         </div>
         {unit_price_html}
+        {intro_html}
         <div class="card-spec">{spec_cells}</div>
         {gallery_html}
         <div class="card-address">{p["address"]}</div>
