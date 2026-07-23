@@ -2229,6 +2229,7 @@ def build_contact(body):
 
 @app.route("/api/publish", methods=["POST", "OPTIONS"])
 def publish_endpoint():
+    # v2 完整版：quickjs 解析 + card_html 📋物件介紹 render（改此行強制 Vercel 重 build 本 function）
     if request.method == "OPTIONS":
         return ("", 204)
     try:
