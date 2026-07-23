@@ -2368,6 +2368,7 @@ def preview_endpoint():
                 "src_tone": src_tone,
                 "has_media": has_media,
                 "gallery_count": len(p.get("gallery") or []),
+                "intro_len": len(p.get("intro") or ""),
             })
         return jsonify({"items": items, "count": len(items)})
     except Exception as e:
