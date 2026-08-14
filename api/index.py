@@ -346,14 +346,104 @@ def _fetch_one_platform(host, case_id):
 
 
 def _fetch_one_yungching(case_id):
-    """永慶直營(buy.yungching.com.tw)：物件資料加密，只靠 og 出精簡卡(照片+名稱+地址)。"""
+    """永慶直營(buy.yungching.com.tw)：先走 SSR 詳情頁完整解析出完整卡，
+    解析不到才退回 og 精簡卡（行為與 2026-08-14 之前相同，不會更糟）。
+
+    2026-08-14：原本註解說「資料加密只能出精簡卡」——那是指 /api/v2/house 回密文，
+    但詳情頁 SSR HTML 本身就有完整欄位（JSON-LD + class 標記），
+    _lib.yungching_recommend.parse_detail() 早就寫好那套解析了。零新依賴。
+
+    ⚠️ 客戶頁一律不給的東西（沿用本檔既有原則，別加回來）：
+      · address 只到「縣市+區+路段」，不給完整門牌 —— 客戶拿門牌一搜就找到刊登店
+      · detail_url=None，不外連官方前台（那頁會露出承辦店名與業務電話）
+      · store_name 只寫品牌不寫門市，不抓 ShopInfo / Ivr
+    """
     url = f"https://buy.{YUNGCHING_HOST}/house/{case_id}"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=12) as r:
+        with urllib.request.urlopen(req, timeout=15) as r:
             html = r.read().decode("utf-8", errors="ignore")
     except Exception as e:
         return {"slug": f"yc{case_id}", "error": str(e)}
+
+    try:
+        from _lib.yungching_recommend import parse_detail
+        d = parse_detail(html) or {}
+        if d.get("price_wan"):
+            return _yungching_full_card(case_id, d)
+    except Exception as e:
+        print(f"yungching parse_detail failed, fallback to og: {e}")
+
+    return _fetch_one_yungching_og(case_id, html)
+
+
+def _yungching_full_card(case_id, d):
+    """把 parse_detail 的欄位對映成推薦頁的完整卡。"""
+    gal = [_fill_pic(u) for u in (d.get("image_urls") or [])]
+    gal = [g for g in gal if g][:24]
+
+    fl = ft = 0
+    fm = re.match(r"(\d+)\s*/\s*(\d+)", str(d.get("floor") or ""))
+    if fm:
+        fl, ft = int(fm.group(1)), int(fm.group(2))
+
+    # 地址只到路段（不含巷弄號）——這是「客戶不會繞過你去找刊登店」的關鍵
+    addr = " ".join(x for x in (d.get("city"), d.get("district"), d.get("street")) if x)
+
+    rooms = d.get("room_count")
+    layout = ""
+    if rooms and str(rooms) != "--":
+        layout = f"{rooms}房"
+        if d.get("hall_count"):
+            layout += f"{d['hall_count']}廳"
+        if d.get("bath_count"):
+            layout += f"{d['bath_count']}衛"
+
+    pk = d.get("parking") or ""
+    pa = d.get("parking_area_ping")
+    if pk or pa:
+        has_parking, parking = True, (pk or "含車位")
+        parking_area = f"{pa:g} 坪" if pa else "含於主建"
+    else:
+        has_parking, parking, parking_area = False, "無車位", "無車位"
+
+    title = d.get("title") or ""
+    return {
+        "source": "yungching",
+        "brand": "永慶",
+        "host": YUNGCHING_HOST,
+        "case_id": str(case_id),
+        "slug": f"yc{case_id}",
+        "detail_url": None,
+        "lite": False,
+        "community_display": d.get("community_name") or title or "永慶物件",
+        "price": d.get("price_wan") or 0,
+        "floor": fl,
+        "floor_total": ft,
+        "area": d.get("building_area_ping") or 0.0,
+        "main_area": d.get("main_area_ping") or 0.0,
+        "age": d.get("building_age") or 0,
+        "has_parking": has_parking,
+        "parking": parking,
+        "parking_area": parking_area,
+        "building_type": d.get("case_type") or "",
+        "address": addr,
+        "layout": layout,
+        "og_image": gal[0] if gal else "",
+        "og_title": title,
+        "og_description": d.get("subtitle") or "",
+        "gallery": gal,
+        "is_own_store": False,
+        "store_name": "永慶房屋",
+        "vr_url": "", "video_url": "", "ai_video_url": "",
+        "last_price": 0, "is_discount": False,
+        "unit_price": d.get("unit_price_wan_per_ping") or 0,
+        "land_area": d.get("land_area_ping") or 0,
+    }
+
+
+def _fetch_one_yungching_og(case_id, html):
+    """退路：SSR 解析不出來時的 og 精簡卡（原本的行為）。"""
 
     def og(prop):
         m = re.search(rf'<meta property="{re.escape(prop)}" content="([^"]+)"', html)
@@ -364,8 +454,12 @@ def _fetch_one_yungching(case_id):
         return {"slug": f"yc{case_id}", "error": "永慶頁解析失敗"}
 
     # og:title 尾巴是「… | 買房 | 永慶房屋」— 砍掉品牌/樣板段，避免幫競品打廣告
-    _JUNK = {"買房", "賣屋", "租屋", "永慶房屋", "永慶", "台慶不動產", "台慶",
-             "永義房屋", "永義", "有巢氏房屋", "有巢氏"}
+    # ⚠️ 集團五個品牌名都要列全,漏一個就會留在客戶看到的標題尾巴上
+    #    （2026-08-14 實測漏了「永慶不動產」,客戶頁標題結尾就掛著它）
+    _JUNK = {"買房", "賣屋", "租屋",
+             "永慶房屋", "永慶不動產", "永慶房產集團", "永慶",
+             "台慶不動產", "台慶", "永義房屋", "永義",
+             "有巢氏房屋", "有巢氏", "永慶房仲網"}
     segs = [s.strip() for s in re.split(r"[|｜]", title) if s.strip() and s.strip() not in _JUNK]
     title = " · ".join(segs)
     community = (segs[0] if segs else "") or "永慶物件"
@@ -403,7 +497,16 @@ def _fetch_one_ref(ref):
         return _fetch_one_full(ref)
     s = ref.get("source")
     if s == "utrust":
-        return _fetch_one_platform(ref.get("host", "u-trust.com.tw"), ref["id"])
+        host = ref.get("host", "u-trust.com.tw")
+        r = _fetch_one_platform(host, ref["id"])
+        # 集團四品牌共用 caseSId,但只有「該品牌自己簽的委託」才會在該品牌站上架。
+        # 例:太子雲世紀同一戶,景泰簽的 7070179 有巢氏站查得到,永慶直營的人簽的
+        # 7451461 就只在永慶站。有巢氏站查無時退回永慶直營,避免整張卡開天窗。
+        if (not r or r.get("error")) and host != YUNGCHING_HOST:
+            fb = _fetch_one_yungching(ref["id"])
+            if fb and not fb.get("error"):
+                return fb
+        return r
     if s == "yungching":
         return _fetch_one_yungching(ref["id"])
     if s == "external":
@@ -1152,6 +1255,18 @@ def gen_html(client_data, properties):
     price_min, price_max = prices[0], prices[-1]
     today = datetime.date.today().strftime("%Y.%m.%d")
 
+    # 預覽卡（客戶在 LINE / 訊息裡先看到的那張）——第一張有效照片當封面。
+    # 沒有 og:image 的話那張卡只有文字，客戶滑過去不會點。
+    og_cover = ""
+    for _p in properties:
+        og_cover = (_p.get("og_image") or "").strip() or next(
+            (g for g in (_p.get("gallery") or []) if g), "")
+        if og_cover:
+            break
+    _pr = (f"{price_min:,}–{price_max:,} 萬" if price_min != price_max
+           else f"{price_min:,} 萬")
+    og_desc = f'{client_data["need"]}｜{total_count} 戶 · {_pr}'
+
     return f'''<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -1160,7 +1275,17 @@ def gen_html(client_data, properties):
 <meta name="robots" content="noindex,nofollow">
 <title>{theme} · 給 {client_data["name"]} 的 {total_count} 戶整理</title>
 <meta property="og:title" content="{theme} · 給 {client_data["name"]} 的 {total_count} 戶整理">
-<meta property="og:description" content="{client_data["need"]}">
+<meta property="og:description" content="{og_desc}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{contact["company"]}">
+<meta property="og:image" content="{og_cover}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{theme} · 給 {client_data["name"]} 的 {total_count} 戶整理">
+<meta name="twitter:description" content="{og_desc}">
+<meta name="twitter:image" content="{og_cover}">
+<meta name="theme-color" content="#C9785A">
 <style>
   :root {{
     --bg: #FAF7F2; --bg-soft: #F2EDE4; --card: #FFFFFF;
