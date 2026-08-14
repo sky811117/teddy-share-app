@@ -1015,11 +1015,26 @@ def district_section_html(district, communities_dict, anchor):
         return d
 
     def render_group(props, label, emoji):
+        """同一社區有兩戶以上才給它自己的分組標題與 grid；只有一戶的社區
+        全部併進同一個 grid，卡片才會左右並排。
+
+        （2026-08-14 修：原本每個社區都包一個 .grid，而客戶要看的物件多半
+        來自不同社區＝每個 grid 只有一張卡，於是三欄的版面只用到第一欄、
+        右邊白掉一大片，卡片還被 auto-fit 撐成 1225px 超寬。）"""
         if not props:
             return ''
         comm_dict = group_by_community(props)
         order = sorted(comm_dict.keys(), key=lambda c: min(p["price"] for p in comm_dict[c]))
-        subs = "\n".join(community_subsection_html(c, comm_dict[c]) for c in order)
+        multi, singles = [], []
+        for c in order:
+            (multi if len(comm_dict[c]) > 1 else singles).append(c)
+        parts = [community_subsection_html(c, comm_dict[c]) for c in multi]
+        if singles:
+            loose = [comm_dict[c][0] for c in singles]
+            loose.sort(key=lambda p: p.get('price', 0))
+            parts.append('<div class="grid">%s</div>'
+                         % "\n".join(card_html(p) for p in loose))
+        subs = "\n".join(parts)
         return f'''
   <div class="type-group">
     <div class="type-group-header">{emoji} {label}（{len(props)} 戶）</div>
