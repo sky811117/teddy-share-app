@@ -1249,12 +1249,20 @@ def gen_html(client_data, properties):
     type_filter_chips = "\n    ".join(type_chips_list)
     has_type_filter = len(type_chips_list) >= 2  # 全部 + 至少 1 種類型才顯示
 
-    sections = "\n".join(
-        district_section_html(d, districts[d], district_anchors[d])
-        for d in district_order
-    )
-
     total_count = len(properties)
+
+    # 單一物件走專屬的一頁式版型（景泰 2026-08-14：「單筆的就另外做一個版本，
+    # 一頁式的，不要再用這個網頁」）。多物件那套的行政區標題、社區分組、
+    # 「含 1 個社區」、「住宅（1 戶）」對單一物件全是累贅，而且社區各包一個
+    # .grid 會讓唯一那張卡卡在三欄的第一欄、右邊白掉一大片。
+    if total_count == 1:
+        sections = '<div class="single-wrap">%s</div>' % card_html(properties[0])
+    else:
+        sections = "\n".join(
+            district_section_html(d, districts[d], district_anchors[d])
+            for d in district_order
+        )
+
     community_count = sum(len(c) for c in districts.values())
     district_count = len(districts)
     prices = sorted(p["price"] for p in properties)
@@ -1280,6 +1288,26 @@ def gen_html(client_data, properties):
     hero_h1 = f'{total_count} 戶 客製整理' if _nm else f'{total_count} 戶 精選'
     for_client_line = ' · '.join(
         x for x in ((f'給 {_nm} 的專屬精選' if _nm else ''), _nd) if x)
+
+    # 單物件的 hero：不要「1 區 · 1 個社區」「1 行政區 1 優質社區」這種湊數統計
+    if total_count == 1:
+        _p0 = properties[0]
+        _loc = _p0.get('community_display') or _p0.get('address') or ''
+        hero_summary = '%s<br>售價 %s 萬' % (_loc, format(price_min, ','))
+        hero_stats_html = ''
+    else:
+        hero_summary = ('精選 %d 個物件 · %d 區 · %d 個社區<br>售價 %s 萬 ~ %s 萬'
+                        % (total_count, district_count, community_count,
+                           format(price_min, ','), format(price_max, ',')))
+        hero_stats_html = (
+            '<div class="hero-stats">'
+            '<div class="hero-stat"><div class="hero-stat-num">%d</div>'
+            '<div class="hero-stat-label">精選戶數</div></div>'
+            '<div class="hero-stat"><div class="hero-stat-num">%d</div>'
+            '<div class="hero-stat-label">行政區</div></div>'
+            '<div class="hero-stat"><div class="hero-stat-num">%d</div>'
+            '<div class="hero-stat-label">優質社區</div></div></div>'
+            % (total_count, district_count, community_count))
 
     # 篩選列：戶數少的時候整條不出現。
     # 景泰：「不要做選擇式的，做成一頁式的」—— 1～7 戶客戶直接往下滑就看完了，
@@ -1499,7 +1527,11 @@ def gen_html(client_data, properties):
     background: var(--wood-light); border-radius: 2px;
   }}
   .community-meta {{ font-size: 14px; color: var(--text-muted); letter-spacing: 1px; }}
-  .grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 22px; }}
+  /* auto-fit（不是 auto-fill）：只有一兩戶的社區，卡片會把空欄收掉撐開，
+     不會卡在三欄的第一欄、右邊白掉一大片。 */
+  .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 22px; }}
+  /* 單一物件專用：置中、限寬，不套多物件那套分組版面 */
+  .single-wrap {{ max-width: 760px; margin: 0 auto; }}
   .card {{
     background: var(--card); border: 1px solid var(--border); border-radius: 18px;
     box-shadow: var(--shadow); transition: all 0.3s; display: flex; flex-direction: column; overflow: hidden;
@@ -1754,15 +1786,8 @@ def gen_html(client_data, properties):
   <div class="hero-tag">{theme}</div>
   <h1>{hero_h1}</h1>
   <div class="for-client">{for_client_line}</div>
-  <p class="summary">
-    精選 {total_count} 個物件 · {district_count} 區 · {community_count} 個社區<br>
-    售價 {price_min:,} 萬 ~ {price_max:,} 萬
-  </p>
-  <div class="hero-stats">
-    <div class="hero-stat"><div class="hero-stat-num">{total_count}</div><div class="hero-stat-label">精選戶數</div></div>
-    <div class="hero-stat"><div class="hero-stat-num">{district_count}</div><div class="hero-stat-label">行政區</div></div>
-    <div class="hero-stat"><div class="hero-stat-num">{community_count}</div><div class="hero-stat-label">優質社區</div></div>
-  </div>
+  <p class="summary">{hero_summary}</p>
+  {hero_stats_html}
 </section>
 
 <section class="top-contact">
