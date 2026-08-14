@@ -2436,6 +2436,19 @@ def add_cors_headers(response):
     return response
 
 
+def stamp_promo(html, contact):
+    """蓋一個 meta 告訴 teddy-website 的 /share proxy 要不要注入「回官網」區塊。
+
+    ⚠️ 這個 proxy(teddy-website/functions/share/[[path]].ts)會對**每一個**分享頁
+       注入「認識景泰／房仲官網」，那是景泰自己的引流區塊。所以光是這邊白牌沒有用 ——
+       同事分享出去的客戶頁，到了 proxy 那層還是會被加上景泰的名字。
+       這個 meta 就是給 proxy 看的開關。兩邊要一起改才會生效。
+    """
+    is_teddy = (contact.get("agent_name") or "").strip() in ("", "陳景泰")
+    meta = '<meta name="x-share-promo" content="%s">' % ("on" if is_teddy else "off")
+    return html.replace("</head>", meta + "</head>", 1) if "</head>" in html else html
+
+
 def build_contact(body):
     """從 publish payload 組出 contact dict — 留空欄位 fallback 到 DEFAULT_CONTACT"""
     contact = dict(DEFAULT_CONTACT)
@@ -2487,6 +2500,7 @@ def publish_endpoint():
             _upd = bool(_sid and re.fullmatch(r"[A-Za-z0-9]{1,16}", _sid))
             share_id = _sid if _upd else gen_share_id()
             html = _render_single(props_in[0], contact, GOOGLE_MAPS_EMBED_KEY, name, need)
+            html = stamp_promo(html, contact)
             token = os.environ.get("GITHUB_TOKEN")
             if not token:
                 return jsonify({"error": "Server 缺 GITHUB_TOKEN 環境變數"}), 500
@@ -2541,6 +2555,7 @@ def publish_endpoint():
         if not token:
             return jsonify({"error": "Server 缺 GITHUB_TOKEN 環境變數"}), 500
 
+        html = stamp_promo(html, contact)
         try:
             github_push(
                 f"{share_id}/index.html",
@@ -2670,6 +2685,7 @@ def recommend_endpoint():
         token = os.environ.get("GITHUB_TOKEN")
         if not token:
             return jsonify({"error": "Server 缺 GITHUB_TOKEN 環境變數"}), 500
+        html = stamp_promo(html, contact)
         github_push(
             f"{share_id}/index.html", html,
             f"recommend: {anchor.get('community_name', '?')} {anchor.get('price_wan')}萬 ({share_id})",

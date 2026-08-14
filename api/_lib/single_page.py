@@ -270,6 +270,10 @@ h2 .cnt{font-size:14px;font-weight:500;color:#7c848d;margin-left:6px}
   padding:11px 14px;border-radius:8px;white-space:nowrap}
 .foot{padding:14px 16px 20px;font-size:13.5px;color:#7c848d;line-height:1.8;background:#fff}
 @media(max-width:640px){
+  /* 底部列改顯示完整號碼後會變長,縮字級與內距,避免把承辦人姓名擠掉 */
+  .bar a.call{font-size:14.5px;padding:10px 11px}
+  .bar a.line{font-size:14.5px;padding:10px 11px}
+  .bar .nm{font-size:15.5px}
   .tbl{grid-template-columns:1fr}
   h1{font-size:19.5px}
   .hv b{font-size:21px}
@@ -295,6 +299,6 @@ h2 .cnt{font-size:14px;font-weight:500;color:#7c848d;margin-left:6px}
 <div class="bar">
   <div class="me"><div class="nm">%(agent)s</div><div class="co">%(company)s</div></div>
   <a class="line" href="%(line_url)s" target="_blank" rel="noopener">LINE</a>
-  <a class="call" href="tel:%(phone_raw)s">電話諮詢</a>
+  <a class="call" href="tel:%(phone_raw)s">📞 %(phone)s</a>
 </div>
 </body></html>'''
