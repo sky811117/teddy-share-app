@@ -13,6 +13,7 @@ import datetime
 import urllib.request
 import urllib.error
 import concurrent.futures
+from html import unescape          # 只匯入函式，避免跟到處都在用的區域變數 html 撞名
 from flask import Flask, request, jsonify, send_from_directory
 
 # 競品站解析器(信義/住商/台灣房屋/591/東森/中信/21世紀/太平洋/全國/大家/樂屋/好房)
@@ -370,14 +371,42 @@ def _fetch_one_yungching(case_id):
         from _lib.yungching_recommend import parse_detail
         d = parse_detail(html) or {}
         if d.get("price_wan"):
-            return _yungching_full_card(case_id, d)
+            return _yungching_full_card(case_id, d, html)
     except Exception as e:
         print(f"yungching parse_detail failed, fallback to og: {e}")
 
     return _fetch_one_yungching_og(case_id, html)
 
 
-def _yungching_full_card(case_id, d):
+def _yc_intro(html, d):
+    """物件介紹 —— 永慶詳情頁的「特色說明」那段（仲介寫的屋況/生活機能/交通）。
+    客戶要看的就是這段，只有規格數字看不出賣點。三層退路，全失敗就用副標。"""
+    # ① JSON-LD Product.description：結構化資料，版型改了也不會壞
+    for blk in re.findall(r'<script type="application/ld\+json">(\{.*?\})</script>', html, re.S):
+        try:
+            o = json.loads(blk)
+        except Exception:
+            continue
+        if isinstance(o, dict) and o.get("@type") == "Product":
+            desc = (o.get("description") or "").strip()
+            if len(desc) > 30:
+                return desc[:900]
+    # ② 「特色說明」標題後面那個區塊
+    m = (re.search(r'特色說明\s*</[^>]+>(.{40,8000}?)</section>', html, re.S)
+         or re.search(r'特色說明(.{40,8000}?)(?:</section>|</article>|<footer)', html, re.S))
+    if m:
+        txt = re.sub(r'<(script|style)[^>]*>.*?</\1>', ' ', m.group(1), flags=re.S)
+        txt = re.sub(r'<br\s*/?>', '\n', txt)
+        txt = re.sub(r'<[^>]+>', ' ', txt)
+        txt = unescape(re.sub(r'[ \t]{2,}', ' ', txt)).strip()
+        txt = re.sub(r'\n{3,}', '\n\n', txt)
+        if len(txt) > 30:
+            return txt[:900]
+    # ③ 副標
+    return (d.get("subtitle") or "").strip()[:900]
+
+
+def _yungching_full_card(case_id, d, html=""):
     """把 parse_detail 的欄位對映成推薦頁的完整卡。"""
     gal = [_fill_pic(u) for u in (d.get("image_urls") or [])]
     gal = [g for g in gal if g][:24]
@@ -429,6 +458,7 @@ def _yungching_full_card(case_id, d):
         "building_type": d.get("case_type") or "",
         "address": addr,
         "layout": layout,
+        "intro": _yc_intro(html, d),      # 「特色說明」→ 客戶頁的「📋 物件介紹」區塊
         "og_image": gal[0] if gal else "",
         "og_title": title,
         "og_description": d.get("subtitle") or "",
