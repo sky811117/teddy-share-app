@@ -1281,6 +1281,33 @@ def gen_html(client_data, properties):
     for_client_line = ' · '.join(
         x for x in ((f'給 {_nm} 的專屬精選' if _nm else ''), _nd) if x)
 
+    # 篩選列：戶數少的時候整條不出現。
+    # 景泰：「不要做選擇式的，做成一頁式的」—— 1～7 戶客戶直接往下滑就看完了，
+    # 擺一排「區域/預算/類型/車位」的篩選 chips 只是逼客戶先做選擇。
+    # 戶數多才留著（不然 20 戶硬滑也不好找）。要調就改這個數字。
+    NAV_MIN = 8
+    sticky_nav_html = ''
+    if total_count >= NAV_MIN:
+        _rows = [
+            '<div class="nav-scroll"><span class="nav-label">🏷️ 區域</span>'
+            '<a class="nav-chip filter-chip filter-reset" data-filter-reset="1" '
+            'style="display:none">✕ 清除篩選</a>' + nav_chips + '</div>',
+            '<div class="nav-scroll" style="margin-top:8px"><span class="nav-label">💰 預算</span>'
+            + price_filter_chips + '</div>',
+        ]
+        for _flag, _label, _chips in (
+            (has_age_filter, '🏠 屋齡', age_filter_chips),
+            (has_unit_filter, '💎 單坪', unit_filter_chips),
+            (has_rooms_filter, '🛏️ 房數', rooms_filter_chips),
+            (has_type_filter, '🏢 類型', type_filter_chips),
+            (has_parking_filter, '🚗 車位', parking_filter_chips),
+        ):
+            if _flag:
+                _rows.append('<div class="nav-scroll" style="margin-top:8px">'
+                             '<span class="nav-label">%s</span>%s</div>' % (_label, _chips))
+        _rows.append('<div class="filter-summary" id="filter-summary" style="display:none"></div>')
+        sticky_nav_html = ('<nav class="sticky-nav" id="sticky-nav">' + ''.join(_rows) + '</nav>')
+
     return f'''<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -1527,8 +1554,8 @@ def gen_html(client_data, properties):
   /* 官方前台相簿橫向縮圖(可點放大) */
   /* 相簿：全部攤開成網格，客戶一路往下滑就看完 —— 不用橫滑、不用點開。
      （原本是 overflow-x 橫向捲動的 120×90 小縮圖，客戶要滑要點才看得到後面的） */
-  .card-gallery {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 8px; padding: 2px 2px 12px; margin-bottom: 14px; }}
-  .card-gallery img {{ width: 100%; height: 145px; object-fit: cover; border-radius: 9px; background: var(--bg-soft); border: 1px solid var(--border); cursor: zoom-in; transition: transform 0.15s; }}
+  .card-gallery {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; padding: 2px 2px 10px; margin-bottom: 12px; }}
+  .card-gallery img {{ width: 100%; height: 88px; object-fit: cover; border-radius: 7px; background: var(--bg-soft); border: 1px solid var(--border); cursor: zoom-in; transition: transform 0.15s; }}
   .card-gallery img:hover {{ transform: scale(1.05); }}
   .card-gallery::-webkit-scrollbar {{ height: 6px; }}
   .card-gallery::-webkit-scrollbar-track {{ background: var(--bg-soft); border-radius: 3px; }}
@@ -1557,8 +1584,8 @@ def gen_html(client_data, properties):
   @media (max-width: 640px) {{
     .card-actions {{ flex-direction: column; }}
     .card-like {{ width: 100%; justify-content: center; padding: 13px 18px; }}
-    .card-gallery {{ grid-template-columns: repeat(2, 1fr); }}   /* 手機一排兩張，照樣是全部攤開 */
-    .card-gallery img {{ width: 100%; height: 118px; }}
+    .card-gallery {{ grid-template-columns: repeat(3, 1fr); gap: 5px; }}  /* 手機一排三張，照樣全部攤開 */
+    .card-gallery img {{ width: 100%; height: 76px; border-radius: 6px; }}
     .lb-nav {{ width: 44px; height: 44px; font-size: 28px; }}
     .lb-close {{ top: 10px; right: 12px; }}
   }}
@@ -1749,23 +1776,7 @@ def gen_html(client_data, properties):
   </div>
 </section>
 
-<nav class="sticky-nav" id="sticky-nav">
-  <div class="nav-scroll">
-    <span class="nav-label">🏷️ 區域</span>
-    <a class="nav-chip filter-chip filter-reset" data-filter-reset="1" style="display:none">✕ 清除篩選</a>
-    {nav_chips}
-  </div>
-  <div class="nav-scroll" style="margin-top: 8px;">
-    <span class="nav-label">💰 預算</span>
-    {price_filter_chips}
-  </div>
-  {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🏠 屋齡</span>' + age_filter_chips + '</div>' if has_age_filter else ''}
-  {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">💎 單坪</span>' + unit_filter_chips + '</div>' if has_unit_filter else ''}
-  {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🛏️ 房數</span>' + rooms_filter_chips + '</div>' if has_rooms_filter else ''}
-  {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🏢 類型</span>' + type_filter_chips + '</div>' if has_type_filter else ''}
-  {'<div class="nav-scroll" style="margin-top: 8px;"><span class="nav-label">🚗 車位</span>' + parking_filter_chips + '</div>' if has_parking_filter else ''}
-  <div class="filter-summary" id="filter-summary" style="display:none"></div>
-</nav>
+{sticky_nav_html}
 
 <div class="container">
 {sections}
