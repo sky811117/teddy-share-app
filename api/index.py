@@ -755,11 +755,12 @@ def _card_html_raw(p):
     gallery_html = ''
     photocount_html = ''
     if len(gallery) > 1:
+        # 全部攤開（上限 24 張純粹是防呆），客戶往下滑就看完，不必橫滑也不必點
         thumbs = ''.join(
-            f'<img src="{u}" loading="lazy" decoding="async" alt="" />' for u in gallery[:8]
+            f'<img src="{u}" loading="lazy" decoding="async" alt="" />' for u in gallery[:24]
         )
         gallery_html = f'<div class="card-gallery" aria-label="物件實景照片">{thumbs}</div>'
-        photocount_html = f'<div class="card-photo-count">📷 {len(gallery)} 張 · 點看大圖</div>'
+        photocount_html = f'<div class="card-photo-count">📷 {len(gallery)} 張實景</div>'
 
     # 多媒體按鈕(VR/影片/AI — 只有景泰本店的物件才掛，避免露出它店品牌)
     media_btns = []
@@ -833,10 +834,10 @@ def _card_html_raw(p):
         <div class="card-spec">{spec_cells}</div>
         {gallery_html}
         <div class="card-address">{p["address"]}</div>
-        <details class="card-map">
-          <summary><span class="card-map-icon">🗺️</span><span class="card-map-label">在地圖上看路段位置</span><span class="card-map-arrow">▾</span></summary>
+        <div class="card-map">
+          <div class="card-map-head"><span class="card-map-icon">🗺️</span><span class="card-map-label">路段位置</span></div>
           <div class="card-map-frame"><iframe data-q="{p["address"]}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="路段位置地圖"></iframe></div>
-        </details>
+        </div>
         {note_html}
         {media_html}
         <div class="card-actions">
@@ -1487,15 +1488,12 @@ def gen_html(client_data, properties):
   .spec-value.highlight {{ color: var(--wood-deep); font-weight: 700; }}
   .card-address {{ font-size: 16px; color: var(--text-soft); margin-bottom: 14px; padding-top: 16px; border-top: 1px solid var(--bg-soft); display: flex; align-items: flex-start; gap: 7px; line-height: 1.6; }}
   .card-address::before {{ content: '📍'; flex-shrink: 0; }}
+  /* 地圖直接顯示，不再需要點開（原本是 details 摺疊，客戶要點才看得到） */
   .card-map {{ margin-bottom: 18px; }}
-  .card-map summary {{ cursor: pointer; font-size: 15px; color: var(--wood-deep); padding: 10px 14px; background: var(--bg-soft); border-radius: 10px; font-weight: 600; list-style: none; display: flex; align-items: center; gap: 8px; user-select: none; transition: background 0.2s; }}
-  .card-map summary::-webkit-details-marker {{ display: none; }}
-  .card-map summary:hover {{ background: #EFE6D6; }}
+  .card-map-head {{ font-size: 15px; color: var(--wood-deep); padding: 10px 14px; background: var(--bg-soft); border-radius: 10px 10px 0 0; font-weight: 600; display: flex; align-items: center; gap: 8px; }}
   .card-map-icon {{ flex-shrink: 0; }}
   .card-map-label {{ flex: 1; }}
-  .card-map-arrow {{ font-size: 13px; transition: transform 0.2s; opacity: 0.7; }}
-  .card-map[open] .card-map-arrow {{ transform: rotate(180deg); }}
-  .card-map-frame {{ margin-top: 10px; border-radius: 10px; overflow: hidden; border: 1px solid var(--bg-soft); }}
+  .card-map-frame {{ border-radius: 0 0 10px 10px; overflow: hidden; border: 1px solid var(--bg-soft); }}
   .card-map-frame iframe {{ width: 100%; height: 220px; border: 0; display: block; }}
   .card-actions {{ display: flex; gap: 8px; margin-top: auto; }}
   .card-cta {{ flex: 1; background: var(--wood-deep); color: #FFF; text-align: center; text-decoration: none; padding: 14px 18px; border-radius: 12px; font-size: 17px; font-weight: 700; letter-spacing: 1.5px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }}
@@ -1514,8 +1512,10 @@ def gen_html(client_data, properties):
   /* 降價徽章 */
   .card-badge {{ position: absolute; top: 12px; left: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 4px; background: #E74C3C; color: #FFF; font-size: 14px; font-weight: 800; padding: 5px 13px; border-radius: 20px; letter-spacing: 0.5px; box-shadow: 0 3px 10px rgba(231,76,60,0.40); }}
   /* 官方前台相簿橫向縮圖(可點放大) */
-  .card-gallery {{ display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 12px; margin-bottom: 14px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }}
-  .card-gallery img {{ width: 120px; height: 90px; object-fit: cover; border-radius: 9px; flex-shrink: 0; scroll-snap-align: start; background: var(--bg-soft); border: 1px solid var(--border); cursor: zoom-in; transition: transform 0.15s; }}
+  /* 相簿：全部攤開成網格，客戶一路往下滑就看完 —— 不用橫滑、不用點開。
+     （原本是 overflow-x 橫向捲動的 120×90 小縮圖，客戶要滑要點才看得到後面的） */
+  .card-gallery {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 8px; padding: 2px 2px 12px; margin-bottom: 14px; }}
+  .card-gallery img {{ width: 100%; height: 145px; object-fit: cover; border-radius: 9px; background: var(--bg-soft); border: 1px solid var(--border); cursor: zoom-in; transition: transform 0.15s; }}
   .card-gallery img:hover {{ transform: scale(1.05); }}
   .card-gallery::-webkit-scrollbar {{ height: 6px; }}
   .card-gallery::-webkit-scrollbar-track {{ background: var(--bg-soft); border-radius: 3px; }}
@@ -1544,7 +1544,8 @@ def gen_html(client_data, properties):
   @media (max-width: 640px) {{
     .card-actions {{ flex-direction: column; }}
     .card-like {{ width: 100%; justify-content: center; padding: 13px 18px; }}
-    .card-gallery img {{ width: 108px; height: 81px; }}
+    .card-gallery {{ grid-template-columns: repeat(2, 1fr); }}   /* 手機一排兩張，照樣是全部攤開 */
+    .card-gallery img {{ width: 100%; height: 118px; }}
     .lb-nav {{ width: 44px; height: 44px; font-size: 28px; }}
     .lb-close {{ top: 10px; right: 12px; }}
   }}
@@ -2254,17 +2255,28 @@ def gen_html(client_data, properties):
   // 也定期 ping 一次（讓還在閱讀的訪客也記到，避免關閉太快沒記到）
   setTimeout(trackVisit, 30000);
 
-  // 摺疊式路段地圖：展開時才把 src 灌進 iframe（lazy load 省流量、不影響未展開卡片的滑動）
+  // 路段地圖：客戶捲到附近就自動載入，不用點任何東西。
+  // （原本是 details 摺疊、展開才載入 —— 客戶得先點才看得到地圖）
+  // 仍然只在快進入畫面時才灌 src，避免一次開十幾個 Google Maps iframe 把頁面拖慢。
   var MAPS_EMBED_KEY = {json.dumps(GOOGLE_MAPS_EMBED_KEY)};
-  document.querySelectorAll('details.card-map').forEach(function(d) {{
-    d.addEventListener('toggle', function() {{
-      if (!d.open) return;
-      var iframe = d.querySelector('iframe');
-      if (iframe && !iframe.src && iframe.dataset.q) {{
-        iframe.src = 'https://www.google.com/maps/embed/v1/place?key=' + MAPS_EMBED_KEY + '&q=' + encodeURIComponent(iframe.dataset.q);
-      }}
-    }});
-  }});
+  function loadMap(f) {{
+    if (f && !f.src && f.dataset.q) {{
+      f.src = 'https://www.google.com/maps/embed/v1/place?key=' + MAPS_EMBED_KEY + '&q=' + encodeURIComponent(f.dataset.q);
+    }}
+  }}
+  var mapFrames = document.querySelectorAll('.card-map iframe[data-q]');
+  if ('IntersectionObserver' in window) {{
+    var mo = new IntersectionObserver(function(entries) {{
+      entries.forEach(function(e) {{
+        if (!e.isIntersecting) return;
+        loadMap(e.target);
+        mo.unobserve(e.target);
+      }});
+    }}, {{ rootMargin: '300px' }});
+    mapFrames.forEach(function(f) {{ mo.observe(f); }});
+  }} else {{
+    mapFrames.forEach(loadMap);
+  }}
 }})();
 </script>
 
