@@ -2476,6 +2476,31 @@ def publish_endpoint():
         signature = (body.get("signature") or "").strip()
         contact = build_contact(body)
 
+        # ── 查詢台直送完整欄位 → 走緊湊版單物件頁 ──────────────────
+        # 景泰指定仿有巢氏官方分享頁的資訊密度，並要求「不要原本系統那個美編，
+        # 空位太多」。查詢台那端因為解了永慶 API 的加密，欄位比這裡自己爬 SSR
+        # 完整得多（謄本坪數拆分、管理費、建材、電梯、學區…），所以直接送過來。
+        props_in = body.get("props")
+        if isinstance(props_in, list) and len(props_in) == 1 and isinstance(props_in[0], dict):
+            from _lib.single_page import render as _render_single
+            _sid = (body.get("share_id") or "").strip()
+            _upd = bool(_sid and re.fullmatch(r"[A-Za-z0-9]{1,16}", _sid))
+            share_id = _sid if _upd else gen_share_id()
+            html = _render_single(props_in[0], contact, GOOGLE_MAPS_EMBED_KEY, name, need)
+            token = os.environ.get("GITHUB_TOKEN")
+            if not token:
+                return jsonify({"error": "Server 缺 GITHUB_TOKEN 環境變數"}), 500
+            try:
+                github_push(f"{share_id}/index.html", html,
+                            f"{'update' if _upd else 'add'}: single ({share_id})",
+                            token, update=_upd)
+            except urllib.error.HTTPError as e:
+                eb = e.read().decode("utf-8", errors="ignore")[:300]
+                return jsonify({"error": f"GitHub push 失敗 ({e.code}): {eb}"}), 500
+            return jsonify({"url": f"{PAGES_BASE_URL}/{share_id}/", "share_id": share_id,
+                            "count": 1, "client": name,
+                            "mode": "single-updated" if _upd else "single"})
+
         refs = extract_refs(text)
         if not refs:
             return jsonify({"error": "找不到任何物件網址（ycut https://x.ychouse.tw/... 或官方前台 https://buy.u-trust.com.tw/house/...）"}), 400
