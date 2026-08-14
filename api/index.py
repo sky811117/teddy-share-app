@@ -1266,7 +1266,15 @@ def gen_html(client_data, properties):
             break
     _pr = (f"{price_min:,}–{price_max:,} 萬" if price_min != price_max
            else f"{price_min:,} 萬")
-    og_desc = f'{client_data["need"]}｜{total_count} 戶 · {_pr}'
+    # 沒填客戶稱呼 = 通用連結（可以轉發給多人），標題與內文都不出現「給 XX 的」
+    _nm = (client_data.get("name") or "").strip()
+    _nd = (client_data.get("need") or "").strip()
+    og_desc = '｜'.join(x for x in (_nd, f'{total_count} 戶 · {_pr}') if x)
+    page_title = (f'{theme} · 給 {_nm} 的 {total_count} 戶整理' if _nm
+                  else f'{theme} · {total_count} 戶精選')
+    hero_h1 = f'{total_count} 戶 客製整理' if _nm else f'{total_count} 戶 精選'
+    for_client_line = ' · '.join(
+        x for x in ((f'給 {_nm} 的專屬精選' if _nm else ''), _nd) if x)
 
     return f'''<!DOCTYPE html>
 <html lang="zh-Hant">
@@ -1274,8 +1282,8 @@ def gen_html(client_data, properties):
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex,nofollow">
-<title>{theme} · 給 {client_data["name"]} 的 {total_count} 戶整理</title>
-<meta property="og:title" content="{theme} · 給 {client_data["name"]} 的 {total_count} 戶整理">
+<title>{page_title}</title>
+<meta property="og:title" content="{page_title}">
 <meta property="og:description" content="{og_desc}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="{contact["company"]}">
@@ -1283,7 +1291,7 @@ def gen_html(client_data, properties):
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="{theme} · 給 {client_data["name"]} 的 {total_count} 戶整理">
+<meta name="twitter:title" content="{page_title}">
 <meta name="twitter:description" content="{og_desc}">
 <meta name="twitter:image" content="{og_cover}">
 <meta name="theme-color" content="#C9785A">
@@ -1712,8 +1720,8 @@ def gen_html(client_data, properties):
 
 <section class="hero">
   <div class="hero-tag">{theme}</div>
-  <h1>{total_count} 戶 客製整理</h1>
-  <div class="for-client">給 {client_data["name"]} 的專屬精選 · {client_data["need"]}</div>
+  <h1>{hero_h1}</h1>
+  <div class="for-client">{for_client_line}</div>
   <p class="summary">
     精選 {total_count} 個物件 · {district_count} 區 · {community_count} 個社區<br>
     售價 {price_min:,} 萬 ~ {price_max:,} 萬
@@ -2371,9 +2379,11 @@ def publish_endpoint():
         return ("", 204)
     try:
         body = request.get_json(silent=True) or {}
-        name = (body.get("name") or "").strip() or "客戶"
-        need = (body.get("need") or "").strip() or "找房需求"
-        if not need.startswith("找房需求"):
+        # 允許不填客戶稱呼 —— 空的就是通用連結,頁面不會出現「給 XX 的」,可轉發給多人
+        name = (body.get("name") or "").strip()
+        # 需求也允許空:空就整行不出現,不要讓「找房需求」四個字孤零零掛在頁面上
+        need = (body.get("need") or "").strip()
+        if need and not need.startswith("找房需求"):
             need = f"找房需求：{need}"
         text = body.get("urls_text", "")
         theme = (body.get("theme") or "").strip()
