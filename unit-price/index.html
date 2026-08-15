@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>拆車位．真實房屋單價試算 ─ 一品不動產．有巢氏台中世界之心加盟店</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#C8A574">
+<meta name="description" content="輸入總價、總坪、車位價、車位坪，一秒算出拆車位後的真實房屋單價。別被含車位的低單價騙了，帶看、議價現場直接算。">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="真實單價">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+
+<meta property="og:title" content="拆車位．真實房屋單價試算">
+<meta property="og:description" content="別被含車位的低單價騙了。輸入總價、總坪、車位價、車位坪，一秒算真實房屋單價。">
+<meta property="og:image" content="icon-512.png">
+<meta property="og:type" content="website">
+<style>
+  :root {
+    --bg: #FAF7F2;
+    --card: #FFFFFF;
+    --card-tint: #F5EFE3;
+    --wood: #C8A574;
+    --wood-deep: #8B6F4B;
+    --text: #3A3530;
+    --text-soft: #6B6259;
+    --line: #E8DECB;
+    --num: #2C4A2E;
+    --warn: #C75A3C;
+    --warn-bg: #FBE9DE;
+    --good: #4F7549;
+    --good-bg: #EEF4EC;
+  }
+  * { box-sizing: border-box; }
+  html { font-size: 17px; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 28px 20px 80px;
+  }
+  header {
+    text-align: center;
+    padding: 28px 0 18px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 24px;
+  }
+  header .brand {
+    font-size: 15px;
+    color: var(--wood-deep);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  header h1 {
+    font-size: 30px;
+    margin: 6px 0 8px;
+    color: var(--text);
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  header .sub {
+    color: var(--text-soft);
+    font-size: 17px;
+  }
+  .why-box {
+    background: #FFF8E8;
+    border-left: 4px solid var(--wood);
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-size: 15px;
+    color: #7A5D2E;
+    margin: 0 0 24px;
+    line-height: 1.75;
+  }
+  .why-box strong { color: var(--wood-deep); }
+  .card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: 0 2px 14px rgba(139, 111, 75, 0.07);
+    border: 1px solid var(--line);
+    margin-bottom: 22px;
+  }
+  .card h2 {
+    font-size: 21px;
+    margin: 0 0 14px;
+    color: var(--wood-deep);
+    border-bottom: 2px solid var(--wood);
+    padding-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h2 .step {
+    background: var(--wood);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .field {
+    display: grid;
+    grid-template-columns: 1.25fr 1fr;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px dashed #F0E6D0;
+  }
+  .field:last-child { border-bottom: none; }
+  .field label {
+    font-size: 17px;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .field label .hint {
+    display: block;
+    font-size: 13px;
+    color: var(--text-soft);
+    margin-top: 2px;
+    font-weight: 400;
+  }
+  .field-inline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .field input[type="number"] {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 19px;
+    text-align: right;
+    background: #FDFCF7;
+    color: var(--text);
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+  }
+  .field input:focus {
+    outline: none;
+    border-color: var(--wood);
+    background: #FFFEF8;
+  }
+  .field .unit {
+    font-size: 14px;
+    color: var(--text-soft);
+    white-space: nowrap;
+  }
+  /* 結果主橫幅 */
+  .hero {
+    background: linear-gradient(135deg, #F5EFE3 0%, #FDFCF7 100%);
+    border: 2px solid var(--wood);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 22px;
+    text-align: center;
+  }
+  .hero .label {
+    font-size: 16px;
+    color: var(--wood-deep);
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+  .hero .big-num {
+    font-size: 46px;
+    font-weight: 700;
+    color: var(--num);
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    letter-spacing: 1px;
+    line-height: 1.15;
+  }
+  .hero .big-num .u {
+    font-size: 22px;
+    color: var(--wood-deep);
+    margin-left: 4px;
+  }
+  .hero .formula-mini {
+    font-size: 14px;
+    color: var(--text-soft);
+    margin-top: 8px;
+  }
+  .hero .gap {
+    margin-top: 12px;
+    font-size: 16px;
+    color: var(--warn);
+    font-weight: 600;
+  }
+  /* 對照表 */
+  table.r-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 16px;
+  }
+  table.r-table td {
+    padding: 13px 6px;
+    border-bottom: 1px solid #F0E6D0;
+    vertical-align: top;
+  }
+  table.r-table tr:last-child td { border-bottom: none; }
+  table.r-table td .formula {
+    display: block;
+    font-size: 12.5px;
+    color: var(--text-soft);
+    margin-top: 3px;
+  }
+  table.r-table td.num {
+    text-align: right;
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    color: var(--num);
+    font-weight: 600;
+    white-space: nowrap;
+    font-size: 18px;
+  }
+  table.r-table tr.highlight td {
+    background: var(--good-bg);
+    color: var(--good);
+  }
+  table.r-table tr.highlight td.num { color: var(--good); font-size: 20px; }
+  table.r-table tr.faded td { color: var(--text-soft); }
+  table.r-table tr.faded td.num { color: var(--text-soft); font-weight: 500; }
+  /* 議價反推結果 */
+  .verdict {
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-top: 16px;
+    font-size: 16px;
+    line-height: 1.7;
+  }
+  .verdict.high { background: var(--warn-bg); border-left: 4px solid var(--warn); color: #6B3925; }
+  .verdict.low  { background: var(--good-bg); border-left: 4px solid var(--good); color: #2C4A2E; }
+  .verdict.fair { background: var(--card-tint); border-left: 4px solid var(--wood); color: var(--wood-deep); }
+  .verdict .v-num { font-size: 26px; font-weight: 700; font-family: 'Inter', 'Noto Sans TC', sans-serif; display:block; margin: 4px 0; }
+  .verdict .v-sub { font-size: 14px; opacity: 0.9; }
+  .reverse-rows { margin-top: 4px; }
+  .reverse-rows .pay-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 9px 0;
+    border-bottom: 1px dashed #DCD2BB;
+    font-size: 16px;
+  }
+  .reverse-rows .pay-row:last-child { border-bottom: none; }
+  .reverse-rows .pay-row .lbl { color: var(--text-soft); }
+  .reverse-rows .pay-row .val {
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    color: var(--num);
+    font-weight: 600;
+    font-size: 18px;
+  }
+  .placeholder-hint {
+    color: var(--text-soft);
+    font-size: 15px;
+    text-align: center;
+    padding: 14px 0;
+  }
+  .print-btn {
+    background: var(--wood);
+    color: white;
+    border: none;
+    padding: 13px 30px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    margin: 8px auto 0;
+    display: block;
+    font-family: inherit;
+  }
+  .print-btn:hover { background: var(--wood-deep); }
+  footer {
+    margin-top: 44px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+  }
+  footer .legal {
+    background: #F5EFE3;
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-size: 13px;
+    color: var(--text-soft);
+    line-height: 1.8;
+    text-align: left;
+    margin-bottom: 24px;
+  }
+  footer .legal strong { color: var(--wood-deep); }
+  footer .contact {
+    font-size: 15px;
+    color: var(--text);
+    line-height: 1.9;
+  }
+  footer .contact .agent-name {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--wood-deep);
+    display: block;
+    margin-bottom: 4px;
+  }
+  footer .contact a { color: var(--wood-deep); text-decoration: none; }
+  footer .contact a:hover { text-decoration: underline; }
+  footer .cert {
+    font-size: 13px;
+    color: var(--text-soft);
+    margin-top: 8px;
+  }
+  @media print {
+    .print-btn { display: none; }
+    body { background: white; }
+    .card, .hero { box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">一品不動產．有巢氏台中世界之心加盟店</div>
+  <h1>拆車位 ‧ 真實房屋單價</h1>
+  <div class="sub">別被「含車位的低單價」騙了 ‧ 帶看、議價現場直接算</div>
+</header>
+
+<div class="why-box">
+  💡 <strong>為什麼要拆？</strong>廣告上的單價 = 總價 ÷ 總坪，但<strong>車位每坪比房屋便宜很多</strong>，會把平均單價拉低、讓房子看起來「很划算」。把車位的價錢和坪數拆出來，才是房子本身真正的每坪行情，跟實價登錄比才公平。
+</div>
+
+<!-- 輸入區 -->
+<div class="card">
+  <h2><span class="step">1</span>物件條件</h2>
+  <div class="field">
+    <label>總價
+      <span class="hint">開價或成交總價（含車位）</span>
+    </label>
+    <div class="field-inline">
+      <input type="number" id="totalPrice" value="1500" min="0" step="10" inputmode="decimal">
+      <span class="unit">萬</span>
+    </div>
+  </div>
+  <div class="field">
+    <label>建物總坪
+      <span class="hint">權狀總坪數（含車位登記坪）</span>
+    </label>
+    <div class="field-inline">
+      <input type="number" id="totalPing" value="45" min="0" step="0.01" inputmode="decimal">
+      <span class="unit">坪</span>
+    </div>
+  </div>
+  <div class="field">
+    <label>車位價
+      <span class="hint">這個車位單獨值多少（沒車位填 0）</span>
+    </label>
+    <div class="field-inline">
+      <input type="number" id="parkPrice" value="200" min="0" step="5" inputmode="decimal">
+      <span class="unit">萬</span>
+    </div>
+  </div>
+  <div class="field">
+    <label>車位坪
+      <span class="hint">權狀上車位登記坪數（依謄本／權狀為準）</span>
+    </label>
+    <div class="field-inline">
+      <input type="number" id="parkPing" value="10" min="0" step="0.01" inputmode="decimal">
+      <span class="unit">坪</span>
+    </div>
+  </div>
+</div>
+
+<!-- 結果橫幅 -->
+<div class="hero">
+  <div class="label">✅ 拆車位後 ‧ 真實房屋單價</div>
+  <div class="big-num"><span id="realUnit">─</span><span class="u">萬/坪</span></div>
+  <div class="formula-mini" id="realFormula">（總價 − 車位價）÷（總坪 − 車位坪）</div>
+  <div class="gap" id="gapLine"></div>
+</div>
+
+<!-- 對照表 -->
+<div class="card">
+  <h2><span class="step">2</span>四個數字對照</h2>
+  <table class="r-table">
+    <tbody>
+      <tr class="faded">
+        <td>帳面單價（含車位）
+          <span class="formula">總價 ÷ 總坪 ─ 廣告上看到的數字</span>
+        </td>
+        <td class="num"><span id="faceUnit">─</span> 萬/坪</td>
+      </tr>
+      <tr class="highlight">
+        <td>真實房屋單價（拆車位）
+          <span class="formula">(總價 − 車位價) ÷ (總坪 − 車位坪)</span>
+        </td>
+        <td class="num"><span id="realUnit2">─</span> 萬/坪</td>
+      </tr>
+      <tr>
+        <td>房屋實際坪數
+          <span class="formula">總坪 − 車位坪</span>
+        </td>
+        <td class="num"><span id="houseArea">─</span> 坪</td>
+      </tr>
+      <tr>
+        <td>車位單價（參考）
+          <span class="formula">車位價 ÷ 車位坪</span>
+        </td>
+        <td class="num"><span id="parkUnit">─</span> 萬/坪</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 議價反推 -->
+<div class="card">
+  <h2><span class="step">3</span>跟行情對照 ‧ 反推合理總價</h2>
+  <div class="field">
+    <label>同社區／同區 房屋行情單價
+      <span class="hint">實價登錄查到的「純房屋」每坪價（同樣要拆過車位才公平）</span>
+    </label>
+    <div class="field-inline">
+      <input type="number" id="marketUnit" value="" min="0" step="0.1" inputmode="decimal" placeholder="例 35">
+      <span class="unit">萬/坪</span>
+    </div>
+  </div>
+  <div id="reverseResult">
+    <div class="placeholder-hint">↑ 填入行情單價，自動反推這戶的合理總價與議價空間</div>
+  </div>
+</div>
+
+<button class="print-btn" onclick="window.print()">📄 列印 / 存成 PDF</button>
+
+<footer>
+  <div class="legal">
+    <strong>免責聲明</strong><br>
+    1. 本工具採市場慣例的「拆車位」邏輯試算：真實房屋單價＝(總價−車位價)÷(總坪−車位坪)，僅供初步參考。<br>
+    2. 車位價、車位登記坪數請以實際合約、土地／建物謄本、權狀為準；不同車位型態（平面／機械／坡道）登記坪數差異大。<br>
+    3. 「行情單價」請以內政部實價登錄等公開資料為準，且應同樣為拆車位後的純房屋單價，兩邊基準一致比較才有意義。<br>
+    4. 本試算結果<strong>不構成出價、定價或投資建議</strong>，實際成交價受屋況、樓層、座向、市場供需等多項因素影響。<br>
+    5. 本表由有巢氏房屋台中世界之心加盟店景泰提供，僅作為買賣雙方溝通的參考工具。
+  </div>
+  <div class="contact">
+    <span class="agent-name">陳景泰（Teddy）</span>
+    一品不動產．有巢氏房屋台中世界之心加盟店<br>
+    📞 <a href="tel:0920118756">0920-118-756</a>
+    💬 LINE：<a href="https://line.me/ti/p/~sky811117">sky811117</a>
+    📷 IG：<a href="https://instagram.com/nov__817">@nov__817</a>
+    <div class="cert">
+      不動產經紀人：黃永隆（113彰縣字第324號）<br>
+      不動產營業員：陳景泰（114登字第488296號）
+    </div>
+  </div>
+</footer>
+
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const INPUTS = ['totalPrice', 'totalPing', 'parkPrice', 'parkPing', 'marketUnit'];
+
+INPUTS.forEach(id => {
+  const el = $(id);
+  if (el) el.addEventListener('input', render);
+});
+
+// 數字格式：自動取小數位（單價 1 位、坪數 2 位、總價整數）
+function fmt(n, digits) {
+  if (!isFinite(n)) return '─';
+  return Number(n.toFixed(digits)).toLocaleString('zh-TW');
+}
+
+function render() {
+  const totalPrice = parseFloat($('totalPrice').value);   // 萬
+  const totalPing  = parseFloat($('totalPing').value);    // 坪
+  const parkPrice  = parseFloat($('parkPrice').value) || 0; // 萬
+  const parkPing   = parseFloat($('parkPing').value) || 0;  // 坪
+
+  const houseArea  = totalPing - parkPing;                 // 房屋坪
+  const housePrice = totalPrice - parkPrice;               // 房屋總價（萬）
+
+  // 帳面單價
+  const faceUnit = (totalPrice > 0 && totalPing > 0) ? totalPrice / totalPing : NaN;
+  // 真實房屋單價
+  const realUnit = (housePrice > 0 && houseArea > 0) ? housePrice / houseArea : NaN;
+  // 車位單價
+  const parkUnit = (parkPrice > 0 && parkPing > 0) ? parkPrice / parkPing : NaN;
+
+  $('faceUnit').textContent = fmt(faceUnit, 2);
+  $('realUnit').textContent = fmt(realUnit, 2);
+  $('realUnit2').textContent = fmt(realUnit, 2);
+  $('houseArea').textContent = fmt(houseArea, 2);
+  $('parkUnit').textContent = fmt(parkUnit, 2);
+
+  // 帳面 vs 真實 的差距
+  const gapEl = $('gapLine');
+  if (isFinite(faceUnit) && isFinite(realUnit) && faceUnit > 0) {
+    const pct = (realUnit - faceUnit) / faceUnit * 100;
+    if (pct >= 0.5) {
+      gapEl.textContent = `⚠️ 真實單價比帳面（含車位）高 ${fmt(pct, 1)}% ─ 車位把廣告單價拉低了`;
+    } else if (pct <= -0.5) {
+      gapEl.textContent = `真實單價比帳面低 ${fmt(Math.abs(pct), 1)}%（車位單價高於房屋）`;
+    } else {
+      gapEl.textContent = '帳面與真實單價接近';
+    }
+  } else {
+    gapEl.textContent = '';
+  }
+
+  renderReverse(realUnit, houseArea, parkPrice, totalPrice);
+}
+
+function renderReverse(realUnit, houseArea, parkPrice, totalPrice) {
+  const box = $('reverseResult');
+  const marketUnit = parseFloat($('marketUnit').value); // 萬/坪（純房屋）
+
+  if (!isFinite(marketUnit) || marketUnit <= 0 || !isFinite(houseArea) || houseArea <= 0) {
+    box.innerHTML = '<div class="placeholder-hint">↑ 填入行情單價，自動反推這戶的合理總價與議價空間</div>';
+    return;
+  }
+
+  const fairHousePrice = marketUnit * houseArea;        // 合理房屋價（萬）
+  const fairTotal      = fairHousePrice + parkPrice;    // 合理總價含車位（萬）
+  const diff           = totalPrice - fairTotal;        // 開價 − 合理（萬）
+  const diffPct        = fairTotal > 0 ? diff / fairTotal * 100 : NaN;
+
+  let unitCompare = '';
+  if (isFinite(realUnit) && realUnit > 0) {
+    const up = (realUnit - marketUnit) / marketUnit * 100;
+    if (up >= 0.5)      unitCompare = `這戶真實單價 ${fmt(realUnit, 2)} 萬/坪，比行情 ${fmt(marketUnit, 2)} 萬/坪 <strong>高 ${fmt(up, 1)}%</strong>`;
+    else if (up <= -0.5) unitCompare = `這戶真實單價 ${fmt(realUnit, 2)} 萬/坪，比行情 ${fmt(marketUnit, 2)} 萬/坪 <strong>低 ${fmt(Math.abs(up), 1)}%</strong>`;
+    else                 unitCompare = `這戶真實單價 ${fmt(realUnit, 2)} 萬/坪，<strong>幾乎貼齊行情</strong> ${fmt(marketUnit, 2)} 萬/坪`;
+  }
+
+  let verdict = '';
+  if (diffPct >= 1) {
+    verdict = `<div class="verdict high">
+      📈 目前開價比行情合理價<strong>高</strong>
+      <span class="v-num">+${fmt(diff, 0)} 萬（${fmt(diffPct, 1)}%）</span>
+      <span class="v-sub">${unitCompare}。這是參考議價空間，實際仍要看屋況、樓層、座向與屋主立場。</span>
+    </div>`;
+  } else if (diffPct <= -1) {
+    verdict = `<div class="verdict low">
+      📉 目前開價比行情合理價<strong>低</strong>
+      <span class="v-num">−${fmt(Math.abs(diff), 0)} 萬（${fmt(Math.abs(diffPct), 1)}%）</span>
+      <span class="v-sub">${unitCompare}。低於行情通常代表屋況、條件或屋主急售，值得進一步了解。</span>
+    </div>`;
+  } else {
+    verdict = `<div class="verdict fair">
+      ⚖️ 目前開價<strong>貼近行情合理價</strong>
+      <span class="v-num">${diff >= 0 ? '+' : '−'}${fmt(Math.abs(diff), 0)} 萬（${fmt(Math.abs(diffPct), 1)}%）</span>
+      <span class="v-sub">${unitCompare}。價格在合理區間內。</span>
+    </div>`;
+  }
+
+  box.innerHTML = `
+    <div class="reverse-rows">
+      <div class="pay-row"><span class="lbl">合理房屋價（行情單價 × 房屋坪）</span><span class="val">${fmt(fairHousePrice, 0)} 萬</span></div>
+      <div class="pay-row"><span class="lbl">＋ 車位價</span><span class="val">${fmt(parkPrice, 0)} 萬</span></div>
+      <div class="pay-row"><span class="lbl">＝ 合理總價（含車位）</span><span class="val">${fmt(fairTotal, 0)} 萬</span></div>
+      <div class="pay-row"><span class="lbl">目前開價</span><span class="val">${fmt(totalPrice, 0)} 萬</span></div>
+    </div>
+    ${verdict}
+  `;
+}
+
+render();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>

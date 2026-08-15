@@ -1,0 +1,46 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+
+# --- 除錯／探測用暫存檔 ---
+# 注意：底線開頭的規則會誤傷 __init__.py 與既有真檔案，下方逐一放行
+_*.txt
+_*.json
+_*.html
+_*.py
+_*.log
+
+# 放行：這些是真正的程式與資料，不是暫存
+!__init__.py
+!_build_stats.py
+!_data/
+!_data/**
+
+# --- 一次性產生／預覽頁面 ---
+preview_*.html
+preview_*.py
+regen_*.html
+new_*.html
+push_*_fix.py
+*_fixed.html
+
+# --- 備份檔 ---
+*.bak
+*.bak_*
+
+# --- 環境變數 ---
+.env
+.env.*
+!.env.example
+
+# --- 編輯器／系統 ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Claude Code 本機設定 ---
+.claude/
