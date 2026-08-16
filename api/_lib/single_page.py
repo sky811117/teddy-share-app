@@ -40,7 +40,11 @@ def _num(v, suffix='', dash='—', nd=2):
         return dash
     if f <= 0:
         return dash
-    s = ('%.*f' % (nd, f)).rstrip('0').rstrip('.')
+    s = '%.*f' % (nd, f)
+    # 只在有小數點時才砍尾零 —— 否則 nd=0 的整數會被 rstrip('0') 吃掉位數
+    # （2026-08-17：950 萬曾被顯示成 95 萬，就是這裡少了這道判斷）
+    if '.' in s:
+        s = s.rstrip('0').rstrip('.')
     return s + suffix
 
 
@@ -140,7 +144,7 @@ def render(p, contact, maps_key='', client_name='', need=''):
     if imgs:
         gal = ('<section><h2>物件照片 <span class="cnt">%d 張</span></h2>'
                '<div class="gal">%s</div></section>'
-               % (len(imgs), ''.join('<img src="%s" loading="lazy" alt="">' % escape(u)
+               % (len(imgs), ''.join('<img referrerpolicy="no-referrer" src="%s" loading="lazy" alt="">' % escape(u)
                                      for u in imgs)))
 
     # ── 地圖（直接顯示，不用點）────────────────────────────────
@@ -153,7 +157,7 @@ def render(p, contact, maps_key='', client_name='', need=''):
                     '</div></section>' % (escape(maps_key), escape(q)))
     elif p.get('staticMap'):
         map_html = ('<section><h2>地圖</h2><div class="map">'
-                    '<img src="%s" alt="位置圖"></div></section>' % escape(p['staticMap']))
+                    '<img referrerpolicy="no-referrer" src="%s" alt="位置圖"></div></section>' % escape(p['staticMap']))
 
     hero_img = photos[0] if photos else (layout_img or '')
     sub = ' · '.join(x for x in ((client_name and '給 %s' % client_name), need) if x)
@@ -162,7 +166,7 @@ def render(p, contact, maps_key='', client_name='', need=''):
         'title': escape(title),
         'og_img': escape(hero_img),
         'og_desc': escape('%s｜%s 萬' % (addr, _num(price, nd=0))),
-        'hero': ('<img class="hero" src="%s" alt="">' % escape(hero_img)) if hero_img else '',
+        'hero': ('<img class="hero" referrerpolicy="no-referrer" src="%s" alt="">' % escape(hero_img)) if hero_img else '',
         'h1': escape(title),
         'addr': escape(addr),
         'sub': ('<div class="sub">%s</div>' % escape(sub)) if sub else '',
@@ -213,6 +217,7 @@ _SHELL = '''<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
 <title>%(title)s</title>
 <meta property="og:title" content="%(title)s">
 <meta property="og:description" content="%(og_desc)s">
