@@ -1420,7 +1420,7 @@ def gen_html(client_data, properties):
   .container {{ max-width: 1280px; margin: 0 auto; padding: 0 20px; }}
   .hero {{
     background: linear-gradient(135deg, rgba(242,237,228,0.85) 0%, rgba(232,223,210,0.95) 100%),
-                url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1600&q=80') center/cover;
+                url('https://images.unsplash.com/photo-1561196470-073aadc339e3?w=1600&q=80') center/cover;
     padding: 80px 20px 60px; text-align: center; border-bottom: 1px solid var(--border);
   }}
   .hero-tag {{
