@@ -7,7 +7,7 @@
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#C8A574">
-<meta name="description" content="買房自備款試算：成交時要準備多少現金、每月繳多少。含青安3.0（2026/8/1 上路）與現行新青安對照。">
+<meta name="description" content="買房自備款試算：成交時要準備多少現金、每月繳多少。含青安3.0 與一般房貸試算。">
 
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -67,11 +67,6 @@
     color: var(--wood-deep);
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   }
-  .countdown-pill {
-    background: var(--warn); color: #fff; font-size: 14px;
-    padding: 3px 12px; border-radius: 12px; font-weight: 600;
-  }
-  .countdown-pill.ended { background: var(--text-soft); }
   .policy-alert ul { margin: 8px 0 0; padding-left: 20px; font-size: 15px; line-height: 1.85; color: #5A4A32; }
   .policy-alert ul strong { color: var(--wood-deep); }
   .src-note { font-size: 12.5px; color: var(--text-soft); margin-top: 10px; line-height: 1.6; }
@@ -155,7 +150,6 @@
     font-size: 11.5px; padding: 2px 8px; border-radius: 10px;
     background: var(--wood); color: #fff; margin-left: 6px; font-weight: 500; white-space: nowrap;
   }
-  .plan-opt .badge.hot { background: var(--warn); }
   .plan-opt .badge.new { background: var(--ok); }
 
   /* 滑桿 */
@@ -405,15 +399,13 @@
 
 <!-- 政策快訊 -->
 <div class="policy-alert">
-  <h3>📢 青安貸款政策異動 <span class="countdown-pill" id="cdPill">計算中…</span></h3>
+  <h3>📢 青安3.0 重點</h3>
   <ul>
-    <li><strong>現行新青安</strong>（青安2.0）受理至 <strong>2026/07/31</strong>，且<strong>撥款須在 2026/10/31 前</strong>完成。目前<strong>沒有</strong>年齡、所得、房屋總價限制。</li>
-    <li><strong>青安3.0</strong> 經行政院 2026/07/16 院會拍板，<strong>2026/08/01 上路</strong>（受理至 2029/07/31）。新增三道門檻：<strong>申貸未滿 50 歲</strong>、<strong>本人年所得 200 萬以內</strong>、<strong>房屋總價上限（台中 2,000 萬）</strong>；並新增婚育加碼額度（新婚 1,200 萬／育有未成年子女 1,500 萬）。</li>
-    <li>青安的 1.775% 是<strong>機動利率</strong>、且<strong>只全額補貼前 3 年</strong>，第 4 年起補貼每年減半碼、<strong>第 7 年起回到約 2.275%</strong>。此「3+3」設計依財政部 2026/07 定案，<strong>青安 2.0 貸戶一體適用</strong>。</li>
+    <li><strong>青安3.0</strong> 自 <strong>2026/08/01</strong> 上路（受理至 2029/07/31）。三道門檻：<strong>申貸未滿 50 歲</strong>、<strong>本人年所得 200 萬以內</strong>、<strong>房屋總價上限（台中 2,000 萬）</strong>；婚育另有加碼額度（新婚 1,200 萬／育有未成年子女 1,500 萬）。</li>
+    <li>青安的 1.775% 是<strong>機動利率</strong>、且<strong>只全額補貼前 3 年</strong>，第 4 年起補貼每年減半碼、<strong>第 7 年起回到約 2.275%</strong>。此「3+3」設計依財政部 2026/07 定案。</li>
   </ul>
   <div class="src-note">
-    📌 資料來源：財政部國庫署「青年安心成家購屋優惠貸款」貸款原則／問與答（<a href="https://www.nta.gov.tw/singlehtml/108" target="_blank" rel="noopener">nta.gov.tw</a>）；青安3.0 內容依 2026/07/16 行政院院會拍板後之媒體報導（中央社／自由財經／工商時報／經濟日報）整理。
-    ⚠️ <strong>青安3.0 細則（含無自有住宅認定、總價認定基礎、是否限貸一次）財政部尚未發布正式條文，以官方公告為準。</strong>｜資料日期：2026-07-16
+    📌 資料來源：財政部國庫署「貸款原則(青安3.0)」（<a href="https://www.nta.gov.tw/singlehtml/108" target="_blank" rel="noopener">nta.gov.tw/singlehtml/108</a>）、「問答集(青安3.0)」（<a href="https://www.nta.gov.tw/singlehtml/109" target="_blank" rel="noopener">nta.gov.tw/singlehtml/109</a>），2026/07/28 公布。實際以財政部公告與承辦銀行核定為準。｜查證日：2026-10-02
   </div>
 </div>
 
@@ -430,18 +422,11 @@
 <div class="card" style="margin-bottom:22px;">
   <h2><span class="step">1</span>你要試算哪一種貸款？</h2>
   <div class="plan-picker" id="planPicker">
-    <label class="plan-opt" data-plan="qa2">
-      <input type="radio" name="plan" value="qa2">
-      <span>
-        <span class="t">現行新青安（青安2.0）<span class="badge hot" id="badge2">7/31 截止</span></span>
-        <span class="d">無年齡、所得、總價限制，額度 1,000 萬。<strong>需在 2026/07/31 前送件、10/31 前撥款。</strong></span>
-      </span>
-    </label>
     <label class="plan-opt" data-plan="qa3">
-      <input type="radio" name="plan" value="qa3">
+      <input type="radio" name="plan" value="qa3" checked>
       <span>
-        <span class="t">青安3.0<span class="badge new">8/1 上路</span></span>
-        <span class="d">新增年齡／排富／總價門檻，婚育可加貸到 1,200～1,500 萬。利率 1.775% 只保 3 年。</span>
+        <span class="t">青安3.0<span class="badge new">現行方案</span></span>
+        <span class="d">有年齡／排富／總價門檻，婚育可加貸到 1,200～1,500 萬。利率 1.775% 只保 3 年。</span>
       </span>
     </label>
     <label class="plan-opt" data-plan="none">
@@ -502,19 +487,12 @@
   </div>
 
   <div class="card" id="eligCard">
-    <h2><span class="step">3</span>青安資格檢核</h2>
+    <h2><span class="step">3</span>青安3.0 資格檢核</h2>
     <label class="checkbox-row" style="border-bottom:1px dashed #F0E6D0;padding-bottom:12px;">
       <input type="checkbox" id="noHouse" checked>
       <span class="ckbox-text">
         本人、配偶、未成年子女名下<b>皆無自有住宅</b>
-        <small>青安<b>最核心</b>的條件（現行版與 3.0 都要）。以三人「全國財產稅總歸戶財產查詢清單」均查無建物為準；名下有房就不能申請</small>
-      </span>
-    </label>
-    <label class="checkbox-row" id="adultRow">
-      <input type="checkbox" id="isAdult" checked>
-      <span class="ckbox-text">
-        借款人已成年（滿 18 歲）
-        <small>現行版只要成年即可，無年齡上限</small>
+        <small>青安<b>最核心</b>的條件。以三人「全國財產稅總歸戶財產查詢清單」均查無建物為準；名下有房就不能申請</small>
       </span>
     </label>
     <div id="qa3Fields">
@@ -553,7 +531,7 @@
       </div>
       <div class="field">
         <label>房屋所在縣市
-          <span class="hint">青安3.0 的房屋總價上限分三級</span>
+          <span class="hint">青安3.0 的房屋總價上限分三級，以<b>鑑價或買賣總價較高者</b>認定</span>
         </label>
         <select id="city">
           <option value="other" selected>台中市（及其他縣市）</option>
@@ -638,7 +616,7 @@
       </div>
     </div>
 
-    <div class="sec-title qa" id="qaSecTitle">青安貸款</div>
+    <div class="sec-title qa" id="qaSecTitle">青安3.0</div>
     <div class="field">
       <label>基準利率
         <span class="hint">青安利率的計算基礎，跟著郵政 2 年期定儲機動利率走，自 2024/03/27 起為 1.72%（央行 2026 年至今未升降息）</span>
@@ -731,7 +709,7 @@
       <div id="generalDetail"></div>
     </div>
     <div class="compare-col qa" id="qaCol">
-      <h3 id="qaColTitle">青安貸款 <span class="tag">補貼利率</span></h3>
+      <h3 id="qaColTitle">青安3.0 <span class="tag">前 3 年補貼</span></h3>
       <div id="qaDetail"></div>
     </div>
   </div>
@@ -747,12 +725,12 @@
     2. <strong>核貸成數以銀行鑑價與買賣成交價「較低者」為基準計算</strong>（央行規定第三點、第四點）。銀行鑑價結果因個案而異，本工具的鑑價比例為使用者自行假設，非任何預測。<br>
     3. 各項稅費以稅捐機關核定為準；<strong>契稅係按房屋評定標準價格（契價）課徵，非按成交價</strong>。<strong>地政士（代書）各項費用依本店合作地政士事務所現行收費標準列示，該標準不含地政、稅務單位之規費</strong>（規費已於本表另行分列，未重複計算）；實際收費視土地筆數、建物棟數增減，事務所得視實際需要修訂，若另有約定從其約定。銀行火險地震險（每年續保）、開辦費、履約保證費依個案調整，金額為市場常見區間。<br>
     4. 仲介服務費依《不動產仲介經紀業報酬計收標準規定》，向買賣<strong>雙方收取之總額合計不得超過成交價 6%</strong>，該 6% 為收費上限而非固定收費比率，<strong>實際比例由雙方議定</strong>；本表預設買方 2% 為市場慣例，非強制。<br>
-    5. <strong>現行新青安（青安2.0）受理至 2026/07/31，撥款至遲 2026/10/31</strong>（財政部國庫署）。<strong>青安3.0 經行政院 2026/07/16 院會拍板、2026/08/01 上路，惟財政部尚未發布正式條文</strong>，本工具之 3.0 參數係依院會拍板後媒體報導整理，<strong>細則（含無自有住宅認定、房屋總價認定基礎、是否限貸一次、其他計息方式是否保留）以官方公告為準</strong>。<br>
-    6. 青安貸款利率為<strong>機動利率</strong>，隨郵政 2 年期定儲利率調整。依財政部國庫署 2026/07/15 記者會說明，青安3.0 規劃<strong>央行升息時不再加碼補貼</strong>（升息風險由借款人承擔），<strong>惟正式條文尚未發布，以財政部公告為準</strong>。本試算以現行基準利率靜態計算，未預測未來利率變動。<br>
+    5. <strong>青安3.0 自 2026/08/01 上路、受理至 2029/07/31</strong>，本工具之 3.0 參數依財政部國庫署 2026/07/28 公布之「貸款原則(青安3.0)」與「問答集(青安3.0)」整理：房屋總價以<strong>鑑價或買賣總價二者取孰高</strong>認定；112/8/1 以後曾獲貸本項貸款者<strong>不得再申辦</strong>。實際以財政部公告與承辦銀行核定為準。<br>
+    6. 青安貸款利率為<strong>機動利率</strong>，隨郵政 2 年期定儲利率調整。據媒體報導，青安3.0 規劃<strong>央行升息時不再加碼補貼</strong>（升息風險由借款人承擔）；財政部公布之貸款原則與問答集<strong>未明定此點</strong>，以財政部公告為準。本試算以現行基準利率靜態計算，未預測未來利率變動。<br>
     7. 本試算結果<strong>不構成任何具體財務、稅務或法律建議，亦非銀行核貸承諾</strong>。買方應於簽約前洽詢代書、稅務人員、貸款銀行確認實際金額。<br>
     8. <strong>隱私</strong>：本工具所有計算<strong>皆在您的裝置上完成</strong>，您輸入的年齡、所得、家庭狀況等資料<strong>不會被傳送或儲存到任何伺服器</strong>，本店也不會收到。關閉頁面即消失。<br>
     9. 本表由一品不動產．有巢氏房屋台中世界之心加盟店 陳景泰 提供，僅作為買方初步評估參考。<br>
-    <span style="display:block;margin-top:8px;font-size:12.5px;">資料來源：財政部國庫署 <a href="https://www.nta.gov.tw/singlehtml/108" target="_blank" rel="noopener">nta.gov.tw/singlehtml/108</a>｜中央銀行 <a href="https://www.cbc.gov.tw" target="_blank" rel="noopener">cbc.gov.tw</a>｜內政部《成屋買賣定型化契約應記載及不得記載事項》<a href="https://glrs.moi.gov.tw/LawContent.aspx?id=GL000442" target="_blank" rel="noopener">glrs.moi.gov.tw</a>｜資料日期：2026-07-16</span>
+    <span style="display:block;margin-top:8px;font-size:12.5px;">資料來源：財政部國庫署 <a href="https://www.nta.gov.tw/singlehtml/108" target="_blank" rel="noopener">nta.gov.tw/singlehtml/108</a>、<a href="https://www.nta.gov.tw/singlehtml/109" target="_blank" rel="noopener">nta.gov.tw/singlehtml/109</a>（青安3.0 條文查證日 2026-10-02）｜中央銀行 <a href="https://www.cbc.gov.tw" target="_blank" rel="noopener">cbc.gov.tw</a>｜內政部《成屋買賣定型化契約應記載及不得記載事項》<a href="https://glrs.moi.gov.tw/LawContent.aspx?id=GL000442" target="_blank" rel="noopener">glrs.moi.gov.tw</a>｜資料日期：2026-07-16</span>
   </div>
   <div class="contact">
     <span class="agent-name">陳景泰（Teddy）</span>
@@ -774,11 +752,8 @@
 const $ = (id) => document.getElementById(id);
 
 /* ===== 政策常數（2026-07-16 查證）=====
-   來源：財政部國庫署 nta.gov.tw/singlehtml/108、/109（現行青安2.0）
+   來源：財政部國庫署 nta.gov.tw/singlehtml/108、/109（青安貸款原則／問與答）
         青安3.0 依財政部「青安貸款3.0方案」懶人包（2026/07 定案）＋ 財政部國庫署問與答 */
-const QA2_DEADLINE = new Date(2026, 6, 31, 23, 59, 59);   // 2026/07/31 受理截止
-const QA3_START    = new Date(2026, 7, 1, 0, 0, 0);       // 2026/08/01 上路
-
 const QA_SPREAD   = 0.555;   // 一段式加碼（110/1/1 起新貸放戶）
 const SUB_GOV     = 0.375;   // 內政部住宅基金補貼 1.5 碼
 const SUB_BANK    = 0.125;   // 公股銀行減收 0.5 碼
@@ -791,11 +766,10 @@ const QA3_PRICE_CAP = { taipei: 3500, newtaipei: 2500, other: 2000 };      // �
 const QA3_AGE_MAX = 50;      // 申貸時須未滿 50
 const QA3_AGE_SUM = 80;      // 年齡 + 核貸年限 ≤ 80
 const QA3_INCOME_CAP = 200;  // 本人年所得上限（萬）
-const QA2_CAP = 1000;        // 現行青安額度（萬）
 
 const CITY_NAME = { taipei: '台北市', newtaipei: '新北市／新竹縣市', other: '台中市（及其他縣市）' };
 
-let plan = 'qa2';            // qa2 | qa3 | none
+let plan = 'qa3';            // qa3 | none（青安2.0 已於 2026/07/31 截止受理，2026-10-02 移除）
 let isUserEditingLoan = false;
 
 /* ===== 工具函式 ===== */
@@ -807,17 +781,11 @@ function wan(n) {  // 元 → 「約 XXX 萬」
   if (!isFinite(n)) return '─';
   return (n / 10000).toLocaleString('zh-TW', { maximumFractionDigits: 1 });
 }
-/* 以「日曆天」計算相差天數：今天 vs 截止日當天。7/31 當天回 0（最後一天）、8/1 回 -1（已過期） */
 /* 讀取數值輸入並箝制在合理範圍（防負值／超大值造成荒謬結果） */
 function num(id, min, max, fallback) {
   const v = +$(id).value;
   if (!isFinite(v)) return fallback;
   return Math.min(max, Math.max(min, v));
-}
-function daysBetween(deadline, now) {
-  const d0 = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
-  const n0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return Math.round((d0 - n0) / 86400000);
 }
 
 /* 本息平均攤還月付金 */
@@ -838,8 +806,6 @@ function qa3RateOfYear(y, baseRate) {   // y: 0-based
   const sub = (y < 3) ? full : Math.max(0, full - 0.125 * (y - 2));
   return +(board - sub).toFixed(4);
 }
-/* 3.0 定案明文「利息補貼優惠…青安2.0一體適用」→ 2.0 貸戶同一條 3+3 階梯 */
-function qa2RateOfYear(y, baseRate) { return qa3RateOfYear(y, baseRate); }
 function flatRate(r) { return () => r; }
 
 /* 逐月攤還模擬（支援分年變動利率 + 寬限期）
@@ -873,28 +839,11 @@ function simulate(principal, rateOfYear, years, graceYears) {
 }
 
 /* ===== 制度切換 ===== */
-function daysLeft() { return daysBetween(QA2_DEADLINE, new Date()); }
-
-function initPlan() {
-  const d = daysLeft();
-  plan = (d >= 0) ? 'qa2' : 'qa3';   // 7/31（含當天）前預設現行制度，8/1 起自動切 3.0
-  document.querySelector(`input[name="plan"][value="${plan}"]`).checked = true;
-
-  const pill = $('cdPill');
-  if (d > 1) { pill.textContent = `現行版受理還有 ${d} 天`; pill.className = 'countdown-pill'; }
-  else if (d === 1) { pill.textContent = '現行版明天截止受理'; pill.className = 'countdown-pill'; }
-  else if (d === 0) { pill.textContent = '現行版今天最後一天'; pill.className = 'countdown-pill'; }
-  else { pill.textContent = '現行版已截止受理'; pill.className = 'countdown-pill ended'; $('badge2').textContent = '已截止'; }
-}
-
 function syncPlanUI() {
   document.querySelectorAll('.plan-opt').forEach(el => {
     el.classList.toggle('sel', el.dataset.plan === plan);
   });
   $('eligCard').style.display = (plan === 'none') ? 'none' : '';
-  $('qa3Fields').style.display = (plan === 'qa3') ? '' : 'none';
-  $('adultRow').style.display = (plan === 'qa2') ? '' : 'none';
-  $('eligCard').querySelector('h2').innerHTML = `<span class="step">3</span>${plan === 'qa3' ? '青安3.0' : '現行新青安'} 資格檢核`;
   $('qaCol').style.display = (plan === 'none') ? 'none' : '';
   $('qaSecTitle').style.display = (plan === 'none') ? 'none' : '';
   ['baseRate', 'rateQA', 'yearsQA', 'graceQA'].forEach(id => {
@@ -902,14 +851,9 @@ function syncPlanUI() {
   });
   $('qaNote').style.display = (plan === 'none') ? 'none' : '';
 
-  const d = daysLeft();
   const note = $('planNote');
-  if (plan === 'qa2') {
-    note.innerHTML = d >= 0
-      ? `⏳ 現行新青安受理至 <strong>2026/07/31</strong>${d > 0 ? `（還有 ${d} 天）` : '（<strong>今天是最後一天</strong>）'}，且撥款須在 <strong>2026/10/31</strong> 前完成 — 送件到撥款通常要 1~2 個月，這條時程要一起算進來。<br>現行版<strong>沒有</strong>年齡、所得、房屋總價限制；若房屋總價超過青安3.0 的上限（台中 2,000 萬），現行版會是唯一適用的青安方案。`
-      : `⚠️ 現行新青安受理已於 2026/07/31 截止，此為<strong>歷史條件試算</strong>，新案請改選青安3.0。`;
-  } else if (plan === 'qa3') {
-    note.innerHTML = `📅 青安3.0 自 <strong>2026/08/01</strong> 上路（受理至 2029/07/31）。三道新門檻請在右方「資格檢核」確認。<strong>細則以財政部正式公告為準。</strong>`;
+  if (plan === 'qa3') {
+    note.innerHTML = `📅 三道門檻請到第 3 步「資格檢核」確認。<strong>細則以財政部正式公告為準。</strong>`;
   } else {
     note.innerHTML = `一般房貸不受青安資格限制，但無政府利息補貼。`;
   }
@@ -917,21 +861,13 @@ function syncPlanUI() {
 
 /* ===== 資格檢核 =====
    注意：「年齡 + 年限 ≤ 80」不是「不符資格」，而是「年限要縮短」— 不可列入 pass 判定 */
-function checkEligibility(priceWan, isQA3) {
+function checkEligibility(priceWan) {
   const noHouse = $('noHouse').checked;
-  const isAdult = $('isAdult').checked;
   const items = [];
 
   items.push({ st: noHouse ? 'pass' : 'fail', txt: noHouse
     ? `本人、配偶、未成年子女<b>皆無自有住宅</b>，符合`
     : `<b>名下已有自有住宅 — 不符合青安資格</b>（本人、配偶、未成年子女三者名下均不得有房）` });
-
-  if (!isQA3) {
-    items.push({ st: isAdult ? 'pass' : 'fail', txt: isAdult
-      ? `借款人已成年，符合（現行版無年齡上限）`
-      : `<b>借款人未成年 — 不符合青安資格</b>` });
-    return { items, pass: noHouse && isAdult, cap: QA2_CAP, maxYears: 40, capReason: '現行版額度上限' };
-  }
 
   const age = Math.round(num('age', 0, 120, 35));
   const income = num('income', 0, 100000, 0);
@@ -982,26 +918,18 @@ function checkEligibility(priceWan, isQA3) {
   return { items, pass, cap, maxYears, priceCap, city, capReason: '青安3.0 額度上限' };
 }
 
-function renderEligibility(elig, isQA3) {
+function renderEligibility(elig) {
   const ic = { pass: '✅', fail: '❌', note: '💡' };
   $('eligList').innerHTML = elig.items.map(i =>
     `<div class="elig-item ${i.st}"><span class="ic">${ic[i.st]}</span><span>${i.txt}</span></div>`
   ).join('');
   const v = $('eligVerdict');
-  const name = isQA3 ? '青安3.0' : '現行新青安';
   if (elig.pass) {
     v.className = 'elig-verdict ok';
-    v.innerHTML = `✅ 初步符合${name}，額度上限 ${elig.cap.toLocaleString('zh-TW')} 萬<br><span style="font-size:13.5px;font-weight:400;">仍須經銀行審核（收入、信用、鑑價）。${isQA3 ? '依財政部青安3.0定案方案（2026/07）。' : ''}</span>`;
+    v.innerHTML = `✅ 初步符合青安3.0，額度上限 ${elig.cap.toLocaleString('zh-TW')} 萬<br><span style="font-size:13.5px;font-weight:400;">仍須經銀行審核（收入、信用、鑑價）。依財政部青安3.0定案方案（2026/07）。</span>`;
   } else {
     v.className = 'elig-verdict no';
-    const d = daysLeft();
-    let hint = '';
-    if (isQA3 && d >= 0) {
-      hint = `<br><span style="font-size:13.5px;font-weight:400;">💡 現行版沒有年齡／所得／總價限制，${d === 0 ? '<b>今天</b>是受理最後一天' : `<b>${d} 天內</b>送件`}仍可能適用 — 可切換上方「現行新青安」試算。</span>`;
-    } else {
-      hint = `<br><span style="font-size:13.5px;font-weight:400;">可改選上方「只算一般房貸」試算。</span>`;
-    }
-    v.innerHTML = `❌ 不符合${name}條件${hint}`;
+    v.innerHTML = `❌ 不符合青安3.0條件<br><span style="font-size:13.5px;font-weight:400;">可改選上方「只算一般房貸」試算。</span>`;
   }
 }
 
@@ -1033,10 +961,9 @@ function render() {
 
   /* --- 資格與額度 --- */
   let elig = null, capWan = Infinity, qaBlocked = false;
-  if (plan === 'qa3' || plan === 'qa2') {
-    const isQA3 = plan === 'qa3';
-    elig = checkEligibility(priceWan, isQA3);
-    renderEligibility(elig, isQA3);
+  if (plan === 'qa3') {
+    elig = checkEligibility(priceWan);
+    renderEligibility(elig);
     if (elig.pass) {
       capWan = elig.cap;
     } else {
@@ -1044,7 +971,7 @@ function render() {
       capWan = Infinity;
     }
     // 年齡壓縮年限：自動夾住（這是調整年限，不是取消資格）
-    if (isQA3 && elig.pass) {
+    if (elig.pass) {
       $('yearsQA').max = elig.maxYears;
       if (+$('yearsQA').value > elig.maxYears) $('yearsQA').value = elig.maxYears;
     } else {
@@ -1085,18 +1012,16 @@ function render() {
     notes.push(`核貸基準 = min(鑑價 ${wan(apprValue)} 萬, 成交價 ${wan(price)} 萬) = <b>${wan(base)} 萬</b>；× ${loanRatio}% = <b>${wan(bankMax)} 萬</b>`);
   }
   if (qaBlocked) {
-    notes.push(`❌ 目前不符${plan === 'qa3' ? '青安3.0' : '青安'}資格（見右方檢核），全額以<b>一般房貸</b>條件計算。`);
+    notes.push(`❌ 目前不符青安3.0資格（見第 3 步檢核），全額以<b>一般房貸</b>條件計算。`);
   } else if (useQA && extraPart > 0) {
     const why = [];
     if (capAmt !== Infinity && qaPart >= capAmt - 1) why.push(`青安額度上限 ${capWan.toLocaleString('zh-TW')} 萬`);
     if (qaPart >= qaMaxByRatio - 1 && loanRatio > QA_MAX_RATIO) why.push('青安成數上限 8 成');
-    notes.push(`💡 <b>青安 ${wan(qaPart)} 萬</b>（受${why.join('＋') || '青安上限'}）<b> + 一般房貸 ${wan(extraPart)} 萬</b> 搭配承作 —— 依財政部規定「超過額度部分適用<b>承貸銀行之其他貸款方案</b>」，也就是跟同一家銀行再辦一筆一般房貸。<b>不是貸不到，頭期款不會因此變多</b>，只是超出的那段沒有補貼、利率較高。詳細做法見下方「每月房貸月付金」的說明。`);
+    notes.push(`💡 <b>青安 ${wan(qaPart)} 萬</b>（受${why.join('＋') || '青安上限'}）<b> + 一般房貸 ${wan(extraPart)} 萬</b> 搭配承作 —— 依財政部規定「超過最高額度部分，則適用<b>承辦銀行之其他貸款方案</b>」，也就是跟同一家銀行再辦一筆一般房貸。<b>不是貸不到，頭期款不會因此變多</b>，只是超出的那段沒有補貼、利率較高。詳細做法見下方「每月房貸月付金」的說明。`);
   }
   $('loanNote').innerHTML = notes.join('<br>');
 
-  $('qaNote').innerHTML = (plan === 'qa3')
-    ? `💡 青安3.0 的 1.775% 是<b>機動利率、只全額補貼前 3 年</b>，第 4 年起補貼每年減半碼，<b>第 7 年起回到約 ${(baseRate + QA_SPREAD).toFixed(3)}%</b>（官方例示：1,000 萬 6 年共省 22.5 萬利息，與本表模型一致）。另據媒體報導財政部已定調<b>央行升息時不再加碼補貼</b>，升息由借款人自行承擔。<br><span style="font-size:12.5px;">（分年利率依財政部「青安貸款3.0方案」懶人包，2026/07 定案）</span>`
-    : `💡 現行青安（2.0）為<b>機動利率</b>，隨郵政 2 年期定儲利率調整。⚠️ 3.0 定案後「滿 3 年補貼、之後每年減半碼、第 7 年起回牌告」<b>對青安 2.0 貸戶一體適用</b>，本表已按此試算。二段式與混合式計息自 3.0 起刪除（逾 9 成貸戶本就選一段式）。<br><span style="font-size:12.5px;">💒 7/31 前申請的<b>婚育家庭</b>：撥貸前可憑戶籍謄本／媽媽手冊撤案改申請 3.0（額度提高為 1,200／1,500 萬）。資料來源：財政部「青安貸款3.0方案」懶人包（2026/07）、國庫署問與答 nta.gov.tw/singlehtml/109</span>`;
+  $('qaNote').innerHTML = `💡 青安3.0 的 1.775% 是<b>機動利率、只全額補貼前 3 年</b>，第 4 年起補貼每年減半碼，<b>第 7 年起回到約 ${(baseRate + QA_SPREAD).toFixed(3)}%</b>（官方例示：1,000 萬 6 年共省 22.5 萬利息，與本表模型一致）。另據媒體報導財政部已定調<b>央行升息時不再加碼補貼</b>，升息由借款人自行承擔。<br><span style="font-size:12.5px;">（分年利率依財政部「青安貸款3.0方案」懶人包，2026/07 定案）</span>`;
 
   /* --- 一次性費用 --- */
   const landWan = +$('landValue').value || 0;
@@ -1203,15 +1128,10 @@ function render() {
   $('generalDetail').innerHTML = renderLoan(gen, loanAmount, `${rGen}%`, yGen, gGen, false);
 
   if (plan !== 'none') {
-    const isQA3 = plan === 'qa3';
-    $('qaColTitle').innerHTML = isQA3
-      ? `青安3.0 <span class="tag">前 3 年補貼</span>`
-      : `現行新青安 <span class="tag">補貼利率</span>`;
-
     if (qaBlocked) {
-      $('qaDetail').innerHTML = `<div style="padding:18px 0;color:var(--text-soft);font-size:15px;text-align:center;line-height:1.7;">不符合${isQA3 ? '青安3.0' : '青安'}資格<br><span style="font-size:13.5px;">請見上方資格檢核；左欄的一般房貸試算仍然有效</span></div>`;
+      $('qaDetail').innerHTML = `<div style="padding:18px 0;color:var(--text-soft);font-size:15px;text-align:center;line-height:1.7;">不符合青安3.0資格<br><span style="font-size:13.5px;">請見上方資格檢核；左欄的一般房貸試算仍然有效</span></div>`;
     } else {
-      const rateFn = (y) => qa3RateOfYear(y, baseRate);   // 3+3 階梯，2.0/3.0 一體適用（財政部定案）
+      const rateFn = (y) => qa3RateOfYear(y, baseRate);   // 3+3 階梯（財政部定案）
       const qa = simulate(qaPart, rateFn, yQA, gQA);
       const ex = extraPart > 0 ? simulate(extraPart, flatRate(rGen), yGen, gGen) : null;
       const rateLabel = `${qaRate}% 起（階梯）`;
@@ -1230,10 +1150,10 @@ function render() {
     gAlerts.push(`⚠️ <strong>兩筆貸款的寬限期可能不同步：</strong>青安寬限期最長 5 年，但搭配的一般房貸那筆由銀行自訂（可能只有 2~3 年，或完全沒有），<strong>現金流可能出現兩個跳升點</strong>。本表以你在左方設定的一般房貸寬限期試算，實際請以銀行核定為準。`);
   }
   if (plan === 'qa3') {
-    gAlerts.push(`⚠️ <strong>青安的利率會自己往上爬（2.0／3.0 都一樣）：</strong>1.775% 只全額補貼前 3 年，第 4 年起補貼每年減半碼，第 7 年起回到約 ${(baseRate + QA_SPREAD).toFixed(3)}%。若同時搭 5 年寬限期，<strong>第 6 年會同時遇到「開始還本金」+「利率已爬升」的雙重跳升</strong>，這是最需要提前準備的一年。`);
+    gAlerts.push(`⚠️ <strong>青安的利率會自己往上爬：</strong>1.775% 只全額補貼前 3 年，第 4 年起補貼每年減半碼，第 7 年起回到約 ${(baseRate + QA_SPREAD).toFixed(3)}%。若同時搭 5 年寬限期，<strong>第 6 年會同時遇到「開始還本金」+「利率已爬升」的雙重跳升</strong>，這是最需要提前準備的一年。`);
   }
   if (plan !== 'none') {
-    gAlerts.push(`📌 青安為<strong>機動利率</strong>，上表以現行基準利率 ${baseRate}% 靜態試算，未預測未來央行升降息。${plan === 'qa3' ? '青安3.0 已定調升息時政府不再加碼補貼，升息風險由借款人承擔。' : ''}`);
+    gAlerts.push(`📌 青安為<strong>機動利率</strong>，上表以現行基準利率 ${baseRate}% 靜態試算，未預測未來央行升降息。據媒體報導，青安3.0 升息時政府不再加碼補貼，升息風險由借款人承擔。`);
   }
   $('graceAlert').innerHTML = gAlerts.join('<br><br>');
   $('graceAlert').style.display = gAlerts.length ? '' : 'none';
@@ -1333,11 +1253,11 @@ function renderLoanSplit(qa, ex, qaPart, extraPart, qaRateLabel, rGen, yQA, gQA,
     <details class="topup-detail">
       <summary>💡 超過青安額度的 ${wan(extraPart)} 萬要怎麼辦？（點開）</summary>
       <div class="topup-body">
-        <p><b>跟承作青安的同一家銀行，再辦一筆該行的一般房貸補足。</b>財政部明文規定：「借款金額如逾 1,000 萬元，在最高 1,000 萬元之內，適用本項貸款，<b>超過 1,000 萬元部分，則適用承貸銀行之其他貸款方案</b>」。所以超過額度<b>不是貸不到</b>，只是超出的那段沒有政府補貼、利率照該行一般房貸走。</p>
+        <p><b>跟承作青安的同一家銀行，再辦一筆該行的一般房貸補足。</b>財政部明文規定：「本項貸款最高額度為1,000萬元（新婚家庭為1,200萬元、育兒家庭為1,500萬元），借款金額如逾上開最高貸款額度，在最高額度之內，適用本項貸款，<b>超過最高額度部分，則適用承辦銀行之其他貸款方案</b>」。所以超過額度<b>不是貸不到</b>，只是超出的那段沒有政府補貼、利率照該行一般房貸走。</p>
         <p><b>這不是二胎。</b>二胎是房貸辦完之後、再找別家銀行設第二順位的週轉型貸款，利率高一個級距。這裡講的是<b>買房當下、同一家銀行、同一間房子、一次送件</b>，只是把貸款拆成兩個帳戶、兩段利率。實務上一起送審、一次設定抵押權，不用跑兩趟。</p>
         <p>⚠️ <b>簽約前一定要問清楚差額那筆的「年限」與「寬限期」。</b>青安最長可做 40 年、寬限 5 年，但差額那筆是銀行自己的方案，<b>條件由銀行自訂、不一定跟青安同步</b>（常見只給 30 年、寬限期也可能較短）。年限縮短，月付金差很多。本表的差額段是套用左欄「一般房貸」的利率與年限試算，你可以自行調整看看。</p>
         <p>⛔ <b>如果有人建議用「修繕貸款」「周轉金」的名目來補差額，請拒絕。</b>央行明文規定：金融機構辦理購置住宅貸款，不得以修繕、周轉金或其他貸款名目承作。</p>
-        <p class="src">📌 資料來源：財政部國庫署「公股銀行辦理青年安心成家購屋優惠貸款問與答」第十一問（<a href="https://www.nta.gov.tw/singlehtml/109" target="_blank" rel="noopener">nta.gov.tw/singlehtml/109</a>）；中央銀行「對金融機構辦理不動產抵押貸款業務規定」問與答（<a href="https://www.cbc.gov.tw/tw/lp-1055-1.html" target="_blank" rel="noopener">cbc.gov.tw</a>）｜查證日 2026-07-16<br>
+        <p class="src">📌 資料來源：財政部國庫署「問答集(青安3.0)」第十四問（<a href="https://www.nta.gov.tw/singlehtml/109" target="_blank" rel="noopener">nta.gov.tw/singlehtml/109</a>，查證日 2026-10-02）；中央銀行「對金融機構辦理不動產抵押貸款業務規定」問與答（<a href="https://www.cbc.gov.tw/tw/lp-1055-1.html" target="_blank" rel="noopener">cbc.gov.tw</a>，查證日 2026-07-16）<br>
         ⚠️ 差額由「同一家銀行」承作為<b>實務常態</b>，財政部並無「必須同一家」的明文規定；實際能否核准、額度、利率、年限，一律<b>以承貸銀行核定為準</b>，本表非核貸承諾。</p>
       </div>
     </details>` : ''}
@@ -1409,7 +1329,7 @@ function renderStepTable(calc, baseRate) {
         <tbody>${rows}</tbody>
       </table>
       <div style="font-size:12.5px;color:#6B6259;margin-top:8px;line-height:1.6;">
-        補貼結構：政府 ${SUB_GOV}%（1.5 碼）+ 銀行 ${SUB_BANK}%（0.5 碼）＝ ${SUB_GOV + SUB_BANK}%，前 3 年全額；滿 3 年之次日起每年減少半碼，<b>第 7 年起回復牌告 ${(baseRate + QA_SPREAD).toFixed(3)}%</b>。青安 2.0 貸戶一體適用。
+        補貼結構：政府 ${SUB_GOV}%（1.5 碼）+ 銀行 ${SUB_BANK}%（0.5 碼）＝ ${SUB_GOV + SUB_BANK}%，前 3 年全額；滿 3 年之次日起每年減少半碼，<b>第 7 年起回復牌告 ${(baseRate + QA_SPREAD).toFixed(3)}%</b>。
         （<b>1 碼 = 0.25%</b>，半碼 = 0.125%，是銀行業講利率的習慣單位）<br>
         <b>📌 依財政部「青安貸款3.0方案」懶人包（2026/07 定案）；官方例示 1,000 萬 6 年共省 22.5 萬利息，與本表分年模型吻合。</b>
       </div>
@@ -1419,10 +1339,10 @@ function renderStepTable(calc, baseRate) {
 /* ===== 事件綁定 ===== */
 const INPUTS = ['price', 'apprRatio', 'loanRatio', 'loanAmount', 'landValue', 'houseValue', 'landCurrent',
   'useEstimate', 'rateGeneral', 'yearsGeneral', 'graceGeneral', 'baseRate', 'yearsQA', 'graceQA',
-  'age', 'income', 'famNewlywed', 'famChild', 'city', 'noHouse', 'isAdult'];
+  'age', 'income', 'famNewlywed', 'famChild', 'city', 'noHouse'];
 
 const RESET_LOAN = ['price', 'apprRatio', 'loanRatio', 'age', 'income',
-  'famNewlywed', 'famChild', 'city', 'yearsQA', 'noHouse', 'isAdult'];
+  'famNewlywed', 'famChild', 'city', 'yearsQA', 'noHouse'];
 
 INPUTS.forEach(id => {
   const el = $(id);
@@ -1445,7 +1365,7 @@ document.querySelectorAll('input[name="plan"]').forEach(r => {
   });
 });
 
-initPlan();
+document.querySelector(`input[name="plan"][value="${plan}"]`).checked = true;   // 防瀏覽器重整時還原成舊選項
 syncPlanUI();
 render();
 
