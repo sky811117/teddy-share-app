@@ -1,4 +1,4 @@
-const CACHE_NAME = 'buyer-fee-v6-qa3-only';
+const CACHE_NAME = 'buyer-fee-v7-2nd-home-70';
 const ASSETS = [
   './',
   './index.html',
