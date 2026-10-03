@@ -1455,8 +1455,15 @@ def _p_business591(url):
     _dirty = (re.search(r'[一-鿿]{2,5}(?:房屋|不動產|房產|地產|物業|房仲|建設|開發)', ct)
               or re.search(r'0\d{8,9}', ct) or len(ct) < 5)
     if _dirty:
-        _road = (out.get("address") or "").split("區", 1)[-1].strip()
-        ct = (_road + " 商辦") if _road else "七期精選商辦"
+        _addr = out.get("address") or ""
+        _road = _addr.split("區", 1)[-1].strip()
+        if _road:
+            ct = _road + " 商辦"
+        else:
+            # 路段也沒有 → 結構化名稱「X區 商辦 N樓」（不寫死地段行銷詞、不用「精選」）
+            _dm = re.search(r"([一-鿿]{1,3}區)", _addr)
+            ct = " ".join(x for x in ((_dm.group(1) if _dm else ""), "商辦",
+                                      (f"{out['floor']}樓" if out.get("floor") else "")) if x)
     out["community_display"] = ct
     out["og_title"] = ct
     return out

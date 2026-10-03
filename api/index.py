@@ -7,13 +7,16 @@ Vercel serverless function — 客戶推薦頁產生器後端
 import os
 import re
 import json
+import hmac
 import base64
 import secrets
 import datetime
 import urllib.request
 import urllib.error
 import concurrent.futures
+from urllib.parse import urlsplit
 from html import unescape          # 只匯入函式，避免跟到處都在用的區域變數 html 撞名
+from html import escape as _esc
 from flask import Flask, request, jsonify, send_from_directory
 
 # 競品站解析器(信義/住商/台灣房屋/591/東森/中信/21世紀/太平洋/全國/大家/樂屋/好房)
@@ -25,6 +28,23 @@ try:
 except Exception as _e:
     print(f"competitors module load failed: {_e}")
     _COMP = None
+
+# 洗白／稽核共用三檔（與查詢台 yc_front_home 一字不差，test_vendor_sync 比對 sha256）。
+# ⛔ 載入失敗 → 推 GitHub 前的稽核做不了 → 所有產頁一律擋（公開 repo 推上去就收不回來）
+try:
+    from _lib import mp_lexicon as _L, mp_scrub as _SC, mp_audit as _A
+except Exception as _e:
+    print(f"mp_* module load failed: {_e}")
+    _L = _SC = _A = None
+
+# 版本標記（查詢台看回應的 render／build 判斷 Vercel 是不是新版；不對 → 請景泰 Redeploy 並取消 build cache）
+BUILD = "2026-10-03-mp"
+RENDER_CARDS = "cards-v2"
+RENDER_SINGLE = "single-v2"
+SHARE_MAX = 20                       # 一次最多 20 張卡（與 mp_config.SHARE_MAX 同值）
+CARD_LINKS_MAX = 12                  # 每張卡原始刊登連結上限
+CARD_GALLERY_MAX = 24                # 每張卡照片上限
+OWNER_AGENT = "陳景泰"               # 愛心推播、官網推廣只給景泰本人頁
 
 GITHUB_OWNER = "sky811117"
 GITHUB_REPO = "teddy-shares"
@@ -648,7 +668,335 @@ def extract_refs(text):
 
 
 def gen_share_id():
-    return re.sub(r"[^a-zA-Z0-9]", "", secrets.token_urlsafe(8))[:8]
+    """一般 share_id（8 碼英數）。⛔ 不產生 qs 開頭：qs＝查詢台金鑰路徑專用（CONTRACT §5）。"""
+    while True:
+        sid = re.sub(r"[^a-zA-Z0-9]", "", secrets.token_urlsafe(12))[:8]
+        if len(sid) == 8 and not sid.lower().startswith("qs"):
+            return sid
+
+
+def gen_props_share_id():
+    """查詢台金鑰路徑（props）的新 share_id：qs＋8 碼英數。"""
+    while True:
+        tail = re.sub(r"[^a-zA-Z0-9]", "", secrets.token_urlsafe(12))[:8]
+        if len(tail) == 8:
+            return "qs" + tail
+
+
+# ============== 跳脫、網址白名單、卡片洗白（cards-v2） ==============
+
+def _h(v):
+    """插進 HTML 的文字一律跳脫（含引號；屬性值也安全）。"""
+    return _esc("" if v is None else str(v), quote=True)
+
+
+def _js(v):
+    """塞進 <script> 的 JSON：再跳脫 < > &，避免客戶稱呼裡的 </script> 把腳本斷開。"""
+    return json.dumps(v).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+
+
+def _host_in(host, domains):
+    host = (host or "").lower().rstrip(".")
+    return any(host == d or host.endswith("." + d) for d in domains)
+
+
+def _img_ref(u):
+    """591 圖床不帶 Referer 會 403（P0b 實測）→ 個別覆蓋頁面的 no-referrer；其他平台一律 no-referrer。"""
+    try:
+        host = urlsplit(u if not str(u).startswith("//") else "https:" + u).hostname or ""
+    except ValueError:
+        host = ""
+    return "strict-origin-when-cross-origin" if _host_in(host, ("591.com.tw",)) else "no-referrer"
+
+
+def _img_tag(u, alt=""):
+    return (f'<img src="{_h(u)}" loading="lazy" decoding="async" referrerpolicy="{_img_ref(u)}" '
+            f'alt="{_h(alt)}" />')
+
+
+# 控制字元、零寬、方向控制（換行與 tab 另外處理）
+_CTRL_RE = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f​-‏‪-‮⁠-⁤⁦-⁩﻿]")
+
+
+def _clean_str(v, maxlen=200, keep_nl=False):
+    """去控制字元、截長；不是字串或數字一律當空字串。"""
+    if v is None or isinstance(v, bool) or not isinstance(v, (str, int, float)):
+        return ""
+    s = _CTRL_RE.sub("", str(v)).replace("\r\n", "\n").replace("\r", "\n").replace("\t", " ")
+    if not keep_nl:
+        s = s.replace("\n", " ")
+    return s.strip()[:maxlen]
+
+
+def _num_or_none(v, as_int=False, lo=0.0, hi=None):
+    if v is None or isinstance(v, bool):
+        return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    if f != f or f in (float("inf"), float("-inf")) or f < lo or (hi is not None and f > hi):
+        return None
+    return int(round(f)) if as_int else round(f, 2)
+
+
+def _safe_url(u, hosts):
+    """只收 https、host 在白名單、沒有帳密與會斷開屬性的字元；不合格回空字串。"""
+    u = _clean_str(u, 2000)
+    if not u:
+        return ""
+    if u.startswith("//"):
+        u = "https:" + u
+    if re.search(r"[\s\"'<>\\`]", u):
+        return ""
+    try:
+        p = urlsplit(u)
+    except ValueError:
+        return ""
+    if (p.scheme or "").lower() != "https" or not p.hostname or p.username or p.password:
+        return ""
+    return u if _host_in(p.hostname, hosts) else ""
+
+
+def _short(v, maxlen=80):
+    """短欄位（社區名、型態、格局、車位、樓層）：去控制字元後過 mp_scrub.scrub_short，洗不乾淨回空字串。"""
+    s = _clean_str(v, maxlen)
+    return (_SC.scrub_short(s) or "") if s else ""
+
+
+def _rent_info(r):
+    """租屋條件：只留 CLIENT_RENT_KEYS（rent/mgmt/mgmt_incl/deposit/parking_fee/min_lease/tags）。"""
+    if not isinstance(r, dict):
+        return None
+    out = {
+        "rent": _num_or_none(r.get("rent"), True, 0, 10_000_000),
+        "mgmt": _num_or_none(r.get("mgmt"), True, 0, 1_000_000),
+        "mgmt_incl": r.get("mgmt_incl") if isinstance(r.get("mgmt_incl"), bool) else None,
+        "parking_fee": _num_or_none(r.get("parking_fee"), True, 0, 1_000_000),
+    }
+    for k in ("deposit", "min_lease"):                    # 月數（數字）或文字
+        v = r.get(k)
+        n = _num_or_none(v, False, 0, 600)
+        out[k] = n if n is not None else (_short(v, 20) or None)
+    tags = r.get("tags") if isinstance(r.get("tags"), list) else []
+    out["tags"] = [t for t in (_short(x, 16) for x in tags[:12]) if t]
+    return out
+
+
+def _sanitize_card(c):
+    """查詢台送來的一張 _card → 白名單 dict（CONTRACT §5 型別）。
+    回 (card, 丟掉的鍵, secrets)；格式錯丟 ValueError（呼叫端回 400）。"""
+    if not isinstance(c, dict) or c.get("_card") is not True:
+        raise ValueError("卡片缺 _card")
+    mode = c.get("mode") or "sale"
+    if mode not in ("sale", "rent"):
+        raise ValueError("mode 只能是 sale 或 rent")
+    dropped = [k for k in c if k != "_card" and k not in _L.CARD_KEYS]
+    hosts = _L.CARD_URL_HOSTS
+    secrets_ = set()
+
+    addr = _SC.road_only(_clean_str(c.get("address"), 120))
+    addr = (_SC.scrub_short(addr) or "") if addr else ""
+    btype = _short(c.get("building_type"), 20)
+    floor = _short(c.get("floor"), 20)
+    title = _L.TITLE_FORBIDDEN_RE.sub("", _short(c.get("og_title"), 120)).strip()
+    if not title:                                          # 標題洗不乾淨 → 區＋路＋型態＋樓層
+        title = " ".join(x for x in (addr, btype, floor) if x) or "物件"
+    comm = _short(c.get("community_display"), 60) or None
+
+    intro_raw = _clean_str(c.get("intro"), _L.BODY_IN_MAX, keep_nl=True)
+    intro = ""
+    if intro_raw:
+        r = _SC.scrub_body(intro_raw, "card", deal=mode)
+        intro, secrets_ = r.text, set(r.secrets)
+
+    gallery, seen = [], set()
+    for u in (c.get("gallery") if isinstance(c.get("gallery"), list) else [])[:60]:
+        u = _safe_url(u, hosts)
+        if u and u not in seen:
+            seen.add(u)
+            gallery.append(u)
+    gallery = gallery[:CARD_GALLERY_MAX]
+    og_image = _safe_url(c.get("og_image"), hosts) or (gallery[0] if gallery else "")
+
+    links = []
+    for ln in (c.get("links") if isinstance(c.get("links"), list) else [])[:40]:
+        url = _safe_url(ln.get("url") if isinstance(ln, dict) else ln, hosts)
+        if url and url not in [x["url"] for x in links]:
+            links.append({"n": len(links) + 1, "url": url})   # 顯示一律依序重編 1…N
+    links = links[:CARD_LINKS_MAX]
+
+    pr = c.get("price_range")
+    price_range = None
+    if mode == "sale" and isinstance(pr, (list, tuple)) and len(pr) == 2:
+        lo, hi = _num_or_none(pr[0], False, 0, 1e6), _num_or_none(pr[1], False, 0, 1e6)
+        if lo and hi:
+            price_range = [min(lo, hi), max(lo, hi)]
+
+    rent = _rent_info(c.get("rent")) if mode == "rent" else None
+    price = _num_or_none(c.get("price"), True, 0, 10_000_000 if mode == "rent" else 1_000_000) or 0
+    if mode == "rent" and not price and rent and rent.get("rent"):
+        price = rent["rent"]
+
+    map_q = _SC.road_only(_clean_str(c.get("map_q"), 120))
+    map_q = (_SC.scrub_short(map_q) or "") if map_q else ""
+    if not map_q and addr:
+        map_q = _L.CITY + addr if not addr.startswith(_L.CITY) else addr
+
+    slug = _clean_str(c.get("slug"), 40)
+    src_urls = [u for u in (_clean_str(x, 500) for x in (c.get("src_url") if isinstance(c.get("src_url"), list)
+                                                         else [])[:12]) if u.startswith("https://")]
+    card = {
+        "_card": True,
+        "og_title": title,
+        "community_display": comm,
+        "address": addr,
+        "price": price,
+        "price_range": price_range,
+        "area": _num_or_none(c.get("area"), False, 0, 100_000) or 0.0,
+        "main_area": _num_or_none(c.get("main_area"), False, 0, 100_000),
+        "layout": _short(c.get("layout"), 30),
+        "age": _num_or_none(c.get("age"), False, 0, 200),
+        "floor": floor,
+        "floor_total": _num_or_none(c.get("floor_total"), True, 1, 200),
+        "building_type": btype,
+        "parking": _short(c.get("parking"), 40),
+        "has_parking": c.get("has_parking") is True,
+        "og_image": og_image,
+        "gallery": gallery,
+        "intro": intro,
+        "links": links,
+        "mode": mode,
+        "rent": rent,
+        "slug": slug if re.fullmatch(r"[A-Za-z0-9_-]{1,40}", slug) else "",
+        "map_q": map_q,
+        "vr_url": _safe_url(c.get("vr_url"), _L.VR_HOSTS) or None,
+        "src_url": src_urls,
+        "mp_version": _clean_str(c.get("mp_version"), 40),
+    }
+    return card, dropped, secrets_
+
+
+def _card_to_prop(card, i):
+    """白名單卡片 → card_html 吃的物件 dict（cards-v2：v2=True，樓層是文字、不外連官方前台）。"""
+    return {
+        "source": "card", "v2": True,
+        "slug": card["slug"] or f"q{i + 1}",
+        "community_display": card["community_display"] or "",
+        "og_title": card["og_title"], "tagline": card["og_title"],
+        "price": card["price"], "price_range": card["price_range"],
+        "floor": 0, "floor_total": card["floor_total"] or 0, "floor_text": card["floor"],
+        "area": card["area"], "main_area": card["main_area"] or 0, "age": card["age"] or 0,
+        "has_parking": card["has_parking"], "parking": card["parking"], "parking_area": "",
+        "building_type": card["building_type"], "address": card["address"], "layout": card["layout"],
+        "og_image": card["og_image"], "gallery": card["gallery"], "intro": card["intro"],
+        "links": card["links"], "mode": card["mode"], "rent": card["rent"], "map_q": card["map_q"],
+        "vr_url": card["vr_url"] or "", "video_url": "", "ai_video_url": "", "detail_url": None,
+        "src_url": card["src_url"],
+    }
+
+
+def _structured_name(p):
+    """urls_text 路徑：抓回來的仲介原標題不上客戶頁，改結構化名稱（區＋路／社區＋樓層＋房數）。"""
+    bt = (p.get("building_type") or "").strip()
+    if any(k in bt for k in ("透天", "別墅", "透店", "店透", "農舍")):
+        cat = "house"
+    elif "套房" in bt:
+        cat = "suite"
+    elif "店面" in bt:
+        cat = "shop"
+    elif any(k in bt for k in ("辦公", "商辦")):
+        cat = "office"
+    elif any(k in bt for k in ("大樓", "華廈", "公寓", "電梯")):
+        cat = "condo"
+    else:
+        cat = "other"
+    addr = _SC.road_only(p.get("address") or "")
+    district = parse_district(addr)
+    district = "" if district == "其他" else district
+    road = addr.split(district, 1)[-1] if district and district in addr else ""
+    rm = re.match(r"(\d+)\s*房", p.get("layout") or "")
+    f = {
+        "cat": cat, "building_kind": bt if bt in ("大樓", "華廈", "公寓") else "",
+        "district": district, "road": road, "community": p.get("community_display") or None,
+        "floor": {"lo": p.get("floor") or None, "hi": None, "total": p.get("floor_total") or None},
+        "rooms": int(rm.group(1)) if rm else None, "areas": {"reg": p.get("area") or None},
+    }
+    return _SC.structured_title(f)
+
+
+def _scrub_fetched(properties):
+    """urls_text／regen：抓回來的文字欄位過 mp_scrub、標題換結構化名稱。回 secrets（給稽核 A11）。"""
+    found = set()
+    for p in properties:
+        src = "591" if "591" in str(p.get("host") or p.get("brand") or "") else str(p.get("source") or "ext")
+        for k in ("intro", "og_description"):
+            if p.get(k):
+                r = _SC.scrub_body(str(p[k]), src)
+                p[k] = r.text
+                found |= set(r.secrets)
+        p["address"] = _SC.road_only(p.get("address") or "")
+        comm = _SC.scrub_short(p.get("community_display")) if p.get("community_display") else None
+        p["community_display"] = comm or ""
+        p["og_title"] = _structured_name(p)
+        if not p["community_display"]:                     # 社區名洗不乾淨 → 分組標題用路段
+            p["community_display"] = p["address"] or p["og_title"]
+        for k in ("building_type", "layout"):
+            if p.get(k):
+                p[k] = _SC.scrub_short(str(p[k])) or ""
+        for k in ("parking", "parking_area"):
+            if p.get(k) and p[k] not in ("無車位", "—", "含於主建"):
+                p[k] = _SC.scrub_short(str(p[k])) or "含車位"
+    return found
+
+
+def _is_owner(contact):
+    return (contact.get("agent_name") or "").strip() in ("", OWNER_AGENT)
+
+
+def _audit_contact(contact):
+    """稽核用的聯絡資料：登入者四欄＋本店公司名；IG 只有景泰本人頁才算聯絡區允許。"""
+    c = {k: contact.get(k) for k in ("agent_name", "agent_license", "phone", "line",
+                                      "broker_license", "company", "company_full")}
+    if _is_owner(contact):
+        c["ig"] = contact.get("ig")
+    return c
+
+
+def _audit_page(html, contact, allowed_urls=(), names=(), secrets_=()):
+    """推 GitHub 前的整頁稽核（mp_audit.audit_html；fail-closed）。"""
+    allow = {"names": [n for n in names if n], "owner": _is_owner(contact)}
+    return _A.audit_html(html, _audit_contact(contact), frozenset(allowed_urls), allow,
+                         secrets=tuple(sorted(secrets_)))
+
+
+def _leak(res):
+    return [{"rule": h.rule, "where": h.where} for h in res.hits]
+
+
+def _check_share_key(where, share_id=""):
+    """X-Share-Key（hmac 比對 Vercel 環境變數 SHARE_PUBLISH_KEY）。
+    SHARE_KEY_ENFORCE=1：沒帶或不符 → 回 False（呼叫端回 401）；預設 0：只記 log 照放行。"""
+    expected = os.environ.get("SHARE_PUBLISH_KEY", "")
+    got = request.headers.get("X-Share-Key", "")
+    ok = bool(expected) and bool(got) and hmac.compare_digest(got.encode("utf-8"), expected.encode("utf-8"))
+    if ok:
+        return True
+    enforce = os.environ.get("SHARE_KEY_ENFORCE", "0").strip() == "1"
+    print(f"[share-key] {'缺' if not got else '不符'}｜{where}｜share_id={share_id or '-'}｜"
+          f"{'ENFORCE=1 擋下' if enforce else 'ENFORCE=0 照放行'}")
+    return not enforce
+
+
+def _share_key_strict(where, share_id=""):
+    """覆蓋既有頁、重建頁一律要金鑰正確，不看 SHARE_KEY_ENFORCE（2026-10-03 紅隊：ENFORCE=0 期間
+    任何人都能帶 share_id 匿名覆蓋客戶頁）。ENFORCE 只管新建頁。Vercel 沒設 SHARE_PUBLISH_KEY → 一律擋。"""
+    expected = os.environ.get("SHARE_PUBLISH_KEY", "")
+    got = request.headers.get("X-Share-Key", "")
+    ok = bool(expected) and bool(got) and hmac.compare_digest(got.encode("utf-8"), expected.encode("utf-8"))
+    if not ok:
+        print(f"[share-key] 覆蓋／重建要金鑰｜{'缺' if not got else '不符'}｜{where}｜share_id={share_id or '-'}｜擋下")
+    return ok
 
 
 # ============== HTML 賣點清理 ==============
@@ -688,50 +1036,117 @@ _CARD_PHONE_RE = re.compile(
 )
 
 
+_TAG_SPLIT_RE = re.compile(r"(<[^>]*>)")
+_URL_ATTR_RE = re.compile(r'(\s(?:href|src)=")([^"]*)(")')
+
+
 def _strip_card_phones(card_html_str):
-    return _CARD_PHONE_RE.sub("", card_html_str or "")
+    """文字節點與一般屬性值（data-name 等）清電話；href／src 網址不動（照片、原始刊登連結的數字不能被挖）。"""
+    out = []
+    for part in _TAG_SPLIT_RE.split(card_html_str or ""):
+        if part.startswith("<"):
+            keep = []
+
+            def _stash(m):
+                keep.append(m.group(0))
+                return "\x00%d\x00" % (len(keep) - 1)
+            t = _CARD_PHONE_RE.sub("", _URL_ATTR_RE.sub(_stash, part))
+            out.append(re.sub("\x00(\\d+)\x00", lambda m: keep[int(m.group(1))], t))
+        else:
+            out.append(_CARD_PHONE_RE.sub("", part))
+    return "".join(out)
 
 
-def card_html(p):
+def card_html(p, rc=None):
     # 硬保險:卡片本體輸出前一律清掉任何電話號碼(競品業務電話零外洩)
-    return _strip_card_phones(_card_html_raw(p))
+    # rc＝這一頁的算繪設定：{'agent_name': 登入者姓名, 'mode': 'sale'|'rent'}
+    return _strip_card_phones(_card_html_raw(p, rc or {}))
 
 
-def _card_html_raw(p):
+def _links_html(links):
+    """原始刊登連結區（cards-v2）：文字一律「原始刊登 N」、不露平台與店名；整塊包 z:links 給稽核分區。"""
+    links = [ln for ln in (links or []) if isinstance(ln, dict) and ln.get("url")]
+    if not links:
+        return ""
+    fmt = _L.LINK_TEXT_FMT if _L else "原始刊登 {n}"
+    items = "".join(
+        f'<a class="card-src-link" href="{_h(ln["url"])}" target="_blank" '
+        f'rel="nofollow noopener noreferrer">{_h(fmt.format(n=i))}</a>'
+        for i, ln in enumerate(links, 1))
+    return ('<!--z:links--><div class="card-links">'
+            f'<div class="card-links-title">原始刊登連結（{len(links)} 則）</div>'
+            f'<div class="card-links-row">{items}</div></div><!--/z:links-->')
+
+
+def _rent_cells(rent):
+    """租屋規格格子：押金、管理費（含或另計）、車位費、最短租期。"""
+    rent = rent or {}
+    cells = []
+
+    def cell(label, val):
+        cells.append(f'<div class="spec-item"><span class="spec-label">{_h(label)}</span>'
+                     f'<span class="spec-value">{_h(val)}</span></div>')
+    if rent.get("mgmt_incl") is True:
+        cell("管理費", "含在租金內")
+    elif rent.get("mgmt"):
+        cell("管理費", f'另計 {rent["mgmt"]:,} 元/月')
+    elif rent.get("mgmt_incl") is False:
+        cell("管理費", "另計")
+    dep = rent.get("deposit")
+    if isinstance(dep, (int, float)) and not isinstance(dep, bool) and dep > 0:
+        cell("押金", f"{dep:g} 個月")
+    elif isinstance(dep, str) and dep:
+        cell("押金", dep)
+    if rent.get("parking_fee"):
+        cell("車位費", f'{rent["parking_fee"]:,} 元/月')
+    ml = rent.get("min_lease")
+    if isinstance(ml, (int, float)) and not isinstance(ml, bool) and ml > 0:
+        cell("最短租期", f"{ml:g} 個月")
+    elif isinstance(ml, str) and ml:
+        cell("最短租期", ml)
+    return "".join(cells)
+
+
+def _card_html_raw(p, rc):
+    agent = (rc.get("agent_name") or "").strip()
+    rent_mode = (p.get("mode") or rc.get("mode")) == "rent"
     img = p.get("og_image") or ""
-    tagline = clean_tagline(p.get("og_title", "")) or p.get("community_display", "")
+    tagline = (p.get("tagline") or clean_tagline(p.get("og_title", "")) or p.get("community_display", "")).strip()
     district = parse_district(p.get("address", ""))
-    tier_key = price_to_tier_key(p.get("price", 0))
+    tier_key = price_to_tier_key(p.get("price", 0), "rent" if rent_mode else "sale")
     age_key = age_to_tier_key(p.get("age"))
     community = (p.get("community_display") or "").strip()
+    slug = p.get("slug", "")
+    noimg_html = ('<div class="card-noimg"><span class="card-noimg-ic">📸</span>'
+                  f'<span>{_h("更多實景照片請洽 " + agent if agent else "更多實景照片歡迎洽詢")}</span></div>')
 
     # 永慶直營精簡卡:物件資料加密，只有封面+名稱+格局+地址(封面可點放大)，不硬塞空的價格/坪數欄位。
     # 刻意不顯示「永慶」品牌名給客戶 — 跟不露承辦店一致，不幫別家打廣告。
     if p.get("lite"):
-        slug = p.get("slug", "")
         layout_l = (p.get("layout") or "").strip()
         addr_l = (p.get("address") or "").strip()
         if img:
-            img_l = f'<img src="{img}" loading="lazy" decoding="async" alt="" />'
+            img_l = _img_tag(img)
         elif p.get("no_clean_photo") or p.get("source") == "external":
-            img_l = '<div class="card-noimg"><span class="card-noimg-ic">📸</span><span>更多實景照片 · 洽景泰</span></div>'
+            img_l = noimg_html
         else:
             img_l = ''
         price_l = (f'<div class="card-price-row"><div><span class="card-price">{p["price"]:,}</span>'
                    f'<span class="card-price-unit">萬</span></div></div>') if p.get("price") else ''
         layout_l2 = layout_l + (("　·　屋齡 %s 年" % p["age"]) if p.get("age") else "")
-        layout_html = f'<div class="card-lite-spec">🛏️ {layout_l2}</div>' if layout_l else ''
-        addr_html = f'<div class="card-address">{addr_l}</div>' if addr_l else ''
+        layout_html = f'<div class="card-lite-spec">🛏️ {_h(layout_l2)}</div>' if layout_l else ''
+        addr_html = f'<div class="card-address">{_h(addr_l)}</div>' if addr_l else ''
+        type_l = (p.get("building_type") or "其他").strip() or "其他"
         return f'''
-    <div class="card" data-slug="{slug}" data-district="{district}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="" data-type="{(p.get("building_type") or "其他").strip() or "其他"}" data-unit-price-tier="" data-rooms="{layout_to_rooms_key(p.get("layout"))}" data-community="{community}">
+    <div class="card" data-slug="{_h(slug)}" data-district="{_h(district)}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="" data-type="{_h(type_l)}" data-unit-price-tier="" data-rooms="{layout_to_rooms_key(p.get("layout"))}" data-community="{_h(community)}">
       <div class="card-image">{img_l}</div>
       <div class="card-content">
-        <div class="card-tagline">{tagline}</div>
+        <div class="card-tagline">{_h(tagline)}</div>
         {price_l}
         {layout_html}
         {addr_html}
         <div class="card-actions">
-          <button class="card-like card-like-full" data-slug="{slug}" data-name="{tagline}" aria-label="我喜歡這間" type="button">
+          <button class="card-like card-like-full" data-slug="{_h(slug)}" data-name="{_h(tagline)}" aria-label="我喜歡這間" type="button">
             <span class="card-like-icon">♡</span>
             <span class="card-like-text">我喜歡</span>
           </button>
@@ -747,28 +1162,35 @@ def _card_html_raw(p):
         )
     # 透天/別墅不標「含車位」(車位欄位一律不顯示,價格也不標)
     _house = any(k in (p.get("building_type") or "") for k in ("透天", "別墅", "透店", "店透", "農舍"))
-    price_unit = "萬 含車位" if (has_parking and not _house) else "萬"
-    unit_price = unit_price_per_area(p.get("price"), p.get("area"))
+    if rent_mode:
+        price_unit = "元/月"                    # 租屋：不顯示單坪價、不標含車位
+        unit_price = None
+    else:
+        # cards-v2（查詢台送的）不知道總價含不含車位 → 不標「含車位」，車位放規格格子
+        price_unit = "萬 含車位" if (has_parking and not _house and not p.get("v2")) else "萬"
+        unit_price = unit_price_per_area(p.get("price"), p.get("area"))
     unit_price_html = (
         f'<div class="card-unit-price">單坪 <strong>{unit_price:g}</strong> 萬 / 權狀坪</div>'
         if unit_price else ''
     )
+    # 各刊登開價區間（多平台同一戶開價不同時）
+    range_html = ''
+    pr = p.get("price_range")
+    if not rent_mode and isinstance(pr, (list, tuple)) and len(pr) == 2 and pr[0] and pr[1] and pr[0] != pr[1]:
+        range_html = (f'<div class="card-range">各刊登開價 {round(pr[0]):,}–{round(pr[1]):,} 萬</div>')
     if img:
-        img_html = f'<img src="{img}" loading="lazy" decoding="async" alt="" />'
+        img_html = _img_tag(img)
     elif p.get("no_clean_photo") or p.get("source") == "external":
-        # 競品站的圖有品牌浮水印不放 → 乾淨佔位(景泰可另補自家實拍)
-        img_html = '<div class="card-noimg"><span class="card-noimg-ic">📸</span><span>更多實景照片 · 洽景泰</span></div>'
+        # 競品站的圖有品牌浮水印不放 → 乾淨佔位(可另補自家實拍)
+        img_html = noimg_html
     else:
         img_html = ''
     note = (p.get("note") or "").strip()
     if note:
-        safe_note = (note
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace('"', "&quot;")
-            .replace("\n", "<br>"))
-        note_html = f'<div class="card-note"><div class="card-note-label">📝 景泰提醒</div><div class="card-note-body">{safe_note}</div></div>'
+        safe_note = _h(note).replace("\n", "<br>")
+        note_label = f"📝 {agent}補充" if agent else "📝 補充說明"
+        note_html = (f'<div class="card-note"><div class="card-note-label">{_h(note_label)}</div>'
+                     f'<div class="card-note-body">{safe_note}</div></div>')
     else:
         note_html = ''
     parking_attr = 'yes' if has_parking else 'no'
@@ -776,7 +1198,6 @@ def _card_html_raw(p):
     type_attr = building_type if building_type else "其他"
     unit_tier_key = unit_price_to_tier_key(unit_price)
     rooms_key = layout_to_rooms_key(p.get("layout"))
-    slug = p.get("slug", "")
 
     # 降價徽章(官方前台有原價且高於現價才顯示)
     badge_html = ''
@@ -791,93 +1212,107 @@ def _card_html_raw(p):
     photocount_html = ''
     if len(gallery) > 1:
         # 全部攤開（上限 24 張純粹是防呆），客戶往下滑就看完，不必橫滑也不必點
-        thumbs = ''.join(
-            f'<img src="{u}" loading="lazy" decoding="async" alt="" />' for u in gallery[:24]
-        )
+        thumbs = ''.join(_img_tag(u) for u in gallery[:24])
         gallery_html = f'<div class="card-gallery" aria-label="物件實景照片">{thumbs}</div>'
         photocount_html = f'<div class="card-photo-count">📷 {len(gallery)} 張實景</div>'
 
-    # 多媒體按鈕(VR/影片/AI — 只有景泰本店的物件才掛，避免露出它店品牌)
+    # 多媒體按鈕(VR/影片/AI — 只有本店的物件才掛，避免露出它店品牌)
     media_btns = []
     if p.get("vr_url"):
-        media_btns.append(f'<a class="card-media-btn" href="{p["vr_url"]}" target="_blank" rel="noopener" data-media="vr">🏠 VR 環景</a>')
+        media_btns.append(f'<a class="card-media-btn" href="{_h(p["vr_url"])}" target="_blank" rel="noopener" data-media="vr">🏠 VR 環景</a>')
     if p.get("video_url"):
-        media_btns.append(f'<a class="card-media-btn" href="{p["video_url"]}" target="_blank" rel="noopener" data-media="video">▶ 物件影片</a>')
+        media_btns.append(f'<a class="card-media-btn" href="{_h(p["video_url"])}" target="_blank" rel="noopener" data-media="video">▶ 物件影片</a>')
     if p.get("ai_video_url"):
-        media_btns.append(f'<a class="card-media-btn" href="{p["ai_video_url"]}" target="_blank" rel="noopener" data-media="ai">✨ AI 導覽</a>')
+        media_btns.append(f'<a class="card-media-btn" href="{_h(p["ai_video_url"])}" target="_blank" rel="noopener" data-media="ai">✨ AI 導覽</a>')
     media_html = f'<div class="card-media">{"".join(media_btns)}</div>' if media_btns else ''
 
     # 「看完整資訊」— 有 detail_url(ycut/合併) 才外連；純官方前台/競品不外連(改軟性洽詢)
     detail_url = p.get("detail_url")
     if detail_url:
-        cta_html = (f'<a class="card-cta" href="{detail_url}" target="_blank" rel="noopener">'
+        cta_html = (f'<a class="card-cta" href="{_h(detail_url)}" target="_blank" rel="noopener">'
                     f'看完整資訊 與 全部照片 <span class="card-cta-arrow">→</span></a>')
     else:
-        cta_html = ''   # 無外連時不放軟性 CTA(景泰要求),只留「我喜歡」
+        cta_html = ''   # 無外連時不放軟性 CTA,只留「我喜歡」
     like_full = '' if detail_url else ' card-like-full'
 
     # 規格欄位改條件式:有值才顯示(競品/官方前台缺的欄位不留空格)
     _cells = []
+
+    def _cell(label, val, hl=False):
+        _cells.append(f'<div class="spec-item"><span class="spec-label">{_h(label)}</span>'
+                      f'<span class="spec-value{" highlight" if hl else ""}">{_h(val)}</span></div>')
     if p.get("area"):
-        _cells.append(f'<div class="spec-item"><span class="spec-label">權狀坪數</span><span class="spec-value highlight">{p["area"]} 坪</span></div>')
+        _cell("坪數" if rent_mode else "權狀坪數", f'{_g(p["area"])} 坪', True)
     if p.get("main_area"):
-        _cells.append(f'<div class="spec-item"><span class="spec-label">主+附</span><span class="spec-value">{p["main_area"]} 坪</span></div>')
+        _cell("主+附", f'{_g(p["main_area"])} 坪')
     if (p.get("layout") or "").strip():
-        _cells.append(f'<div class="spec-item"><span class="spec-label">格局</span><span class="spec-value">{p["layout"]}</span></div>')
+        _cell("格局", p["layout"])
     if p.get("age"):
-        _cells.append(f'<div class="spec-item"><span class="spec-label">屋齡</span><span class="spec-value">{p["age"]} 年</span></div>')
+        _cell("屋齡", f'{_g(p["age"])} 年')
     # 透天/別墅本來就自帶車庫,車位欄位意義不大又常誤判 → 一律不顯示車位/車位坪數
-    _is_house = any(k in (p.get("building_type") or "") for k in ("透天", "別墅", "透店", "店透", "農舍"))
-    if not _is_house:
+    if not _house:
         _pk = (str(p.get("parking") or "")).strip()
         if _pk:
-            _cells.append(f'<div class="spec-item"><span class="spec-label">車位</span><span class="spec-value">{_pk}</span></div>')
+            _cell("車位", _pk)
         _pa = (str(p.get("parking_area") or "")).strip()
         if _pa and _pa not in ("無車位", "—"):
-            _cells.append(f'<div class="spec-item"><span class="spec-label">車位坪數</span><span class="spec-value">{_pa}</span></div>')
-    spec_cells = "".join(_cells)
+            _cell("車位坪數", _pa)
+    spec_cells = "".join(_cells) + (_rent_cells(p.get("rent")) if rent_mode else "")
+    tags_html = ''
+    if rent_mode and (p.get("rent") or {}).get("tags"):
+        tags_html = '<div class="card-tags">%s</div>' % "".join(
+            f'<span class="card-tag">{_h(t)}</span>' for t in p["rent"]["tags"] if t)
 
-    if p.get("floor_total"):
-        floor_html = f'<div class="card-floor">{p["floor"]}F / {p["floor_total"]}F</div>'
+    if p.get("floor_text"):
+        floor_html = f'<div class="card-floor">{_h(p["floor_text"])}</div>'
+    elif p.get("floor_total"):
+        floor_html = f'<div class="card-floor">{_h(p["floor"])}F / {_h(p["floor_total"])}F</div>'
     elif p.get("floor"):
-        floor_html = f'<div class="card-floor">{p["floor"]}F</div>'
+        floor_html = f'<div class="card-floor">{_h(p["floor"])}F</div>'
     else:
         floor_html = ''
 
     # 物件介紹(remark 洗白後)—有值才顯示，inline style 不依賴 CSS 區
     _intro = (p.get("intro") or "").strip()
     if _intro:
-        _si = (_intro.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>"))
+        _si = _h(_intro).replace("\n", "<br>")
         intro_html = ('<div class="card-intro" style="margin:12px 0;padding:13px 15px;'
                       'background:var(--bg-soft);border-radius:10px;border-left:3px solid var(--wood-light);">'
-                      '<div style="font-size:13px;font-weight:700;color:var(--wood-deep);margin-bottom:6px;">📋 物件介紹</div>'
-                      f'<div style="font-size:14px;line-height:1.75;color:#5a4c38;white-space:normal;">{_si}</div></div>')
+                      '<div style="font-size:14px;font-weight:700;color:var(--wood-deep);margin-bottom:6px;">📋 物件介紹</div>'
+                      f'<div style="font-size:15px;line-height:1.75;color:#5a4c38;white-space:normal;">{_si}</div></div>')
     else:
         intro_html = ''
 
+    map_q = (p.get("map_q") or p.get("address") or "").strip()
+    links_html = _links_html(p.get("links"))
+    price_text = f'{p["price"]:,}' if isinstance(p.get("price"), (int, float)) else _h(p.get("price"))
+
     return f'''
-    <div class="card" data-slug="{slug}" data-district="{district}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="{parking_attr}" data-type="{type_attr}" data-unit-price-tier="{unit_tier_key}" data-rooms="{rooms_key}" data-community="{community}">
+    <div class="card" data-slug="{_h(slug)}" data-district="{_h(district)}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="{parking_attr}" data-type="{_h(type_attr)}" data-unit-price-tier="{unit_tier_key}" data-rooms="{rooms_key}" data-community="{_h(community)}">
       <div class="card-image">{badge_html}{photocount_html}{img_html}</div>
       <div class="card-content">
-        <div class="card-tagline">{tagline}</div>
+        <div class="card-tagline">{_h(tagline)}</div>
         <div class="card-price-row">
-          <div><span class="card-price">{p["price"]:,}</span><span class="card-price-unit">{price_unit}</span></div>
+          <div><span class="card-price">{price_text}</span><span class="card-price-unit">{price_unit}</span></div>
           {floor_html}
         </div>
+        {range_html}
         {unit_price_html}
         {intro_html}
         <div class="card-spec">{spec_cells}</div>
+        {tags_html}
         {gallery_html}
-        <div class="card-address">{p["address"]}</div>
+        <div class="card-address">{_h(p.get("address", ""))}</div>
         <div class="card-map">
           <div class="card-map-head"><span class="card-map-icon">🗺️</span><span class="card-map-label">路段位置</span></div>
-          <div class="card-map-frame"><iframe data-q="{p["address"]}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="路段位置地圖"></iframe></div>
+          <div class="card-map-frame"><iframe data-q="{_h(map_q)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="路段位置地圖"></iframe></div>
         </div>
         {note_html}
         {media_html}
+        {links_html}
         <div class="card-actions">
           {cta_html}
-          <button class="card-like{like_full}" data-slug="{slug}" data-name="{tagline}" aria-label="我喜歡這間" type="button">
+          <button class="card-like{like_full}" data-slug="{_h(slug)}" data-name="{_h(tagline)}" aria-label="我喜歡這間" type="button">
             <span class="card-like-icon">♡</span>
             <span class="card-like-text">我喜歡</span>
           </button>
@@ -907,6 +1342,44 @@ PRICE_TIERS = [
     ("1500-2000", "1500-2000 萬", 1500, 2000),
     ("gt2000", "> 2000 萬", 2000, 99999),
 ]
+
+# 租屋月租段（元/月）— 租屋頁的預算篩選（02 §12.2-5）
+RENT_PRICE_TIERS = [
+    ("r-lt10k", "1 萬以下", 0, 10000),
+    ("r-10-15k", "1–1.5 萬", 10000, 15000),
+    ("r-15-20k", "1.5–2 萬", 15000, 20000),
+    ("r-20-30k", "2–3 萬", 20000, 30000),
+    ("r-30-50k", "3–5 萬", 30000, 50000),
+    ("r-gt50k", "5 萬以上", 50000, 10 ** 9),
+]
+
+
+def _g(v):
+    """數字去尾零（18.0→18）；不是數字就原樣轉字串。"""
+    try:
+        return ("%.2f" % float(v)).rstrip("0").rstrip(".")
+    except (TypeError, ValueError):
+        return str(v)
+
+
+def _price_tiers(mode="sale"):
+    return RENT_PRICE_TIERS if mode == "rent" else PRICE_TIERS
+
+
+def _price_text(v, mode="sale"):
+    """價格字樣：售＝「1,980 萬」、租＝「18,000 元/月」。"""
+    try:
+        n = round(float(v))
+    except (TypeError, ValueError):
+        return ""
+    return f"{n:,} 元/月" if mode == "rent" else f"{n:,} 萬"
+
+
+def _price_span(lo, hi, mode="sale"):
+    if lo == hi:
+        return _price_text(lo, mode)
+    unit = " 元/月" if mode == "rent" else " 萬"
+    return f"{round(lo):,} ~ {round(hi):,}{unit}"
 
 # 屋齡段 — BOSS 任務分段（市場精選模式核心 filter）
 AGE_TIERS = [
@@ -961,11 +1434,11 @@ def unit_price_to_tier_key(unit_price):
     return "unknown"
 
 
-def price_to_tier_key(price):
-    """價格 → tier key (給 data-price-tier 用)"""
+def price_to_tier_key(price, mode="sale"):
+    """價格 → tier key (給 data-price-tier 用；租屋用 RENT_PRICE_TIERS)"""
     if not price:
         return "unknown"
-    for key, _, lo, hi in PRICE_TIERS:
+    for key, _, lo, hi in _price_tiers(mode):
         if lo <= price < hi:
             return key
     return "unknown"
@@ -997,40 +1470,45 @@ def unit_price_per_area(price, area):
     return None
 
 
-def community_subsection_html(community, items):
+def community_subsection_html(community, items, rc=None):
     """單一社區的 sub-section（在區裡面）— 物件按單坪價低到高（fallback: 總價低到高）"""
+    rc = rc or {}
+    mode = rc.get("mode") or "sale"
+
     def _sort_key(x):
-        up = unit_price_per_area(x.get("price"), x.get("area"))
+        up = unit_price_per_area(x.get("price"), x.get("area")) if mode != "rent" else None
         # 算得出單坪價的優先按單坪價排，算不出的用大數字推到後面再用總價排
         return (0, up) if up is not None else (1, x.get("price", 0))
     items_sorted = sorted(items, key=_sort_key)
-    prices = [x["price"] for x in items_sorted]
-    c_range = f"{prices[0]:,} 萬" if len(prices) == 1 else f"{prices[0]:,} ~ {prices[-1]:,} 萬"
-    cards = "\n".join(card_html(p) for p in items_sorted)
+    prices = sorted(x["price"] for x in items_sorted)
+    c_range = _price_span(prices[0], prices[-1], mode)
+    cards = "\n".join(card_html(p, rc) for p in items_sorted)
     district = parse_district(items_sorted[0].get("address", "")) if items_sorted else "其他"
     return f'''
-    <div class="community-sub" data-district="{district}" data-community="{community}">
+    <div class="community-sub" data-district="{_h(district)}" data-community="{_h(community)}">
       <div class="community-header">
-        <h3 class="community-title">{community}</h3>
-        <div class="community-meta">{len(items_sorted)} 戶 · {c_range}</div>
+        <h3 class="community-title">{_h(community)}</h3>
+        <div class="community-meta">{len(items_sorted)} 戶 · {_h(c_range)}</div>
       </div>
       <div class="grid">{cards}
       </div>
     </div>'''
 
 
-def district_section_html(district, communities_dict, anchor):
+def district_section_html(district, communities_dict, anchor, rc=None):
     """單一行政區的 section，內含多個社區 sub-section
     分兩組：住宅（大樓/華廈/公寓/未知）+ 透天/別墅
     （透天獨立拉出來避免壓掉其他類型）"""
+    rc = rc or {}
+    mode = rc.get("mode") or "sale"
     all_props = [p for comm in communities_dict.values() for p in comm]
     total_count = len(all_props)
     prices = sorted(p["price"] for p in all_props)
-    price_range = f"{prices[0]:,} 萬" if len(prices) == 1 else f"{prices[0]:,} ~ {prices[-1]:,} 萬"
+    price_range = _price_span(prices[0], prices[-1], mode)
     ages = sorted({p["age"] for p in all_props if p.get("age")})
     age_text = ""
     if ages:
-        age_text = f"屋齡 {ages[0]} 年" if len(ages) == 1 else f"屋齡 {ages[0]}~{ages[-1]} 年"
+        age_text = f"屋齡 {_g(ages[0])} 年" if len(ages) == 1 else f"屋齡 {_g(ages[0])}~{_g(ages[-1])} 年"
 
     # 分兩組：住宅 vs 透天/別墅
     TOWNHOUSE = {'透天', '別墅'}
@@ -1058,12 +1536,12 @@ def district_section_html(district, communities_dict, anchor):
         multi, singles = [], []
         for c in order:
             (multi if len(comm_dict[c]) > 1 else singles).append(c)
-        parts = [community_subsection_html(c, comm_dict[c]) for c in multi]
+        parts = [community_subsection_html(c, comm_dict[c], rc) for c in multi]
         if singles:
             loose = [comm_dict[c][0] for c in singles]
             loose.sort(key=lambda p: p.get('price', 0))
             parts.append('<div class="grid">%s</div>'
-                         % "\n".join(card_html(p) for p in loose))
+                         % "\n".join(card_html(p, rc) for p in loose))
         subs = "\n".join(parts)
         return f'''
   <div class="type-group">
@@ -1082,17 +1560,17 @@ def district_section_html(district, communities_dict, anchor):
         key=lambda c: min(p["price"] for p in communities_dict[c])
     )
 
-    meta_parts = [f"<strong>{total_count} 戶</strong>", price_range]
+    meta_parts = [f"<strong>{total_count} 戶</strong>", _h(price_range)]
     if age_text:
-        meta_parts.append(age_text)
+        meta_parts.append(_h(age_text))
     meta_str = " · ".join(meta_parts)
 
     # 社區名稱預覽（讓 header 不空虛）
-    community_chips = " · ".join(community_order)
+    community_chips = " · ".join(_h(c) for c in community_order)
 
     # 價格段分布（讓客戶一眼看出這區哪個預算最多選擇）— 也是可點擊的篩選器
     tier_counts = []
-    for key, label, lo, hi in PRICE_TIERS:
+    for key, label, lo, hi in _price_tiers(mode):
         n = sum(1 for p in all_props if lo <= p.get("price", 0) < hi)
         if n > 0:
             tier_counts.append(
@@ -1109,9 +1587,9 @@ def district_section_html(district, communities_dict, anchor):
     )
 
     return f'''
-<section class="district-section" id="{anchor}" data-district="{district}">
+<section class="district-section" id="{_h(anchor)}" data-district="{_h(district)}">
   <div class="district-header">
-    <h2 class="district-title">{district}</h2>
+    <h2 class="district-title">{_h(district)}</h2>
     <div class="district-meta">{meta_str}</div>
   </div>
   {chips_html}
@@ -1121,16 +1599,22 @@ def district_section_html(district, communities_dict, anchor):
 
 def gen_html(client_data, properties):
     contact = client_data.get("contact", DEFAULT_CONTACT)
-    theme = (client_data.get("theme") or "景泰精選").strip()
-    signature = (client_data.get("signature") or contact.get("agent_name") or "陳景泰").strip()
-    gen_date = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime("%Y-%m-%d")
+    mode = "rent" if client_data.get("mode") == "rent" else "sale"
+    agent_name = (contact.get("agent_name") or "").strip()
+    rc = {"agent_name": agent_name, "mode": mode}            # 卡片算繪設定（落款、售／租）
+    theme = (client_data.get("theme") or ("精選租屋" if mode == "rent" else "精選物件")).strip()
+    # 落款空白就只放日期（A13 已保證聯絡區完整，不再補任何人的名字）
+    signature = (client_data.get("signature") or agent_name).strip()
+    gen_date = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=8)).strftime("%Y-%m-%d")
     theme = f"{theme} · {gen_date}"
-    signature = f"{signature} · {gen_date}"
+    signature = f"{signature} · {gen_date}" if signature else gen_date
 
-    # 官網推廣區塊(認識景泰/房仲官網)顯示條件:製作人是景泰本人 且 沒勾「隱藏官網推廣」。
-    # 白牌給別人用(名字非景泰) 或 明確要求隱藏 → 都不出現。
-    _is_teddy = (contact.get("agent_name") or "").strip() in ("", "陳景泰")
+    # 官網推廣區塊(認識我/房仲官網)顯示條件:製作人是景泰本人 且 沒勾「隱藏官網推廣」。
+    # 白牌給別人用(名字非本人) 或 明確要求隱藏 → 都不出現。
+    _is_teddy = _is_owner(contact)
     _show_promo = _is_teddy and not client_data.get("hide_promo")
+    # 愛心推播目前只會送到景泰的 TG → 同事的頁面關掉推播，只顯示「已收藏」
+    like_notify = _is_teddy
     footer_site_html = (
         '<div class="footer-site">'
         '<div class="footer-site-title">🏡 想看更多好屋？歡迎逛逛我的房仲官網</div>'
@@ -1142,7 +1626,7 @@ def gen_html(client_data, properties):
     ) if _show_promo else ''
     # IG 是景泰個人帳號(無表單欄位可換)→ 白牌 或 隱藏推廣時 都不出現
     ig_html = (
-        f'<a class="contact-item" href="{contact["ig_url"]}" target="_blank"><span class="contact-icon">📷</span><span>IG：{contact["ig"]}</span></a>'
+        f'<a class="contact-item" href="{_h(contact["ig_url"])}" target="_blank"><span class="contact-icon">📷</span><span>IG：{_h(contact["ig"])}</span></a>'
         if _show_promo else ''
     )
 
@@ -1173,14 +1657,14 @@ def gen_html(client_data, properties):
 
     # nav chips 按行政區（變成篩選器，點了 → 只顯示那區）
     nav_chips = "\n    ".join(
-        f'<a class="nav-chip filter-chip" data-filter-district="{d}">{d}'
+        f'<a class="nav-chip filter-chip" data-filter-district="{_h(d)}">{_h(d)}'
         f'<span class="nav-chip-count">{sum(len(c) for c in districts[d].values())}</span></a>'
         for d in district_order
     )
 
     # 全部價格段 chip 列（給 sticky-nav 第二行）
     all_price_chips = []
-    for key, label, lo, hi in PRICE_TIERS:
+    for key, label, lo, hi in _price_tiers(mode):
         n = sum(1 for d in districts.values() for c in d.values() for p in c if lo <= p.get("price", 0) < hi)
         if n > 0:
             all_price_chips.append(
@@ -1226,7 +1710,7 @@ def gen_html(client_data, properties):
                 f'{label}<span class="nav-chip-count">{n}</span></a>'
             )
     unit_filter_chips = "\n    ".join(all_unit_chips)
-    has_unit_filter = len(all_unit_chips) >= 2
+    has_unit_filter = len(all_unit_chips) >= 2 and mode != "rent"   # 租屋不篩單坪價
 
     # 房數 chip — 給客人按「幾房」篩
     all_rooms_chips = []
@@ -1301,12 +1785,17 @@ def gen_html(client_data, properties):
     # 「含 1 個社區」、「住宅（1 戶）」對單一物件全是累贅，而且社區各包一個
     # .grid 會讓唯一那張卡卡在三欄的第一欄、右邊白掉一大片。
     if total_count == 1:
-        sections = '<div class="single-wrap">%s</div>' % card_html(properties[0])
+        sections = '<div class="single-wrap">%s</div>' % card_html(properties[0], rc)
     else:
         sections = "\n".join(
-            district_section_html(d, districts[d], district_anchors[d])
+            district_section_html(d, districts[d], district_anchors[d], rc)
             for d in district_order
         )
+    # 有原始刊登連結（外部平台整理來的）→ 頁尾放一次免責小字
+    src_note_html = (
+        '<div class="src-note">本頁物件資訊整理自公開刊登資料，實際以現場及正式文件為準；'
+        '原始刊登連結為第三方網站。</div>'
+    ) if any(p.get("links") for p in properties) else ''
 
     community_count = sum(len(c) for c in districts.values())
     district_count = len(districts)
@@ -1322,8 +1811,10 @@ def gen_html(client_data, properties):
             (g for g in (_p.get("gallery") or []) if g), "")
         if og_cover:
             break
-    _pr = (f"{price_min:,}–{price_max:,} 萬" if price_min != price_max
-           else f"{price_min:,} 萬")
+    _unit = " 元/月" if mode == "rent" else " 萬"
+    _pr = (f"{round(price_min):,}–{round(price_max):,}{_unit}" if price_min != price_max
+           else f"{round(price_min):,}{_unit}")
+    _plabel = "月租" if mode == "rent" else "售價"
     # 沒填客戶稱呼 = 通用連結（可以轉發給多人），標題與內文都不出現「給 XX 的」
     _nm = (client_data.get("name") or "").strip()
     _nd = (client_data.get("need") or "").strip()
@@ -1338,12 +1829,12 @@ def gen_html(client_data, properties):
     if total_count == 1:
         _p0 = properties[0]
         _loc = _p0.get('community_display') or _p0.get('address') or ''
-        hero_summary = '%s<br>售價 %s 萬' % (_loc, format(price_min, ','))
+        hero_summary = '%s<br>%s %s' % (_h(_loc), _plabel, _h(_price_text(price_min, mode)))
         hero_stats_html = ''
     else:
-        hero_summary = ('精選 %d 個物件 · %d 區 · %d 個社區<br>售價 %s 萬 ~ %s 萬'
-                        % (total_count, district_count, community_count,
-                           format(price_min, ','), format(price_max, ',')))
+        hero_summary = ('精選 %d 個物件 · %d 區 · %d 個社區<br>%s %s'
+                        % (total_count, district_count, community_count, _plabel,
+                           _h(_price_span(price_min, price_max, mode))))
         hero_stats_html = (
             '<div class="hero-stats">'
             '<div class="hero-stat"><div class="hero-stat-num">%d</div>'
@@ -1387,18 +1878,20 @@ def gen_html(client_data, properties):
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex,nofollow">
-<title>{page_title}</title>
-<meta property="og:title" content="{page_title}">
-<meta property="og:description" content="{og_desc}">
+<meta name="referrer" content="no-referrer">
+<meta name="x-render" content="{RENDER_CARDS}">
+<title>{_h(page_title)}</title>
+<meta property="og:title" content="{_h(page_title)}">
+<meta property="og:description" content="{_h(og_desc)}">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="{contact["company"]}">
-<meta property="og:image" content="{og_cover}">
+<meta property="og:site_name" content="{_h(contact["company"])}">
+<meta property="og:image" content="{_h(og_cover)}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="{page_title}">
-<meta name="twitter:description" content="{og_desc}">
-<meta name="twitter:image" content="{og_cover}">
+<meta name="twitter:title" content="{_h(page_title)}">
+<meta name="twitter:description" content="{_h(og_desc)}">
+<meta name="twitter:image" content="{_h(og_cover)}">
 <meta name="theme-color" content="#C9785A">
 <style>
   :root {{
@@ -1449,7 +1942,7 @@ def gen_html(client_data, properties):
     margin-bottom: 6px;
   }}
   .top-contact-role {{
-    font-size: 13px; color: var(--text-muted); letter-spacing: 2px; font-weight: 500;
+    font-size: 14px; color: var(--text-muted); letter-spacing: 2px; font-weight: 500;
     display: block; margin-top: 2px;
   }}
   .top-contact-btns {{
@@ -1492,7 +1985,7 @@ def gen_html(client_data, properties):
   .nav-chip:hover .nav-chip-count {{ background: rgba(255,255,255,0.25); color: #FFF; }}
   .nav-chip.active {{ background: var(--accent-deep); color: #FFF; border-color: var(--accent-deep); }}
   .nav-chip.active .nav-chip-count {{ background: rgba(255,255,255,0.3); color: #FFF; }}
-  .nav-label {{ font-size: 13px; color: var(--text-muted); letter-spacing: 1.5px; padding: 10px 4px; flex-shrink: 0; font-weight: 600; }}
+  .nav-label {{ font-size: 14px; color: var(--text-muted); letter-spacing: 1.5px; padding: 10px 4px; flex-shrink: 0; font-weight: 600; }}
   .price-nav-chip {{ background: rgba(201,120,90,0.06); border-color: rgba(201,120,90,0.4); }}
   .age-nav-chip {{ background: rgba(139,115,85,0.06); border-color: rgba(139,115,85,0.4); color: var(--wood-deep); }}
   .age-nav-chip:hover {{ background: var(--wood-deep); color: #FFF; border-color: var(--wood-deep); }}
@@ -1683,7 +2176,7 @@ def gen_html(client_data, properties):
   .footer-site-btn.primary {{ background: var(--accent); border-color: var(--accent); }}
   .footer-site-btn:hover {{ background: var(--accent); border-color: var(--accent); transform: translateY(-2px); }}
   .footer-license {{ font-size: 14px; color: var(--text-muted); letter-spacing: 1px; line-height: 2; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; }}
-  .footer-date {{ font-size: 13px; color: rgba(232,223,210,0.4); margin-top: 16px; letter-spacing: 2px; }}
+  .footer-date {{ font-size: 14px; color: rgba(232,223,210,0.4); margin-top: 16px; letter-spacing: 2px; }}
   .back-to-top {{
     position: fixed; bottom: 24px; right: 24px; width: 52px; height: 52px;
     border-radius: 50%; background: var(--wood-deep); color: #FFF;
@@ -1708,7 +2201,18 @@ def gen_html(client_data, properties):
     .footer-title {{ font-size: 26px; letter-spacing: 4px; }}
   }}
 
-  /* 景泰備註區(螢幕版)— 公開賣點補充,有填才出現 */
+  /* cards-v2：原始刊登連結區、各刊登開價、租屋標籤、外部來源免責（新元素字級一律 ≥17px） */
+  .card-range {{ font-size: 17px; color: var(--text-soft); margin: -6px 0 14px; font-weight: 500; }}
+  .card-links {{ margin: 4px 0 16px; padding: 12px 14px; background: var(--bg-soft); border-radius: 10px; }}
+  .card-links-title {{ font-size: 17px; font-weight: 700; color: var(--wood-deep); margin-bottom: 8px; }}
+  .card-links-row {{ display: flex; flex-wrap: wrap; gap: 8px; }}
+  .card-src-link {{ display: inline-block; font-size: 17px; font-weight: 600; color: var(--accent-deep); background: #FFF; border: 1.5px solid var(--wood-light); border-radius: 10px; padding: 8px 14px; text-decoration: none; }}
+  .card-src-link:hover {{ background: var(--wood-deep); color: #FFF; border-color: var(--wood-deep); }}
+  .card-tags {{ display: flex; flex-wrap: wrap; gap: 8px; margin: -4px 0 16px; }}
+  .card-tag {{ font-size: 17px; color: var(--wood-deep); background: var(--bg-soft); border-radius: 16px; padding: 4px 12px; }}
+  .src-note {{ max-width: 1280px; margin: 28px auto 0; padding: 0 20px; font-size: 17px; color: var(--text-soft); line-height: 1.7; text-align: center; }}
+
+  /* 備註區(螢幕版)— 公開賣點補充,有填才出現 */
   .card-note {{
     background: linear-gradient(135deg, #FFF8EE 0%, #FFEFD9 100%);
     border-left: 4px solid var(--accent);
@@ -1718,7 +2222,7 @@ def gen_html(client_data, properties):
     box-shadow: inset 0 0 0 1px rgba(201,120,90,0.15);
   }}
   .card-note-label {{
-    font-size: 13px; font-weight: 700; color: var(--accent-deep);
+    font-size: 14px; font-weight: 700; color: var(--accent-deep);
     letter-spacing: 1.5px; margin-bottom: 6px;
   }}
   .card-note-body {{
@@ -1828,55 +2332,60 @@ def gen_html(client_data, properties):
 <button class="print-fab" onclick="window.print()" type="button" title="列印成 A4 售資 / 存 PDF">📄 列印 / 存 PDF</button>
 
 <section class="hero">
-  <div class="hero-tag">{theme}</div>
-  <h1>{hero_h1}</h1>
-  <div class="for-client">{for_client_line}</div>
+  <div class="hero-tag">{_h(theme)}</div>
+  <h1>{_h(hero_h1)}</h1>
+  <div class="for-client">{_h(for_client_line)}</div>
   <p class="summary">{hero_summary}</p>
   {hero_stats_html}
 </section>
 
+<!--z:contact-->
 <section class="top-contact">
   <div class="top-contact-inner">
-    <div class="top-contact-name">{contact["agent_name"]}　<span class="top-contact-role">{contact["company"]}</span></div>
+    <div class="top-contact-name">{_h(contact["agent_name"])}　<span class="top-contact-role">{_h(contact["company"])}</span></div>
     <div class="top-contact-btns">
-      <a class="top-cta primary" href="tel:{contact["phone_raw"]}">📞 {contact["phone"]}</a>
-      <a class="top-cta line" href="{contact["line_url"]}" target="_blank" rel="noopener">💬 LINE 我（{contact["line"]}）</a>
+      <a class="top-cta primary" href="tel:{_h(contact["phone_raw"])}">📞 {_h(contact["phone"])}</a>
+      <a class="top-cta line" href="{_h(contact["line_url"])}" target="_blank" rel="noopener">💬 LINE 我（{_h(contact["line"])}）</a>
     </div>
     <div class="top-contact-hint">看到喜歡的物件 → 直接打給我或 LINE 我，幫你約看 ✨</div>
   </div>
 </section>
+<!--/z:contact-->
 
 {sticky_nav_html}
 
 <div class="container">
 {sections}
 </div>
+{src_note_html}
 
+<!--z:contact-->
 <footer class="footer">
   <div class="footer-content">
-    <div class="footer-title">{signature}</div>
-    <div class="footer-subtitle">{contact["company"]}</div>
+    <div class="footer-title">{_h(signature)}</div>
+    <div class="footer-subtitle">{_h(contact["company"])}</div>
     <div class="footer-contact">
-      <a class="contact-item" href="tel:{contact["phone_raw"]}"><span class="contact-icon">📞</span><span>{contact["phone"]}</span></a>
-      <a class="contact-item" href="{contact["line_url"]}" target="_blank"><span class="contact-icon">💬</span><span>LINE：{contact["line"]}</span></a>
+      <a class="contact-item" href="tel:{_h(contact["phone_raw"])}"><span class="contact-icon">📞</span><span>{_h(contact["phone"])}</span></a>
+      <a class="contact-item" href="{_h(contact["line_url"])}" target="_blank"><span class="contact-icon">💬</span><span>LINE：{_h(contact["line"])}</span></a>
       {ig_html}
     </div>
     {footer_site_html}
     <div class="footer-license">
-      不動產經紀人 {contact["broker_name"]} 證號 {contact["broker_license"]}<br>
-      不動產營業員 {contact["agent_name"]} 證號 {contact["agent_license"]}<br>
-      {contact["company_full"]}<br>
+      不動產經紀人 {_h(contact["broker_name"])} 證號 {_h(contact["broker_license"])}<br>
+      不動產營業員 {_h(contact["agent_name"])} 證號 {_h(contact["agent_license"])}<br>
+      {_h(contact["company_full"])}<br>
       本資訊以實際物件現況為準，最終以雙方議定條件為憑
     </div>
     <div class="footer-date">本頁產出日期：{today}</div>
   </div>
 </footer>
+<!--/z:contact-->
 
 <button class="back-to-top" id="back-to-top" aria-label="回到頂部">↑</button>
 
 <script>
 (function() {{
-  // 景泰本人排除 + 解除標記機制（注意：admin 模式仍要讓 filter / 互動 JS 跑，只是不發追蹤）
+  // 承辦人本人排除 + 解除標記機制（注意：admin 模式仍要讓 filter / 互動 JS 跑，只是不發追蹤）
   var IS_ADMIN = false;
   try {{
     var params = new URLSearchParams(location.search);
@@ -1900,8 +2409,10 @@ def gen_html(client_data, properties):
     IS_ADMIN = (localStorage.getItem('teddy_admin') === '1');
   }} catch (e) {{}}
 
-  var SHARE_ID = {json.dumps(client_data["share_id"])};
-  var CLIENT_NAME = {json.dumps(client_data["name"])};
+  var SHARE_ID = {_js(client_data["share_id"])};
+  var CLIENT_NAME = {_js(client_data["name"])};
+  var LIKE_NOTIFY = {"true" if like_notify else "false"};   // 同事頁＝false：只顯示已收藏、不推播
+  var AGENT_NAME = {_js(agent_name)};
   var TRACK_API = 'https://teddy-share-app.vercel.app/api/track';
   var startTime = Date.now();
   var visitSent = false;
@@ -1987,6 +2498,15 @@ def gen_html(client_data, properties):
     }});
   }});
 
+  // 原始刊登連結點擊（cards-v2）
+  document.querySelectorAll('a.card-src-link').forEach(function(link) {{
+    link.addEventListener('click', function() {{
+      var info = cardInfo(link);
+      if (!info.slug) return;
+      trackClick(info.slug, link.getAttribute('href') || '', info.tagline + ' [src]');
+    }});
+  }});
+
   // ============== 照片燈箱 ── 點封面/縮圖全螢幕看大圖 + 左右滑 ==============
   (function() {{
     var overlay = document.createElement('div');
@@ -2005,9 +2525,16 @@ def gen_html(client_data, properties):
     var photos = [], idx = 0;
 
     function hi(u) {{ return (u || '').replace('width=1024', 'width=1600').replace('height=768', 'height=1200'); }}
+    // 591 圖床要帶 Referer（不帶會 403），其他平台一律不帶
+    function refPolicy(u) {{
+      var h = '';
+      try {{ h = new URL(u, location.href).hostname.toLowerCase(); }} catch (e) {{}}
+      return (h === '591.com.tw' || h.endsWith('.591.com.tw')) ? 'strict-origin-when-cross-origin' : 'no-referrer';
+    }}
     function show(i) {{
       if (!photos.length) return;
       idx = (i + photos.length) % photos.length;
+      lbImg.referrerPolicy = refPolicy(photos[idx]);
       lbImg.src = hi(photos[idx]);
       var multi = photos.length > 1;
       lbCounter.textContent = (idx + 1) + ' / ' + photos.length;
@@ -2071,7 +2598,7 @@ def gen_html(client_data, properties):
     el.addEventListener('click', function() {{ trackCta('line'); }});
   }});
 
-  // ============== 愛心按鈕 ── 客戶按下就推 TG 給景泰 ==============
+  // ============== 愛心按鈕 ── 客戶按下就推 TG 給承辦人（同事頁不推，只顯示已收藏） ==============
   function trackLike(slug, name) {{
     var elapsedSec = Math.round((Date.now() - startTime) / 1000);
     postTrack({{
@@ -2103,12 +2630,13 @@ def gen_html(client_data, properties):
     var iconEl = btn.querySelector('.card-like-icon');
     var textEl = btn.querySelector('.card-like-text');
 
+    var likedText = LIKE_NOTIFY ? '已喜歡' : '已收藏';
     // 已按過 — 顯示已喜歡狀態（換裝置會重置，這是 OK 的）
     try {{
       if (localStorage.getItem(likeKey) === '1') {{
         btn.classList.add('liked');
         if (iconEl) iconEl.textContent = '❤';
-        if (textEl) textEl.textContent = '已喜歡';
+        if (textEl) textEl.textContent = likedText;
       }}
     }} catch (e) {{}}
 
@@ -2116,11 +2644,12 @@ def gen_html(client_data, properties):
       if (btn.classList.contains('liked')) return;
       btn.classList.add('liked');
       if (iconEl) iconEl.textContent = '❤';
-      if (textEl) textEl.textContent = '已喜歡';
+      if (textEl) textEl.textContent = likedText;
       try {{ localStorage.setItem(likeKey, '1'); }} catch (e) {{}}
+      if (!LIKE_NOTIFY) return;              // 推播目前只送得到本人的 TG → 同事頁不推
       var name = btn.getAttribute('data-name') || '';
       trackLike(slug, name);
-      showTeddyToast('已通知景泰 ❤️ 他會盡快與你聯絡');
+      showTeddyToast('已通知 ' + AGENT_NAME + ' ❤️ 會盡快與你聯絡');
     }});
   }});
 
@@ -2326,7 +2855,7 @@ def gen_html(client_data, properties):
     }});
   }});
 
-  // sticky-nav 維持永遠顯示（景泰決策：不 auto-hide 容易困惑）
+  // sticky-nav 維持永遠顯示（決策：不 auto-hide 容易困惑）
   // 客人要回頂部看 chip → 點右下「↑」按鈕
 
   // 回到頂部按鈕
@@ -2432,7 +2961,7 @@ app = Flask(__name__)
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Share-Key"
     return response
 
 
@@ -2450,12 +2979,13 @@ def stamp_promo(html, contact):
 
 
 def build_contact(body):
-    """從 publish payload 組出 contact dict — 留空欄位 fallback 到 DEFAULT_CONTACT"""
+    """從 publish payload 組出 contact dict — 留空欄位 fallback 到 DEFAULT_CONTACT
+    （同事沒填的欄位會補成景泰的 → 推 GitHub 前的稽核 A13 會擋下，不會讓景泰資料掛在同事頁上）"""
     contact = dict(DEFAULT_CONTACT)
-    agent_name = (body.get("agent_name") or "").strip()
-    agent_license = (body.get("agent_license") or "").strip()
-    phone = (body.get("phone") or "").strip()
-    line = (body.get("line") or "").strip()
+    agent_name = _clean_str(body.get("agent_name"), 20)
+    agent_license = _clean_str(body.get("agent_license"), 40)
+    phone = _clean_str(body.get("phone"), 30)
+    line = _clean_str(body.get("line"), 40)
 
     if agent_name:
         contact["agent_name"] = agent_name
@@ -2465,131 +2995,310 @@ def build_contact(body):
         contact["phone"] = phone
         contact["phone_raw"] = re.sub(r"[^\d+]", "", phone) or phone
     if line:
-        line_id = line.lstrip("@").strip()
+        line_id = re.sub(r"[^A-Za-z0-9._\-]", "", line.lstrip("@").strip())
         contact["line"] = line_id
         contact["line_url"] = f"https://line.me/ti/p/~{line_id}"
     return contact
 
 
-@app.route("/api/publish", methods=["POST", "OPTIONS"])
-def publish_endpoint():
-    # v2 完整版：quickjs 解析 + card_html 📋物件介紹 render（改此行強制 Vercel 重 build 本 function）
-    if request.method == "OPTIONS":
-        return ("", 204)
+def _push_page(share_id, html, message, update):
+    """推 GitHub；回 None＝成功，否則回 (jsonify, status)。"""
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        return jsonify({"error": "Server 缺 GITHUB_TOKEN 環境變數"}), 500
     try:
-        body = request.get_json(silent=True) or {}
-        # 允許不填客戶稱呼 —— 空的就是通用連結,頁面不會出現「給 XX 的」,可轉發給多人
-        name = (body.get("name") or "").strip()
-        # 需求也允許空:空就整行不出現,不要讓「找房需求」四個字孤零零掛在頁面上
-        need = (body.get("need") or "").strip()
-        if need and not need.startswith("找房需求"):
-            need = f"找房需求：{need}"
-        text = body.get("urls_text", "")
-        theme = (body.get("theme") or "").strip()
-        signature = (body.get("signature") or "").strip()
-        contact = build_contact(body)
+        github_push(f"{share_id}/index.html", html, message, token, update=update)
+    except urllib.error.HTTPError as e:
+        eb = e.read().decode("utf-8", errors="ignore")[:300]
+        return jsonify({"error": f"GitHub push 失敗 ({e.code}): {eb}"}), 500
+    return None
 
-        # ── 查詢台直送完整欄位 → 走緊湊版單物件頁 ──────────────────
-        # 景泰指定仿有巢氏官方分享頁的資訊密度，並要求「不要原本系統那個美編，
-        # 空位太多」。查詢台那端因為解了永慶 API 的加密，欄位比這裡自己爬 SSR
-        # 完整得多（謄本坪數拆分、管理費、建材、電梯、學區…），所以直接送過來。
-        props_in = body.get("props")
-        if isinstance(props_in, list) and len(props_in) == 1 and isinstance(props_in[0], dict):
-            from _lib.single_page import render as _render_single
-            _sid = (body.get("share_id") or "").strip()
-            _upd = bool(_sid and re.fullmatch(r"[A-Za-z0-9]{1,16}", _sid))
-            share_id = _sid if _upd else gen_share_id()
-            html = _render_single(props_in[0], contact, GOOGLE_MAPS_EMBED_KEY, name, need)
-            html = stamp_promo(html, contact)
-            token = os.environ.get("GITHUB_TOKEN")
-            if not token:
-                return jsonify({"error": "Server 缺 GITHUB_TOKEN 環境變數"}), 500
+
+def _card_snapshot(card, prop):
+    """卡片 → notion_log_snapshot 吃的格式（src_url＋原始刊登連結只寫內部快照，不上客戶頁）。"""
+    urls = list(card.get("src_url") or []) + [ln["url"] for ln in card.get("links") or []]
+    snap = dict(prop)
+    snap["detail_url"] = urls[0] if urls else ""
+    snap["src_urls_all"] = urls
+    if card.get("mode") == "rent":
+        snap["price_text"] = _price_text(card.get("price"), "rent")
+    return snap
+
+
+def _publish_props(body, props_in, name, need, contact, dry_run):
+    """查詢台金鑰路徑：單筆（single_page）或 1–20 張 _card（gen_html）。"""
+    if not isinstance(props_in, list) or not props_in or not all(isinstance(p, dict) for p in props_in):
+        return jsonify({"error": "格式錯：props 要是 1 筆單筆物件，或 1–20 筆卡片"}), 400
+    has_card = [p.get("_card") is True for p in props_in]
+    if all(has_card):
+        kind = "card"
+        if len(props_in) > SHARE_MAX:
+            return jsonify({"error": f"一次最多 {SHARE_MAX} 筆"}), 400
+    elif len(props_in) == 1 and "_card" not in props_in[0]:
+        kind = "single"
+    else:
+        return jsonify({"error": "格式錯：單筆不能帶 _card；多筆每筆都要是 _card 卡片"}), 400
+
+    sid_in = _clean_str(body.get("share_id"), 40)
+    if sid_in:
+        # 覆蓋既有頁：一律要金鑰正確（不看 ENFORCE）
+        if not _share_key_strict("props-overwrite-" + kind, sid_in):
+            return jsonify({"error": "要覆蓋既有客戶頁需要正確的分享金鑰（X-Share-Key）"}), 401
+    elif not _check_share_key("props-" + kind, sid_in):
+        return jsonify({"error": "分享金鑰不對（X-Share-Key）"}), 401
+    if sid_in:
+        if not re.fullmatch(r"[A-Za-z0-9]{1,16}", sid_in):
+            return jsonify({"error": "share_id 格式不對"}), 400
+        share_id, is_update = sid_in, True
+    else:
+        share_id, is_update = gen_props_share_id(), False
+
+    names = [name, need, _clean_str(body.get("need"), 200)]
+    snapshots = []
+    if kind == "single":
+        from _lib.single_page import render as _render_single
+        p, dropped, found = _sanitize_single(props_in[0])
+        html = _render_single(p, contact, GOOGLE_MAPS_EMBED_KEY, name, need)
+        render, allowed, count, mode = RENDER_SINGLE, [ln["url"] for ln in p.get("links") or []], 1, "sale"
+    else:
+        cards, dropped, found = [], set(), set()
+        for c in props_in:
             try:
-                github_push(f"{share_id}/index.html", html,
-                            f"{'update' if _upd else 'add'}: single ({share_id})",
-                            token, update=_upd)
-            except urllib.error.HTTPError as e:
-                eb = e.read().decode("utf-8", errors="ignore")[:300]
-                return jsonify({"error": f"GitHub push 失敗 ({e.code}): {eb}"}), 500
-            return jsonify({"url": f"{PAGES_BASE_URL}/{share_id}/", "share_id": share_id,
-                            "count": 1, "client": name,
-                            "mode": "single-updated" if _upd else "single"})
-
-        refs = extract_refs(text)
-        if not refs:
-            return jsonify({"error": "找不到任何物件網址（ycut https://x.ychouse.tw/... 或官方前台 https://buy.u-trust.com.tw/house/...）"}), 400
-
-        properties = fetch_full_batch(refs)
-        if not properties:
-            return jsonify({"error": "全部物件抓取失敗（可能 URL 已失效）"}), 400
-
-        # 注入每筆物件的「景泰備註」— 前端 /api/preview 後讓景泰填的賣點補充
-        notes = body.get("notes") or {}
-        if isinstance(notes, dict):
-            for p in properties:
-                n = (notes.get(p.get("slug")) or "").strip()
-                if n:
-                    p["note"] = n
-
-        # 「回去修改」模式 — 前端帶 share_id 過來就覆蓋既有檔案，不開新連結
-        incoming_share_id = (body.get("share_id") or "").strip()
-        is_update = False
-        if incoming_share_id and re.fullmatch(r"[A-Za-z0-9]{1,16}", incoming_share_id):
-            share_id = incoming_share_id
-            is_update = True
-        else:
-            share_id = gen_share_id()
-
+                sc, d, s = _sanitize_card(c)
+            except ValueError as e:
+                return jsonify({"error": f"格式錯：{e}"}), 400
+            cards.append(sc)
+            dropped |= set(d)
+            found |= s
+        modes = {c["mode"] for c in cards}
+        if len(modes) != 1:
+            return jsonify({"error": "格式錯：同一頁只能全部買賣或全部租屋"}), 400
+        mode = modes.pop()
+        properties = [_card_to_prop(c, i) for i, c in enumerate(cards)]
+        snapshots = [_card_snapshot(c, p) for c, p in zip(cards, properties)]
         client_data = {
-            "name": name,
-            "need": need,
-            "share_id": share_id,
-            "contact": contact,
-            "theme": theme,
-            "signature": signature,
+            "name": name, "need": need, "share_id": share_id, "contact": contact, "mode": mode,
+            "theme": _clean_str(body.get("theme"), 30), "signature": _clean_str(body.get("signature"), 30),
             "hide_promo": bool(body.get("hide_promo")),
         }
         html = gen_html(client_data, properties)
+        render, count = RENDER_CARDS, len(cards)
+        allowed = [ln["url"] for c in cards for ln in c["links"]]
+        mv = ({c["mp_version"] for c in cards} | {_clean_str(body.get("mp_version"), 40)}) - {""}
+        if mv and mv != {_L.MP_VERSION}:
+            print(f"[mp_version] 查詢台 {sorted(mv)} ≠ share app {_L.MP_VERSION}（只記錄，照常產頁）")
+    if dropped:
+        print(f"[props-{kind}] 丟掉白名單外的鍵：{sorted(dropped)[:20]}")
 
-        token = os.environ.get("GITHUB_TOKEN")
-        if not token:
-            return jsonify({"error": "Server 缺 GITHUB_TOKEN 環境變數"}), 500
+    res = _audit_page(html, contact, allowed, names, found)
+    if dry_run:
+        return jsonify({"html_len": len(html), "render": render, "leak": _leak(res), "build": BUILD,
+                        "mode": mode, "count": count})
+    if not res.ok:
+        print("[audit] 擋下 " + "；".join(_A.describe(h) for h in res.hits[:10]))
+        return jsonify({"error": "audit", "hits": _leak(res),
+                        "msg": "客戶頁稽核沒過，已擋下沒有推上去"}), 422
 
-        html = stamp_promo(html, contact)
+    html = stamp_promo(html, contact)
+    err = _push_page(share_id, html,
+                     f"{'update' if is_update else 'add'}: {kind} {name} {count} 戶 ({share_id})", is_update)
+    if err:
+        return err
+    if snapshots:
         try:
-            github_push(
-                f"{share_id}/index.html",
-                html,
-                (f"update: {name} {len(properties)} 戶 ({share_id})"
-                    if is_update else
-                    f"add: {name} {len(properties)} 戶 ({share_id})"),
-                token,
-                update=is_update,
-            )
-        except urllib.error.HTTPError as e:
-            err_body = e.read().decode("utf-8", errors="ignore")[:300]
-            return jsonify({"error": f"GitHub push 失敗 ({e.code}): {err_body}"}), 500
-
-        # 寫物件快照到 Notion（不阻塞主流程，失敗也不影響 client 回應）
-        try:
-            notion_log_snapshot(share_id, name, properties)
+            notion_log_snapshot(share_id, name, snapshots)
         except Exception as e:
             print(f"snapshot logging error: {e}")
+    return jsonify({"url": f"{PAGES_BASE_URL}/{share_id}/", "share_id": share_id, "render": render,
+                    "build": BUILD, "count": count, "client": name, "mode": mode,
+                    "updated": is_update})
 
-        return jsonify({
-            "url": f"{PAGES_BASE_URL}/{share_id}/",
-            "share_id": share_id,
-            "count": len(properties),
-            "client": name,
-            "mode": "updated" if is_update else "created",
-        })
+
+def _sanitize_single(p):
+    """單筆 props（永慶）：只留 SINGLE_KEYS；標題／內文用洗白版（舊版查詢台只送 caseName／des 也洗）。
+    回 (乾淨 dict, 丟掉的鍵, secrets)。"""
+    out = {k: p[k] for k in _L.SINGLE_KEYS if k in p}
+    dropped = [k for k in p if k not in _L.SINGLE_KEYS]
+    found = set()
+    for k in ("address", "road", "district", "county", "caseType", "regUse", "dirFace", "purpose",
+              "buiStrn", "floor"):
+        if k in out:
+            out[k] = _clean_str(out[k], 120)
+    addr = _SC.road_only(out.get("address") or "")
+    out["address"] = addr
+    comm = _short(out.get("community"), 60)
+    if comm:
+        out["community"] = comm
+    else:
+        out.pop("community", None)
+    title = _short(p.get("title"), 120) or _short(p.get("caseName"), 120) or comm or addr or "物件"
+    title = _L.TITLE_FORBIDDEN_RE.sub("", title).strip() or "物件"
+    out["title"] = out["caseName"] = title                 # caseName 一律等於結構化標題（CONTRACT §7-8）
+    sub = _short(p.get("subtitle"), 60)
+    if sub and sub != title:
+        out["subtitle"] = sub
+    else:
+        out.pop("subtitle", None)
+    intro_raw = p.get("intro") if isinstance(p.get("intro"), str) else ""
+    if not intro_raw:                                      # 舊版查詢台：des／feature 原文 → 這裡洗
+        intro_raw = p.get("des") if isinstance(p.get("des"), str) else ""
+        if not intro_raw and isinstance(p.get("feature"), str):
+            intro_raw = p["feature"]
+    r = _SC.scrub_body(_clean_str(intro_raw, _L.BODY_IN_MAX, keep_nl=True), "yc") if intro_raw else None
+    out["intro"] = r.text if r else ""
+    if r:
+        found |= set(r.secrets)
+    for k in ("des", "feature", "houseFeature", "mrt"):      # 原文不進模板
+        out.pop(k, None)
+    hosts = _L.CARD_URL_HOSTS
+    out["photos"] = [u for u in (_safe_url(x, hosts) for x in (p.get("photos") if isinstance(p.get("photos"), list)
+                                                                 else [])[:40]) if u]
+    lay = _safe_url(p.get("layout"), hosts)
+    if lay:
+        out["layout"] = lay
+    else:
+        out.pop("layout", None)
+    links = []
+    for ln in (p.get("links") if isinstance(p.get("links"), list) else [])[:40]:
+        url = _safe_url(ln.get("url") if isinstance(ln, dict) else ln, hosts)
+        if url and url not in [x["url"] for x in links]:
+            links.append({"n": len(links) + 1, "url": url})
+    out["links"] = links[:CARD_LINKS_MAX]
+    mq = _SC.road_only(_clean_str(p.get("map_q"), 120))
+    mq = (_SC.scrub_short(mq) or "") if mq else ""
+    out["map_q"] = mq or ((_L.CITY + addr) if addr and not addr.startswith(_L.CITY) else addr)
+    if isinstance(out.get("parking"), list):
+        out["parking"] = [x for x in (_short(v, 30) for v in out["parking"][:6]) if x]
+    elif "parking" in out:
+        out["parking"] = _short(out["parking"], 30)
+    if isinstance(out.get("school"), list):
+        sch = []
+        for s in out["school"][:8]:
+            nm = (s.get("name") or s.get("schoolName")) if isinstance(s, dict) else s
+            nm = _clean_str(nm, 30)
+            if nm:
+                sch.append({"name": nm})
+        out["school"] = sch
+    else:
+        out.pop("school", None)
+    if isinstance(out.get("manage"), dict):
+        out["manage"] = {k: _clean_str(out["manage"].get(k), 40) for k in ("manageExpense", "manageType")}
+    for k in ("pinAll", "pattern"):
+        if k in out and not isinstance(out[k], dict):
+            out.pop(k)
+    return out, dropped, found
+
+
+def _publish_urls(body, name, need, contact, dry_run):
+    """景泰自己的網頁表單（urls_text）：抓回來 → 洗白 → 結構化標題 → 稽核 → 推。"""
+    text = body.get("urls_text", "")
+    text = text if isinstance(text, str) else ""
+    theme = _clean_str(body.get("theme"), 30)
+    signature = _clean_str(body.get("signature"), 30)
+
+    # 「回去修改」模式 — 前端帶 share_id 過來就覆蓋既有檔案，不開新連結
+    incoming_share_id = _clean_str(body.get("share_id"), 40)
+    is_update = False
+    if incoming_share_id and re.fullmatch(r"[A-Za-z0-9]{1,16}", incoming_share_id):
+        # qs 開頭＝查詢台金鑰路徑產的頁 → 覆蓋一律要金鑰正確（不看 ENFORCE；2026-10-03 紅隊）
+        if incoming_share_id.lower().startswith("qs") and not _share_key_strict("urls-overwrite-qs", incoming_share_id):
+            return jsonify({"error": "這個連結是查詢台產的，要覆蓋需要分享金鑰"}), 401
+        share_id = incoming_share_id
+        is_update = True
+    else:
+        share_id = gen_share_id()
+
+    refs = extract_refs(text)
+    if not refs:
+        return jsonify({"error": "找不到任何物件網址（ycut https://x.ychouse.tw/... 或官方前台 https://buy.u-trust.com.tw/house/...）"}), 400
+
+    properties = fetch_full_batch(refs)
+    if not properties:
+        return jsonify({"error": "全部物件抓取失敗（可能 URL 已失效）"}), 400
+
+    # 注入每筆物件的備註 — 前端 /api/preview 後讓景泰填的賣點補充（稽核照樣會掃）
+    notes = body.get("notes") or {}
+    if isinstance(notes, dict):
+        for p in properties:
+            n = _clean_str(notes.get(p.get("slug")), 1000, keep_nl=True)
+            if n:
+                p["note"] = n
+
+    found = _scrub_fetched(properties)
+    client_data = {
+        "name": name,
+        "need": need,
+        "share_id": share_id,
+        "contact": contact,
+        "theme": theme,
+        "signature": signature,
+        "hide_promo": bool(body.get("hide_promo")),
+    }
+    html = gen_html(client_data, properties)
+    res = _audit_page(html, contact, (), [name, need, _clean_str(body.get("need"), 200)], found)
+    if dry_run:
+        return jsonify({"html_len": len(html), "render": RENDER_CARDS, "leak": _leak(res), "build": BUILD,
+                        "count": len(properties)})
+    if not res.ok:
+        why = "；".join(_A.describe(h) for h in res.hits[:6])
+        print("[audit] urls_text 擋下 " + why)
+        return jsonify({"error": f"客戶頁稽核沒過，已擋下沒有推上去：{why}", "code": "audit",
+                        "hits": _leak(res)}), 422
+
+    html = stamp_promo(html, contact)
+    err = _push_page(share_id, html,
+                     (f"update: {name} {len(properties)} 戶 ({share_id})" if is_update
+                      else f"add: {name} {len(properties)} 戶 ({share_id})"), is_update)
+    if err:
+        return err
+
+    # 寫物件快照到 Notion（不阻塞主流程，失敗也不影響 client 回應）
+    try:
+        notion_log_snapshot(share_id, name, properties)
+    except Exception as e:
+        print(f"snapshot logging error: {e}")
+
+    return jsonify({
+        "url": f"{PAGES_BASE_URL}/{share_id}/",
+        "share_id": share_id,
+        "count": len(properties),
+        "client": name,
+        "mode": "updated" if is_update else "created",
+        "render": RENDER_CARDS,
+        "build": BUILD,
+    })
+
+
+@app.route("/api/publish", methods=["POST", "OPTIONS"])
+def publish_endpoint():
+    # cards-v2：單筆 props／多筆 _card／urls_text 三支，推 GitHub 前都跑 audit_html（改此行強制 Vercel 重 build 本 function）
+    if request.method == "OPTIONS":
+        return ("", 204)
+    try:
+        if _A is None or _SC is None or _L is None:
+            return jsonify({"error": "洗白稽核模組載入失敗，暫停產生客戶頁"}), 500
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            body = {}
+        # 允許不填客戶稱呼 —— 空的就是通用連結,頁面不會出現「給 XX 的」,可轉發給多人
+        name = _clean_str(body.get("name"), 40)
+        # 需求也允許空:空就整行不出現,不要讓「找房需求」四個字孤零零掛在頁面上
+        need = _clean_str(body.get("need"), 200)
+        if need and not need.startswith("找房需求"):
+            need = f"找房需求：{need}"
+        contact = build_contact(body)
+        dry_run = body.get("dry_run") is True
+        if "props" in body:
+            return _publish_props(body, body.get("props"), name, need, contact, dry_run)
+        return _publish_urls(body, name, need, contact, dry_run)
     except Exception as e:
         return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
 
 
 @app.route("/api/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "ts": datetime.datetime.now().isoformat(), "build": "2026-06-02-recommend"})
+    return jsonify({"status": "ok", "ts": datetime.datetime.now().isoformat(), "build": BUILD,
+                    "render": RENDER_CARDS, "mp_version": _L.MP_VERSION if _L else None})
 
 
 @app.route("/api/preview", methods=["POST", "OPTIONS"])
@@ -2649,11 +3358,21 @@ def preview_endpoint():
         return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
 
 
+RECOMMEND_DISABLED = True          # /api/recommend 停用中（沒有洗白與整頁稽核；見下方 docstring）
+
+
 @app.route("/api/recommend", methods=["POST", "OPTIONS"])
 def recommend_endpoint():
-    """猜你喜歡：吃 anchor 短網址 → 框檔次 decoy 配貨 → 渲染資訊卡頁 → push GitHub。"""
+    """猜你喜歡：吃 anchor 短網址 → 框檔次 decoy 配貨 → 渲染資訊卡頁 → push GitHub。
+
+    ⛔ 2026-10-03 紅隊：這條路徑沒有洗白也沒有 audit_html（候選物件直接顯示永慶列表的仲介原標題 caseName、
+    頁尾寫死「認識景泰」與 IG、頁面沒有 z:contact 分區），推上公開 repo 收不回來 → 先停用（410）。
+    要恢復：候選標題改 _SC.structured_title、頁尾包 z:contact、推之前跑 _audit_page，補測試後再拿掉下面這行。"""
     if request.method == "OPTIONS":
         return ("", 204)
+    if RECOMMEND_DISABLED:
+        return jsonify({"error": "「猜你喜歡」暫停使用中（還沒補上客戶頁稽核），請改用查詢台分享",
+                        "code": "recommend_disabled"}), 410
     try:
         body = request.get_json(silent=True) or {}
         anchor_url = (body.get("anchor_url") or body.get("url") or "").strip()
@@ -2812,12 +3531,14 @@ def notion_log_snapshot(share_id, client_name, properties_list):
         summary_parts = [
             district if district != "其他" else "",
             (p.get("community_display") or "").strip(),
-            f"{p['price']}萬" if p.get("price") else "",
-            f"{p.get('floor')}F/{p.get('floor_total')}" if p.get("floor") else "",
+            p.get("price_text") or (f"{p['price']}萬" if p.get("price") else ""),
+            (p.get("floor_text") or "") or (f"{p.get('floor')}F/{p.get('floor_total')}" if p.get("floor") else ""),
             f"{p.get('area')}坪" if p.get("area") else "",
             f"{p.get('age')}年" if p.get("age") else "",
         ]
-        summary = " · ".join(s for s in summary_parts if s)
+        summary = " · ".join(str(s) for s in summary_parts if s)
+        if p.get("src_urls_all"):                       # cards-v2：全部原始刊登網址只留內部快照
+            summary = (summary + "｜" + " ".join(p["src_urls_all"]))[:1900]
 
         properties = {
             "客戶": {"title": [{"text": {"content": (client_name or "未知")[:200]}}]},
@@ -3592,6 +4313,29 @@ def render_stats_html(stats):
 </html>'''
 
 
+def github_get_text(path, token):
+    """讀 GitHub repo 裡的一個檔（contents API），回文字；讀不到回 None。"""
+    api_url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{path}"
+    try:
+        req = urllib.request.Request(api_url, method="GET", headers={
+            "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            j = json.loads(r.read().decode("utf-8"))
+        return base64.b64decode(j.get("content") or "").decode("utf-8", "replace")
+    except Exception:
+        return None
+
+
+def _page_is_owner(sid, token):
+    """原客戶頁的聯絡人是不是景泰本人（電話與 LINE 都要在頁上）。讀不到原頁 → False（寧可不重建）。"""
+    html = github_get_text(f"{sid}/index.html", token)
+    if not html:
+        return False
+    p = DEFAULT_CONTACT["phone_raw"]
+    phone_rx = r"(?<!\d)%s[-\s]?%s[-\s]?%s(?!\d)" % (p[:4], p[4:7], p[7:])
+    return bool(re.search(phone_rx, html)) and DEFAULT_CONTACT["line"] in html.lower()
+
+
 @app.route("/api/regen", methods=["GET", "POST"])
 def regen_endpoint():
     """重新生成既有 share_id 的客戶頁（同 URL 升級到最新版面）
@@ -3603,7 +4347,16 @@ def regen_endpoint():
     share_id = request.args.get("share_id") or (request.get_json(silent=True) or {}).get("share_id", "")
     share_id = (share_id or "").strip()
     if not share_id:
-        return jsonify({"error": "需要 share_id 參數（?share_id=XXX 或 ?share_id=all）"}), 400
+        return jsonify({"error": "需要 share_id 參數（?share_id=XXX）"}), 400
+    # 2026-10-03 紅隊：原本不用驗證、聯絡人一律換成景泰（DEFAULT_CONTACT）→ 同事 P0a 前用 urls_text 產的頁會被
+    # 改成景泰的聯絡資料。現在：要金鑰；share_id=all 先停（快照沒記發頁人）；單頁要確認原頁聯絡人就是景泰才重建。
+    if not _share_key_strict("regen", share_id):
+        return jsonify({"error": "重建客戶頁需要正確的分享金鑰（X-Share-Key）"}), 401
+    if share_id == "all":
+        return jsonify({"error": "一次重建全部暫停：快照沒有記是誰發的頁，重建會把同事的頁改成景泰的聯絡資料。"
+                                 "請一頁一頁指定 share_id"}), 400
+    if not re.fullmatch(r"[A-Za-z0-9]{1,16}", share_id):
+        return jsonify({"error": "share_id 格式不對"}), 400
 
     token = os.environ.get("GITHUB_TOKEN")
     if not token:
@@ -3633,9 +4386,18 @@ def regen_endpoint():
 
     results = []
     for sid in targets:
+        # qs＝查詢台金鑰路徑產的頁（卡片資料只在查詢台、落款可能是同事）→ 這裡重建不出來，一律跳過
+        if sid.lower().startswith("qs"):
+            results.append({"share_id": sid, "ok": False, "error": "查詢台產的頁不重建（請從查詢台重新分享）"})
+            continue
         info = share_map.get(sid)
         if not info or not info["slugs"]:
             results.append({"share_id": sid, "ok": False, "error": "找不到物件資料"})
+            continue
+        # 原頁的聯絡人要是景泰（重建一律用 DEFAULT_CONTACT）；讀不到原頁或聯絡人是別人 → 不重建
+        if not _page_is_owner(sid, token):
+            results.append({"share_id": sid, "ok": False,
+                            "error": "原頁的聯絡人不是景泰（或讀不到原頁），不重建；請發頁的人從查詢台重新分享"})
             continue
 
         try:
@@ -3653,7 +4415,15 @@ def regen_endpoint():
             "share_id": sid,
             "contact": DEFAULT_CONTACT,
         }
+        if _A is None:
+            results.append({"share_id": sid, "ok": False, "error": "洗白稽核模組載入失敗"})
+            continue
+        found = _scrub_fetched(properties)
         html = gen_html(client_data, properties)
+        res = _audit_page(html, DEFAULT_CONTACT, (), [info["client"], "找房需求"], found)
+        if not res.ok:                                   # 推 GitHub 前稽核（公開 repo 收不回來）
+            results.append({"share_id": sid, "ok": False, "error": "稽核擋下", "hits": _leak(res)})
+            continue
 
         try:
             github_push(
