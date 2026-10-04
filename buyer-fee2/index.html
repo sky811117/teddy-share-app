@@ -504,6 +504,14 @@ document.documentElement.classList.add('js');
   .cta.primary:hover { background: var(--forest-2); }
   .cta.ghost { background: var(--surface); color: var(--forest); border: 1.5px solid var(--forest); }
   .cta.ghost:hover { background: var(--forest-tint); }
+  /* 「還沒加 LINE？先加好友」：按鈕正下方的小連結（點擊範圍仍有 48px 高） */
+  .cta-add {
+    grid-column: 1 / -1; justify-self: center; display: inline-flex; align-items: center; min-height: 48px; margin: -4px 0 -2px; padding: 0 12px;
+    font-size: 15px; font-weight: 700; color: var(--forest); text-align: center; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px;
+  }
+  .cta-add:hover { color: var(--forest-2); }
+  /* 按下之前就看得到的說明：LINE 打開後要選誰（按下後 LINE 會馬上蓋住網頁，提示框來不及看） */
+  .cta-hint { grid-column: 1 / -1; margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink-2); text-align: center; text-wrap: balance; }
   .nw { white-space: nowrap; }
   p, small, .lbl, .k, .help, .d, summary, .elig-item span, li { text-wrap: pretty; }
   .cash-total .k small b { white-space: nowrap; }
@@ -912,7 +920,7 @@ document.documentElement.classList.add('js');
     position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); z-index: 2000;
     transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
     background: var(--ink); color: #fff; border-radius: 999px; padding: 10px 20px;
-    font-size: 15px; max-width: calc(100vw - 32px); text-align: center;
+    font-size: 15px; width: max-content; max-width: calc(100vw - 32px); text-align: center; text-wrap: balance; white-space: pre-line;
     transition: opacity .2s, transform .2s;
   }
   .wl-toast.show { opacity: 1; transform: translate(-50%, 0); }
@@ -956,6 +964,8 @@ document.documentElement.classList.add('js');
     .rs-foot .cta-row.vert:not(.solo) .lg-only { display: none; }
     .rs-foot .cta { padding: 0 10px; gap: 8px; letter-spacing: .02em; }
     .rs-foot .share-note { display: none; }
+    /* 手機抽屜底部保持一行按鈕：「先加好友」與說明留在結果區那份（抽屜裡按鈕本身就寫了傳給誰） */
+    .rs-foot .cta-hint, .rs-foot .cta-add { display: none; }
     .rs-foot .cta .lt { text-wrap: balance; }
     .wl-toast { bottom: calc(96px + env(safe-area-inset-bottom)); }
     body.dock-off .wl-toast { bottom: calc(24px + env(safe-area-inset-bottom)); }
@@ -1570,9 +1580,11 @@ document.documentElement.classList.add('js');
           <p><strong>這還沒算裝潢、家具家電、搬家費。</strong>中古屋若要整理，建議另外抓一筆緩衝金，不要把現金全部押在成交上。</p></div>
         <div class="cta-row">
           <button type="button" class="cta primary js-share"><svg class="ico" aria-hidden="true"><use href="#i-share"/></svg>把這份試算傳給家人</button>
-          <a class="cta ghost pz js-line" hidden target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg><span class="lt">LINE 詢問</span></a>
+          <button type="button" class="cta ghost pz js-line" hidden><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg><span class="lt">用 LINE 傳試算</span></button>
+          <p class="cta-hint pz js-line-hint" hidden>按下後會打開 LINE，選要傳的人送出即可</p>
+          <a class="cta-add pz js-line-add" hidden target="_blank" rel="noopener">還沒加 LINE？先加好友 ›</a>
         </div>
-        <p class="share-note">連結只帶房價與貸款條件<span class="nw">（不含年齡、所得、婚育）</span>，請只傳給信任的人</p>
+        <p class="share-note">只傳房價、貸款和試算結果，不寫年齡、所得、婚育，但可能看得出青安資格與額度。請只傳給信任的人</p>
       </article>
 
       <!-- 一次性費用 -->
@@ -1657,9 +1669,11 @@ document.documentElement.classList.add('js');
       <div class="rs-foot">
         <div class="cta-row vert">
           <button type="button" class="cta primary js-share"><svg class="ico" aria-hidden="true"><use href="#i-share"/></svg><span><span class="lg-only">把這份試算</span>傳給家人</span></button>
-          <a class="cta ghost pz js-line" hidden target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg><span class="lt">LINE 詢問</span></a>
+          <button type="button" class="cta ghost pz js-line" hidden><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg><span class="lt">用 LINE 傳試算</span></button>
+          <p class="cta-hint pz js-line-hint" hidden>按下後會打開 LINE，選要傳的人送出即可</p>
+          <a class="cta-add pz js-line-add" hidden target="_blank" rel="noopener">還沒加 LINE？先加好友 ›</a>
         </div>
-        <p class="share-note">連結只帶房價與貸款條件<span class="nw">（不含年齡、所得、婚育）</span>，請只傳給信任的人</p>
+        <p class="share-note">只傳房價、貸款和試算結果，不寫年齡、所得、婚育，但可能看得出青安資格與額度。請只傳給信任的人</p>
       </div>
     </div>
   </aside>
@@ -2710,7 +2724,7 @@ function updatePanel(s) {
   $('pWarn').hidden = !s.noBase;
 
   /* --- 結果面板：每月約繳 --- */
-  let merged, graceEnd, pairHTML, monthTxt, cap, refPay = null;
+  let merged, graceEnd, pairHTML, monthTxt, cap, refPay = null, monthParts = [];
   const arrow = `<svg class="ico arr" aria-hidden="true"><use href="#i-arrow"/></svg>`;
   const paren = (t) => `<span class="nw">${t}</span>`;
   let figN = 0;
@@ -2723,16 +2737,20 @@ function updatePanel(s) {
     const a = merged[0];
     const b = merged[6] || merged[merged.length - 1];
     const capA = yearSpan(1, n, false) + (a.inGrace ? paren(split ? '（青安只繳利息）' : '（只繳利息）') : '');
-    let capB = yearSpan(b.year, b.year, false);
+    let capB = yearSpan(b.year, b.year, false), capBTxt = capB;
     if (merged[6]) {
       /* 補貼結束後的月付維持到哪一年：一般房貸較短時，繳清那年起會再降 */
       let e = 6;
       while (e + 1 < merged.length && Math.abs(merged[e + 1].pay - b.pay) < 1) e++;
-      capB = (e === merged.length - 1 ? '第 7 年起' : yearSpan(7, e + 1, false)) + paren('（補貼結束）');
+      const yrs = e === merged.length - 1 ? '第 7 年起' : yearSpan(7, e + 1, false);
+      capB = yrs + paren('（補貼結束）');
+      capBTxt = yrs + '，補貼結束';
       if (e < merged.length - 1) capB += `<span class="cap-next">第 ${e + 2} 年起 ${m2(merged[e + 1].pay)} 萬</span>`;
     }
     pairHTML = fig(a.pay, capA) + arrow + fig(b.pay, capB, true);
     monthTxt = `${m2(a.pay)}→${m2(b.pay)}`;
+    /* 純文字版（「把試算傳給○○○」的訊息用）：跟上面同一組數字與年份 */
+    monthParts = [[a.pay, yearSpan(1, n, false) + (a.inGrace ? (split ? '，青安只繳利息' : '，只繳利息') : '')], [b.pay, capBTxt]];
     cap = `青安3.0・${s.yQA} 年・寬限 ${s.gQA} 年${split ? `＋一般 ${wan(s.extraPart)} 萬` : ''}`;
     const gy = s.gen.yearly;
     if (gy.length) { const ag = gy.find(y => !y.inGrace); refPay = (ag || gy[0]).pay; }
@@ -2744,10 +2762,12 @@ function updatePanel(s) {
       const a = merged[0], b = merged[s.gGen];
       pairHTML = fig(a.pay, `${yearSpan(1, s.gGen, false)}${paren('（只繳利息）')}`) + arrow + fig(b.pay, `第 ${s.gGen + 1} 年起${paren('（開始還本金）')}`, true);
       monthTxt = `${m2(a.pay)}→${m2(b.pay)}`;
+      monthParts = [[a.pay, `${yearSpan(1, s.gGen, false)}，只繳利息`], [b.pay, `第 ${s.gGen + 1} 年起，開始還本金`]];
     } else {
       const n = sameRun(merged);
       pairHTML = fig(merged[0].pay, yearSpan(1, n, false) + '，每月');
       monthTxt = m2(merged[0].pay);
+      monthParts = [[merged[0].pay, yearSpan(1, n, false)]];
     }
     cap = `一般房貸・${s.yGen} 年・寬限 ${s.gGen} 年`;
   }
@@ -2785,6 +2805,7 @@ function updatePanel(s) {
   setText('dCashU', s.noBase ? '萬起' : '萬');
   tweenNum('dMonth', $('dMonth'), monthTxt, false);
   s.monthTxt = monthTxt;
+  s.monthParts = monthParts;
 
   /* --- 動態收尾：資格結論交叉淡入、新出現的提醒框淡入；列印簡表跟著最新結果重畫 --- */
   verdictFade();
@@ -3425,15 +3446,21 @@ window.addEventListener('pagehide', () => { if (saveTimer) saveNow(); });
    打開的人用自己這台裝置記住的個人資料，房子與貸款條件用連結裡的 */
 const PERSONAL = ['age', 'income', 'noHouse', 'famNewlywed', 'famChild'];
 const isObj = (o) => !!o && typeof o === 'object' && !Array.isArray(o);
-function pageToast(msg) {
+let pageToastTimer = 0;
+function pageToast(msg, bottom, ms) {   // bottom：要浮在某個位置上方時才給（px），提示收起後還原；ms：顯示多久
   const t = $('wlToast');
   if (!t) return;
+  t.style.bottom = bottom ? bottom + 'px' : '';
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3200);
+  clearTimeout(pageToastTimer);
+  pageToastTimer = setTimeout(() => {
+    t.classList.remove('show');
+    if (bottom) pageToastTimer = setTimeout(() => { t.style.bottom = ''; }, 300);
+  }, ms || 3200);
 }
 
-/* 載入：網址 #c= 優先（家人傳來的試算），否則用這台裝置記住的數字 */
+/* 載入：網址 #c= 優先（家人或客人傳來的試算），否則用這台裝置記住的數字 */
 (function restoreInputs() {
   let own = null;
   try { own = JSON.parse(istore.get(INPUT_KEY) || 'null'); } catch (e) {}
@@ -3450,7 +3477,8 @@ function pageToast(msg) {
       applySnapshot(o);
       fromLink = true;
       saveNow();
-      setTimeout(() => pageToast('已帶入家人傳來的房價與貸款條件'), 400);
+      /* 連結不帶個人資料，青安資格用這台裝置的資料重算，所以結果可能跟傳來的人不同（要講清楚） */
+      setTimeout(() => pageToast('已帶入對方傳來的房價與貸款條件。\n年齡、所得、婚育用這台裝置的資料計算，\n青安結果可能跟對方不同', 0, 7000), 400);
     }
   }
   if (!fromLink) {
@@ -3631,6 +3659,9 @@ if ('IntersectionObserver' in window) {
 function shareLink() {
   const o = snapshot();
   PERSONAL.forEach(k => { delete o[k]; });   // 個人資料不放進連結（法定揭露第 8 點）
+  /* 青安年限剛好等於「80 − 年齡」時（多半是被年齡自動壓縮），放進連結就能反推年齡 → 不放，打開的人用自己的年齡再壓一次 */
+  const maxYQA = Math.max(1, Math.min(40, QA3_AGE_SUM - Math.round(num('age', 0, 120, 35))));
+  if (maxYQA < 40 && Number(o.yearsQA) === maxYQA) delete o.yearsQA;
   return location.href.split('#')[0] + '#c=' + b64e(JSON.stringify(o));
 }
 document.querySelectorAll('.js-share').forEach(btn => btn.addEventListener('click', () => {
@@ -3647,27 +3678,138 @@ document.querySelectorAll('.js-share').forEach(btn => btn.addEventListener('clic
   location.href = 'https://line.me/R/share?text=' + encodeURIComponent(text + ' ' + url);
 }));
 
-/* 「LINE 問○○○」：跟著白牌設定走（空白版或沒有 LINE 就藏起來，分享鈕自動變滿版） */
+/* 「把試算傳給○○○」：LINE 沒辦法替客人指定收件人，所以由客人用自己的 LINE 傳。
+   按下去：先把試算內容複製起來，再打開 LINE 的「傳送訊息」畫面（訊息已帶好），客人選承辦人送出即可。
+   跟著白牌設定走：空白版或沒有有效的 LINE 就整組藏起來，「傳給家人」自動變滿版 */
+let lineProfile = null;
+function profileName() { return (lineProfile && lineProfile.name) || ''; }
+
+/* 訊息只讀結果面板用的同一份數字（lastSummary），不另外計算；絕不放年齡、所得、無房、婚育 */
+function lineMessage() {
+  const s = lastSummary;
+  if (!s) return '';
+  const showQA = s.plan !== 'none' && !s.qaBlocked && !!s.qa;
+  const split = showQA && s.extraPart > 0;
+  const L = ['您好，我用「買房自備款試算」算了一下，想請教：'];
+  L.push(`・成交總價：${s.priceWan > 0 ? `${zh(s.priceWan)} 萬` : '還沒填'}`);
+  let appr;
+  if (s.apprAmountWan > 0) {
+    appr = `${zh(s.apprAmountWan)} 萬`;
+    if (s.apprPct) appr += `（成交價的 ${s.apprPct}%${s.apprValue > s.price ? '，銀行仍以成交價計算' : ''}）`;
+  } else {
+    appr = s.priceWan > 0 ? `${zh(s.priceWan)} 萬（成交價的 ${s.apprPct || '100'}%）` : '同成交價';
+  }
+  L.push(`・銀行鑑價：${appr}`);
+  const ratio = (s.loanRatio / 10).toLocaleString('zh-TW', { maximumFractionDigits: 2 });   // 72.5% → 7.25 成，跟畫面一致
+  const loanNote = [];
+  if (s.manual) loanNote.push('手動指定');
+  if (split) loanNote.push(`青安 ${wan(s.qaPart)} 萬＋一般房貸 ${wan(s.extraPart)} 萬`);
+  L.push(`・貸款：${s.manual ? '' : `${ratio} 成，`}核貸 ${wan(s.loanAmount)} 萬` + (loanNote.length ? `（${loanNote.join('；')}）` : ''));
+  const blanks = s.blankFees || [];
+  L.push(`・要準備的現金：約 ${wan(s.cashTotal)} 萬${s.noBase ? '起' : ''}（頭期款 ${wan(s.downPay)} 萬＋稅費雜支 ${wan(s.feeTotal)} 萬`
+    + (s.noBase ? `；未含${blanks.join('、')} ${blanks.length} 項` : '') + '）');
+  const parts = s.monthParts || [];
+  L.push(`・每月約繳：${parts.length ? parts.map(([v, t]) => `${m2(v)} 萬（${t}）`).join(' → ') : '─'}`);
+  L.push(`・方案：${s.plan === 'none' ? '只算一般房貸' : (s.qaBlocked ? '不符合青安3.0（以一般房貸計算）'
+    : '青安3.0 初步符合' + (s.apprOverCap ? '（但鑑價已超過青安總價上限，要跟銀行確認）' : ''))}`);
+  L.push(`試算連結：${shareLink()}`);
+  /* 連結不帶個人資料，打開時青安資格用打開那台的資料重算 → 以訊息裡的數字為準 */
+  if (s.plan !== 'none') L.push('（連結打開後，青安資格會依打開的人自己的條件重算，數字以這則訊息為準）');
+  L.push('（試算僅供參考）');
+  return L.join('\n');
+}
+
+/* 複製到剪貼簿，回傳是否成功（Promise<boolean>）。
+   先用 execCommand：它在按下的當下同步完成，接著馬上開 LINE 也不會被打斷；不行再用 navigator.clipboard。
+   失敗不打擾使用者（訊息本來就會帶進 LINE，剪貼簿只是備用） */
+function copyText(text) {
+  let ok = false;
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;';
+    document.body.append(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    ok = document.execCommand('copy') === true;
+    ta.remove();
+  } catch (e) {}
+  if (ok) return Promise.resolve(true);
+  try {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text).then(() => true, () => false);
+  } catch (e) {}
+  return Promise.resolve(false);
+}
+
+const nwSpan = (txt, cls) => { const e = document.createElement('span'); e.className = cls == null ? 'nw' : cls; e.textContent = txt; return e; };
 function syncLineCtas() {
   let p = null;
   try { p = typeof window.__wlProfile === 'function' ? window.__wlProfile() : null; } catch (e) {}
   const href = (p && p.mode !== 'blank' && p.lineHref) || '';
+  lineProfile = href ? p : null;
   /* 按鈕不寫職稱（營業員不是「經紀人」），有姓名就帶姓名 */
-  const name = (p && p.name) || '';
-  document.querySelectorAll('.js-line').forEach(a => {
-    const lt = a.querySelector('.lt');
-    if (lt) {   // 「LINE 問陳景泰」：姓名不拆行，太窄時只在「LINE」後面換行
-      const nm = document.createElement('span');
-      nm.className = 'nw';
-      nm.textContent = name ? `問${name}` : '詢問';
-      lt.replaceChildren(document.createTextNode('LINE '), nm);
+  const name = profileName();
+  document.querySelectorAll('.js-line').forEach(b => {
+    const lt = b.querySelector('.lt');
+    if (lt) {   // 「把試算傳給陳景泰」（手機抽屜裡藏前綴，變「傳給陳景泰」）：太窄時只在姓名前面換行，姓名 7 個字以上才允許拆開
+      if (name) {
+        const head = nwSpan('傳給');
+        head.prepend(nwSpan('把試算', 'lg-only'));
+        lt.replaceChildren(head, document.createElement('wbr'), nwSpan(name, Array.from(name).length <= 6 ? 'nw' : ''));
+      } else {   // 「用 LINE 傳試算」（抽屜裡「LINE 傳試算」）
+        const a1 = nwSpan('LINE');
+        a1.prepend(nwSpan('用 ', 'lg-only'));
+        lt.replaceChildren(a1, document.createTextNode(' '), nwSpan('傳試算'));
+      }
     }
+    b.hidden = !href;
+  });
+  document.querySelectorAll('.js-line-hint').forEach(h => {
+    h.replaceChildren('按下後會打開 LINE，選', name ? nwSpan(name) : '要傳的人', '送出即可');
+    h.hidden = !href;
+  });
+  document.querySelectorAll('.js-line-add').forEach(a => {
+    /* 「好友 ›」不拆行，「›」不唸出來 */
+    const tail = nwSpan('好友');
+    const arr = document.createElement('span');
+    arr.setAttribute('aria-hidden', 'true');
+    arr.textContent = '\u00a0›';
+    tail.append(arr);
+    const box = document.createElement('span');   // 包成一段文字，換行時照一般文字排（不被 flex 拆成兩塊）
+    box.append(`還沒加 LINE？先加${name}`, tail);
+    a.replaceChildren(box);
     if (href) { a.href = href; a.hidden = false; }
     else { a.hidden = true; a.removeAttribute('href'); }
   });
   document.querySelectorAll('.cta-row').forEach(r => r.classList.toggle('solo', !href));
 }
 window.addEventListener('wl:change', syncLineCtas);
+
+/* 桌機（滑鼠操作、不是 LINE 內建瀏覽器）另開分頁，試算頁留著；手機在同一頁打開，交給 LINE App 接手 */
+const lineNewTab = () => {
+  try { return matchMedia('(hover: hover) and (pointer: fine)').matches && !/\bLine\//i.test(navigator.userAgent); } catch (e) { return false; }
+};
+let lineBusy = false;
+document.querySelectorAll('.js-line').forEach(btn => btn.addEventListener('click', () => {
+  if (!lineProfile || !lastSummary || lineBusy) return;
+  /* 抽屜開著時，提示浮在底部按鈕上方，不要蓋住按鈕 */
+  const foot = document.body.classList.contains('sheet-open') && document.querySelector('.rs-foot');
+  const above = foot ? Math.round(window.innerHeight - foot.getBoundingClientRect().top + 12) : 0;
+  if (!(lastSummary.priceWan > 0)) { pageToast('先填成交總價，再把試算傳出去', above); return; }
+  lineBusy = true;   // 防連點：1 秒內只送一次
+  setTimeout(() => { lineBusy = false; }, 1000);
+  const msg = lineMessage();
+  const who = profileName() || '要傳的人';
+  const url = 'https://line.me/R/msg/text/?' + encodeURIComponent(msg);
+  /* 複製在按下的當下就開始，LINE 也馬上打開（不等複製結果，免得手機不把它當成使用者點的而叫不起 LINE App） */
+  copyText(msg).then(ok => pageToast(ok ? `已複製試算內容，\nLINE 打開後選${who}送出即可` : `LINE 打開後選${who}送出即可`, above));
+  if (lineNewTab()) {
+    const w = window.open(url, '_blank');
+    if (w) { try { w.opener = null; } catch (e) {} return; }
+  }
+  location.href = url;
+}));
 
 /* 列印：預設（含瀏覽器 Ctrl+P、分享選單的列印）印一頁簡表；
    按「列印完整明細」才切成完整版，並先把摺起來的說明全部打開，印完還原 */
