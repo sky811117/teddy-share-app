@@ -3,10 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="light">
 <title>買房自備款試算 ─ 一品不動產．有巢氏台中世界之心加盟店</title>
+<link rel="canonical" href="https://teddy-house.tw/tools/buyer-fee/">
 
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#C8A574">
+<meta name="theme-color" content="#F6F1E8">
 <meta name="description" content="買房自備款試算：成交時要準備多少現金、每月繳多少。含青安3.0 與一般房貸試算。">
 
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -42,441 +44,672 @@
 })();
 </script>
 <style>
+  /* ============ 「接待中心質感」設計系統（只用系統字型，不載外部字型） ============ */
   :root {
-    --bg: #FAF7F2;
-    --card: #FFFFFF;
-    --card-tint: #F5EFE3;
-    --wood: #C8A574;
-    --wood-deep: #8B6F4B;
-    --text: #3A3530;
-    --text-soft: #6B6259;
-    --line: #E8DECB;
-    --num: #2C4A2E;
-    --warn: #C75A3C;
-    --warn-bg: #FBE9DE;
-    --ok: #4F7549;
-    --ok-bg: #EEF4EC;
-    --info-bg: #FFF8E8;
+    --paper: #F6F1E8;      /* 頁面底色：暖米白 */
+    --surface: #FFFDF9;    /* 卡面：象牙白 */
+    --tint: #EFE7DA;       /* 淺木底 */
+    --tint-2: #F4EEE4;     /* 說明底 */
+    --ink: #26231F;        /* 主文字 */
+    --ink-2: #574E44;      /* 次文字 */
+    --ink-3: #6E6355;      /* 輔助小字（14px 仍過 AA） */
+    --hair: #E3D8C6;       /* 細線 */
+    --hair-2: #CDBDA4;     /* 強調細線 */
+    --wood: #B48C5C;       /* 木色（裝飾用） */
+    --wood-ink: #7E5D36;   /* 木色文字 */
+    --gold: #C9A86A;       /* 稅費色塊、金線 */
+    --forest: #1F4A3C;     /* 深森林綠：主色、數字、按鈕 */
+    --forest-2: #173A2F;
+    --forest-tint: #E6EEE9;
+    --sage: #B7CBBE;
+    --sage-2: #CFDDD3;
+    --clay: #9B4A2C;       /* 提醒 */
+    --clay-tint: #F7E7DD;
+    --sans: -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', 'Heiti TC', sans-serif;
+    --serif: 'Palatino Linotype', Palatino, 'Book Antiqua', 'Noto Serif', 'Noto Serif CJK TC', Georgia, serif;
+    --shadow: 0 1px 2px rgba(38, 35, 31, .04), 0 18px 40px -18px rgba(87, 70, 45, .28);
+    /* 舊色名對應（白牌對話框沿用） */
+    --bg: var(--paper); --card: var(--surface); --card-tint: var(--tint); --wood-deep: var(--wood-ink);
+    --text: var(--ink); --text-soft: var(--ink-3); --line: var(--hair); --num: var(--forest);
+    --ok: var(--forest); --ok-bg: var(--forest-tint); --warn: var(--clay); --warn-bg: var(--clay-tint); --info-bg: var(--tint-2);
   }
   * { box-sizing: border-box; }
-  html { font-size: 17px; }
+  html { font-size: 17px; -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
   body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', system-ui, -apple-system, sans-serif;
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); font-size: 17px; line-height: 1.7;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
   }
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 80px; }
-  header { text-align: center; padding: 20px 0 24px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
-  header .hero-logo { display: block; height: 52px; width: auto; margin: 0 auto 14px; }
-  header .brand { font-size: 15px; color: var(--wood-deep); letter-spacing: 2px; margin-bottom: 8px; }
-  header h1 { font-size: 32px; margin: 6px 0 8px; color: var(--text); font-weight: 700; letter-spacing: 1px; }
-  header .sub { color: var(--text-soft); font-size: 17px; text-wrap: balance; }
-  @media (max-width: 480px) {
-    header .hero-logo { height: 44px; }
-    header .brand { letter-spacing: 1px; }
-    header h1 { font-size: 28px; }
+  img, svg { display: block; }
+  button, input, select { font: inherit; color: inherit; }
+  a { color: var(--forest); }
+  p { margin: 0; }
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 3px solid var(--forest); outline-offset: 2px; }
+  .print-only { display: none; }
+  .ico {
+    width: 20px; height: 20px; flex-shrink: 0;
+    fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
   }
+  .sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: -1px; padding: 0; border: 0; }
+  .serif { font-family: var(--serif); font-variant-numeric: lining-nums tabular-nums; font-weight: 700; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
   /* 名片區（官方版／白牌共用）：還在套用白牌設定時先藏起來，防閃到別人的資料 */
   html[data-wl-pending] .pz { visibility: hidden; }
-  [hidden] { display: none !important; }
-  .av {
-    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
-    background: linear-gradient(135deg, var(--wood) 0%, var(--wood-deep) 100%);
-    color: #fff; display: inline-flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: 700; letter-spacing: .5px; line-height: 1;
+
+  /* ============ 刊頭 ============ */
+  .mast { background: var(--surface); border-bottom: 1px solid var(--hair); }
+  .mast::before { content: ""; display: block; height: 4px; background: linear-gradient(90deg, var(--forest) 0%, #3B6B58 55%, var(--gold) 100%); }
+  .mast::after { content: ""; display: block; height: 3px; border-bottom: 1px solid var(--hair); background: var(--paper); }
+  .mast-in {
+    max-width: 1240px; margin: 0 auto; padding: 12px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px 24px; flex-wrap: wrap;
   }
-  .hero-chip { margin-top: 16px; }
+  .brandline { display: flex; align-items: center; gap: 18px; min-width: 0; }
+  @media (min-width: 721px) { .store { white-space: nowrap; } }
+  .logo { height: 42px; width: auto; flex-shrink: 0; }
+  .store {
+    font-size: 15px; color: var(--ink-2); letter-spacing: .1em; line-height: 1.5;
+    padding-left: 18px; border-left: 1px solid var(--hair-2);
+  }
+  .hero-chip { flex-shrink: 0; min-width: 0; }
   .agent-chip {
-    display: inline-flex; align-items: center; gap: 12px; max-width: 100%;
-    padding: 7px 7px 7px 8px; text-align: left;
-    background: var(--card); border: 1px solid var(--line); border-radius: 999px;
-    box-shadow: 0 2px 12px rgba(139, 111, 75, 0.09);
+    display: flex; align-items: center; gap: 12px;
+    padding: 5px 5px 5px 6px; border: 1px solid var(--hair); border-radius: 999px; background: var(--paper);
   }
-  .agent-chip .who { min-width: 0; line-height: 1.35; padding-right: 2px; }
-  .agent-chip .who b { font-size: 16.5px; color: var(--text); }
-  .agent-chip .who .nick { font-size: 13.5px; color: var(--text-soft); margin-left: 5px; }
-  .agent-chip .who small { display: block; font-size: 12.5px; color: var(--text-soft); }
-  .agent-chip .call {
-    flex-shrink: 0; background: var(--ok); color: #fff; text-decoration: none;
-    padding: 9px 15px; border-radius: 999px; font-size: 15px; font-weight: 600; white-space: nowrap;
+  .av {
+    width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(145deg, #3B6B58 0%, var(--forest) 70%);
+    color: #F6F1E8; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; letter-spacing: .06em; line-height: 1;
+    box-shadow: inset 0 0 0 2px rgba(201, 168, 106, .55);
   }
-  .agent-chip .call:hover { background: #3E5F39; }
-  @media (max-width: 400px) {
-    .agent-chip { border-radius: 18px; flex-wrap: wrap; justify-content: center; padding: 10px 12px; }
-    .agent-chip .call { flex-basis: 100%; text-align: center; }
+  .who { line-height: 1.35; min-width: 0; }
+  .who b { font-size: 17px; font-weight: 700; white-space: nowrap; }
+  .nick { font-family: var(--serif); font-style: italic; font-size: 16px; color: var(--ink-3); margin-left: 5px; }
+  .who small { display: block; font-size: 14px; color: var(--ink-3); }
+  .call {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 20px;
+    border-radius: 999px; background: var(--forest); color: #fff; text-decoration: none;
+    font-size: 18px; font-weight: 700; letter-spacing: .03em; white-space: nowrap; flex-shrink: 0;
   }
+  .call:hover { background: var(--forest-2); }
 
-  .agent-card {
-    max-width: 540px; margin: 0 auto; text-align: left;
-    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
-    padding: 20px 20px 16px; box-shadow: 0 2px 14px rgba(139, 111, 75, 0.07);
-  }
-  .agent-card .ac-head { display: flex; align-items: center; gap: 14px; }
-  .agent-card .av { width: 54px; height: 54px; font-size: 18px; }
-  .agent-card .ac-name { font-size: 20px; font-weight: 700; color: var(--wood-deep); line-height: 1.35; }
-  .agent-card .ac-name .nick { font-size: 15px; font-weight: 500; color: var(--text-soft); margin-left: 6px; }
-  .agent-card .ac-brand { font-size: 14px; color: var(--text-soft); line-height: 1.55; margin-top: 2px; }
-  .agent-card .ac-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-  .agent-card .ac-btn {
-    flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    min-width: 0; max-width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line);
-    background: #FDFCF7; color: var(--wood-deep); text-decoration: none; font-size: 15px; font-weight: 600;
-    text-align: center; overflow-wrap: anywhere;   /* 帳號太長時換行，不撐破手機版面 */
-  }
-  .agent-card .ac-btn:hover { border-color: var(--wood); background: #FFF8EC; }
-  .agent-card .ac-btn.primary { flex-basis: 100%; background: var(--ok); border-color: var(--ok); color: #fff; font-size: 16.5px; }
-  .agent-card .ac-btn.primary:hover { background: #3E5F39; }
-  .agent-card .ac-cert {
-    margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--line);
-    font-size: 13px; color: var(--text-soft); line-height: 1.75;
-  }
-  .agent-card > :first-child { margin-top: 0; padding-top: 0; border-top: none; }
+  /* ============ 版面 ============ */
+  .page { max-width: 1240px; margin: 0 auto; padding: 0 32px 64px; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 424px; gap: 56px; align-items: start; }
+  .col-main { min-width: 0; }
+  .col-side { position: sticky; top: 16px; margin-top: 26px; }
 
-  /* 政策快訊 */
-  .policy-alert {
-    background: linear-gradient(135deg, #FFF6E5 0%, #FDFCF7 100%);
-    border: 2px solid var(--wood);
-    border-radius: 14px;
-    padding: 18px 22px;
-    margin-bottom: 22px;
+  /* ============ 標題 ============ */
+  .hero { padding: 38px 0 22px; }
+  .overline {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+    font-size: 14px; letter-spacing: .26em; color: var(--wood-ink);
   }
-  .policy-alert h3 {
-    margin: 0 0 10px;
-    font-size: 18px;
-    color: var(--wood-deep);
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  }
-  .policy-alert ul { margin: 8px 0 0; padding-left: 20px; font-size: 15px; line-height: 1.85; color: #5A4A32; }
-  .policy-alert ul strong { color: var(--wood-deep); }
-  .src-note { font-size: 12.5px; color: var(--text-soft); margin-top: 10px; line-height: 1.6; }
-  .src-note a { color: var(--wood-deep); }
+  .overline::before { content: ""; width: 32px; height: 1px; background: var(--wood); }
+  h1 { margin: 0; font-size: clamp(28px, 3.6vw, 42px); font-weight: 700; letter-spacing: .08em; line-height: 1.25; }
+  .hero .sub { margin-top: 10px; font-size: 18px; color: var(--ink-2); }
 
-  .jump-cash {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    background: var(--ok-bg); border: 2px solid #C7DBC2; border-radius: 12px;
-    padding: 14px 20px; margin-bottom: 16px; text-decoration: none;
-    color: #2C4A2E; transition: all .15s;
+  /* ============ 三步驟進度 ============ */
+  .progress {
+    display: flex; align-items: center; padding: 6px 0;
+    border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair);
   }
-  .jump-cash:hover { background: #E4EEE1; border-color: var(--ok); }
-  .jump-cash .t { font-size: 17px; font-weight: 600; min-width: 0; }
-  .jump-cash .v {
-    font-family: 'Inter', 'Noto Sans TC', sans-serif; font-size: 24px;
-    font-weight: 700; color: var(--num); white-space: nowrap; flex-shrink: 0;
+  .ps {
+    display: flex; align-items: center; gap: 10px; min-height: 52px;
+    color: var(--ink-3); text-decoration: none; font-size: 17px; white-space: nowrap;
   }
-  @media (max-width: 400px) { .jump-cash { flex-wrap: wrap; } .jump-cash .v { margin-left: auto; } }
-  @media print { .jump-cash { display: none; } }
-  .disclaimer-top {
-    background: var(--warn-bg); border-left: 4px solid var(--warn);
-    padding: 14px 18px; border-radius: 8px; font-size: 15px;
-    color: #6B3925; margin: 0 0 24px; line-height: 1.7;
+  .pn {
+    width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--hair-2); background: var(--surface);
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    font-size: 16px; font-weight: 700; color: var(--ink-2); transition: background .2s, border-color .2s, color .2s;
   }
+  .pn .ico { width: 16px; height: 16px; stroke-width: 2.4; display: none; }
+  .ps.is-done .pn { background: var(--forest-tint); border-color: var(--sage); color: var(--forest); }
+  .ps.is-done .pn .d { display: none; }
+  .ps.is-done .pn .ico { display: block; }
+  .ps.is-current { color: var(--ink); font-weight: 700; }
+  .ps.is-current .pn { background: var(--forest); border-color: var(--forest); color: #fff; }
+  .pline { flex: 1; height: 1px; min-width: 12px; margin: 0 14px; background: var(--hair-2); }
 
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-bottom: 22px; }
-  @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
+  /* ============ 步驟區 ============ */
+  .step { padding-top: 40px; scroll-margin-top: 12px; }
+  .step-h { display: flex; gap: 18px; align-items: flex-start; margin-bottom: 18px; }
+  .step-no { font-family: var(--serif); font-size: 46px; line-height: .95; color: var(--wood); letter-spacing: .02em; }
+  .step-h h2 { margin: 0 0 2px; font-size: 26px; font-weight: 700; letter-spacing: .05em; line-height: 1.3; }
+  .step-h p { color: var(--ink-2); }
+  .panel { background: var(--surface); border: 1px solid var(--hair); border-radius: 18px; padding: 26px 30px; }
 
-  .card {
-    background: var(--card); border-radius: 14px; padding: 24px;
-    box-shadow: 0 2px 14px rgba(139, 111, 75, 0.07); border: 1px solid var(--line);
+  .lbl-row { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; flex-wrap: wrap; }
+  .lbl-row.sb { justify-content: space-between; }
+  .lbl-in { display: inline-flex; align-items: center; gap: 8px; }
+  .opt-note { font-weight: 400; font-size: 15px; color: var(--ink-3); }
+  /* 小「?」：畫面 28px、實際可點 48px */
+  .q {
+    position: relative; width: 28px; height: 28px; padding: 0; border-radius: 50%; cursor: pointer;
+    border: 1px solid var(--hair-2); background: transparent; color: var(--wood-ink);
+    font-size: 15px; font-weight: 700; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
-  .card h2, .result-card h2 {
-    font-size: 22px; margin: 0 0 14px; color: var(--wood-deep);
-    border-bottom: 2px solid var(--wood); padding-bottom: 8px;
-    display: flex; align-items: center; gap: 8px;
+  .q::after { content: ""; position: absolute; inset: -10px; }
+  .q[aria-expanded="true"] { background: var(--forest); border-color: var(--forest); color: #fff; }
+  /* 「為什麼」文字鈕：實際可點 48px */
+  .why {
+    position: relative; display: inline-flex; align-items: center; gap: 2px; padding: 0 2px; margin-left: 6px;
+    border: 0; background: none; cursor: pointer; color: var(--forest); font-size: 15px; font-weight: 700;
+    text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 4px; white-space: nowrap; vertical-align: baseline;
   }
-  .card h2 .step, .result-card h2 .step {
-    background: var(--wood); color: white; width: 30px; height: 30px;
-    border-radius: 50%; display: inline-flex; align-items: center;
-    justify-content: center; font-size: 16px; font-weight: 700; flex-shrink: 0;
+  .why::after { content: ""; position: absolute; inset: -14px -8px; }
+  .why .ico { width: 16px; height: 16px; transition: transform .2s; }
+  .why[aria-expanded="true"] .ico { transform: rotate(180deg); }
+  .help {
+    margin: 10px 0 2px; padding: 12px 16px; border-left: 2px solid var(--wood); border-radius: 0 10px 10px 0;
+    background: var(--tint-2); color: var(--ink-2); font-size: 15px; line-height: 1.75; font-weight: 400;
   }
-  .sec-title {
-    margin: 20px 0 6px; padding: 8px 0; border-bottom: 2px solid #F0E6D0;
-    color: var(--wood-deep); font-weight: 600;
-  }
-  .sec-title.qa { color: var(--ok); }
+  .help b, .help strong { color: var(--ink); }
+  .hint { grid-column: 1 / -1; font-size: 14px; color: var(--ink-3); line-height: 1.6; }
 
-  .field {
-    display: grid; grid-template-columns: 1.25fr 1fr; align-items: center;
-    gap: 12px; padding: 10px 0; border-bottom: 1px dashed #F0E6D0;
+  /* 總價大輸入 */
+  .price-field {
+    display: flex; align-items: baseline; gap: 10px; margin: 6px 0 16px; padding: 2px 0 6px;
+    border-bottom: 1.5px solid var(--ink);
   }
-  .field:last-child { border-bottom: none; }
-  .field label { font-size: 17px; color: var(--text); }
-  .field label .hint { display: block; font-size: 13px; color: var(--text-soft); margin-top: 2px; line-height: 1.5; }
-  .field input[type="number"], .field select {
-    width: 100%; padding: 10px 12px; border: 1px solid var(--line);
-    border-radius: 8px; font-size: 18px; text-align: right;
-    background: #FDFCF7; color: var(--text);
-    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+  .price-field:focus-within { border-bottom-color: var(--forest); box-shadow: 0 1.5px 0 var(--forest); }
+  .price-field input {
+    flex: 1; min-width: 0; width: 100%; padding: 0; border: 0; outline: none; background: transparent;
+    font-family: var(--serif); font-weight: 700; font-variant-numeric: lining-nums; font-size: clamp(44px, 5.2vw, 58px);
+    line-height: 1.12; color: var(--forest); letter-spacing: .01em;
   }
-  .field select { text-align: left; font-size: 16px; }
-  .field input:focus, .field select:focus { outline: none; border-color: var(--wood); background: #FFFEF8; }
-  .field input[readonly] { background: #F2EEE6; color: var(--text-soft); }
-  .field .unit { font-size: 14px; color: var(--text-soft); margin-left: 6px; white-space: nowrap; }
-  .field-inline { display: flex; align-items: center; gap: 6px; }
+  .price-field .u { font-size: 24px; color: var(--ink-2); }
+  .chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .chip {
+    min-height: 48px; padding: 0 6px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+    border: 1px solid var(--hair-2); background: var(--surface); color: var(--ink); font-size: 15px;
+    transition: background .15s, border-color .15s;
+  }
+  .chip .n { font-size: 18px; font-weight: 700; margin-right: 2px; font-variant-numeric: tabular-nums; }
+  .chip:hover { border-color: var(--forest); }
+  .chip[aria-pressed="true"] { background: var(--forest); border-color: var(--forest); color: #fff; }
 
-  /* 制度選擇 */
-  .plan-picker { display: grid; gap: 10px; margin-bottom: 4px; }
+  .split { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; margin-top: 22px; flex-wrap: wrap; }
+  .seg { display: inline-grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 18px; background: var(--tint); }
+  .seg button {
+    min-height: 56px; min-width: 128px; padding: 6px 16px; border: 0; border-radius: 14px; cursor: pointer;
+    background: transparent; color: var(--ink-2); line-height: 1.25;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .seg .sg-t { font-size: 17px; }
+  .seg .sg-t b { font-size: 20px; margin-right: 2px; }
+  .seg .sg-s { font-size: 14px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--forest); font-weight: 700; box-shadow: 0 1px 4px rgba(38, 35, 31, .14); }
+  .seg button[aria-pressed="true"] .sg-s { color: var(--forest); font-weight: 700; }
+
+  .mini { display: grid; grid-template-columns: 1fr 1fr; margin: 22px 0 0; border-top: 1px solid var(--hair); }
+  .mini > div { padding-top: 14px; }
+  .mini > div + div { padding-left: 24px; border-left: 1px solid var(--hair); }
+  .mini dt { font-size: 15px; color: var(--ink-3); }
+  .mini dd { margin: 2px 0 0; font-size: 28px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .mini dd small { font-size: 16px; font-weight: 400; color: var(--ink-2); margin-left: 4px; }
+
+  .remember {
+    display: flex; align-items: flex-start; gap: 10px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--hair);
+    font-size: 15px; line-height: 1.65; color: var(--ink-3);
+  }
+  .remember .ico { color: var(--wood-ink); margin-top: 2px; }
+  .linkbtn {
+    position: relative; border: 0; background: none; padding: 0; cursor: pointer; margin-left: 6px;
+    color: var(--forest); font-size: 15px; font-weight: 700; text-decoration: underline; text-underline-offset: 4px;
+  }
+  .linkbtn::after { content: ""; position: absolute; inset: -14px -8px; }
+  .remember .ok-msg { color: var(--forest); font-weight: 700; margin-left: 6px; }
+
+  /* 摺疊區 */
+  details.adv { border-top: 1px solid var(--hair); }
+  details.adv:first-of-type { margin-top: 20px; }
+  details.adv > summary {
+    list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    min-height: 64px; padding: 8px 0; cursor: pointer; color: var(--forest); font-size: 17px; font-weight: 700;
+  }
+  details.adv > summary::-webkit-details-marker { display: none; }
+  details.adv > summary small { display: block; font-size: 15px; font-weight: 400; color: var(--ink-3); line-height: 1.5; margin-top: 2px; }
+  details.adv > summary .chev {
+    width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--hair-2); color: var(--forest);
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform .2s;
+  }
+  details.adv[open] > summary .chev { transform: rotate(180deg); }
+  .adv-body { padding-bottom: 14px; }
+  .grp-t {
+    margin: 18px 0 2px; padding-bottom: 6px; border-bottom: 1px solid var(--hair-2);
+    font-size: 14px; letter-spacing: .16em; color: var(--wood-ink); font-weight: 700;
+  }
+  .adv-body > .grp-t:first-child { margin-top: 2px; }
+
+  .field { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 6px 18px; align-items: center; padding: 14px 0; border-bottom: 1px dashed var(--hair); }
+  .field:last-child { border-bottom: 0; }
+  .field .help { grid-column: 1 / -1; margin: 0; }
+  .field.wide { grid-template-columns: 1fr; }
+  .inp {
+    display: flex; align-items: center; min-height: 52px; padding: 0 14px;
+    border: 1px solid var(--hair-2); border-radius: 12px; background: var(--paper);
+  }
+  .inp:focus-within { border-color: var(--forest); background: var(--surface); box-shadow: 0 0 0 3px rgba(31, 74, 60, .12); }
+  .inp input, .inp select {
+    flex: 1; min-width: 0; width: 100%; min-height: 50px; padding: 0; border: 0; outline: none; background: transparent; color: var(--ink);
+    font-size: 19px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums;
+  }
+  .inp select { font-size: 17px; font-weight: 400; text-align: left; min-height: 50px; cursor: pointer; }
+  .inp input::placeholder { color: #8C8172; font-size: 16px; font-weight: 400; }
+  .inp input[readonly] { color: var(--ink-2); }
+  .inp:has(input[readonly]) { background: var(--tint); }
+  .inp .u { margin-left: 8px; font-size: 15px; color: var(--ink-3); white-space: nowrap; }
+  .range { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 48px; margin: 0; padding: 0; background: transparent; cursor: pointer; }
+  .range::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--sage) 0%, var(--hair-2) 100%); }
+  .range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 30px; height: 30px; margin-top: -12px; border-radius: 50%; background: var(--forest); border: 3px solid #fff; box-shadow: 0 1px 5px rgba(38, 35, 31, .35); }
+  .range::-moz-range-track { height: 6px; border-radius: 3px; background: var(--hair-2); }
+  .range::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: var(--forest); border: 3px solid #fff; box-shadow: 0 1px 5px rgba(38, 35, 31, .35); }
+  .range-scale { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; color: var(--ink-3); }
+  .rv { font-size: 19px; font-weight: 700; color: var(--forest); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .tick { display: flex; align-items: flex-start; gap: 12px; padding: 14px 0; cursor: pointer; }
+  .tick input { width: 22px; height: 22px; margin: 3px 0 0; accent-color: var(--forest); flex-shrink: 0; }
+  .tick span { font-size: 17px; }
+  .tick small { display: block; font-size: 15px; color: var(--ink-2); line-height: 1.65; margin-top: 2px; }
+
+  /* 說明框 / 提醒框 */
+  .note {
+    display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; padding: 14px 18px;
+    border-radius: 14px; background: var(--tint-2); color: var(--ink-2); font-size: 15px; line-height: 1.8;
+  }
+  .note > .ico { margin-top: 4px; color: var(--wood-ink); }
+  .note > div, .note > p { min-width: 0; flex: 1; }
+  .note b, .note strong { color: var(--ink); }
+  .note.warn { background: var(--clay-tint); color: #5C2D1B; }
+  .note.warn > .ico { color: var(--clay); }
+  .note.warn b, .note.warn strong { color: #4A2213; }
+  .note.good { background: var(--forest-tint); color: #23463A; }
+  .note.good > .ico { color: var(--forest); }
+  .note .more { margin-top: 6px; }
+  .note .src, .src { margin-top: 8px; font-size: 14px; line-height: 1.7; color: var(--ink-3); overflow-wrap: anywhere; }
+  .src a, .note a { color: var(--wood-ink); }
+  .callouts:empty { display: none; }
+  .fine-s { display: block; margin-top: 4px; font-size: 14px; color: var(--ink-3); line-height: 1.65; }
+
+  /* ============ ② 青安 ============ */
+  .plan-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .plan-opt {
-    display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px;
-    border: 2px solid var(--line); border-radius: 10px; cursor: pointer;
-    background: #FDFCF7; transition: all .15s;
+    position: relative; display: flex; gap: 12px; align-items: flex-start; cursor: pointer;
+    min-height: 56px; padding: 16px 18px; border-radius: 16px; border: 1px solid var(--hair-2); background: var(--surface);
+    transition: border-color .15s, background .15s;
   }
-  .plan-opt:hover { border-color: var(--wood); }
-  .plan-opt input[type="radio"] { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--wood); flex-shrink: 0; }
-  .plan-opt.sel { border-color: var(--wood); background: #FFF8EC; }
-  .plan-opt .t { font-size: 16.5px; font-weight: 600; color: var(--text); }
-  .plan-opt .d { font-size: 13.5px; color: var(--text-soft); margin-top: 3px; line-height: 1.55; }
-  .plan-opt .badge {
-    font-size: 11.5px; padding: 2px 8px; border-radius: 10px;
-    background: var(--wood); color: #fff; margin-left: 6px; font-weight: 500; white-space: nowrap;
+  .plan-opt:hover { border-color: var(--forest); }
+  .plan-opt input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+  .plan-opt:focus-within { outline: 3px solid var(--forest); outline-offset: 2px; }
+  .plan-opt .rd {
+    width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--hair-2); flex-shrink: 0; margin-top: 2px;
+    display: inline-flex; align-items: center; justify-content: center; color: transparent;
   }
-  .plan-opt .badge.new { background: var(--ok); }
+  .plan-opt .rd .ico { width: 14px; height: 14px; stroke-width: 2.8; }
+  .plan-opt .t { display: block; font-size: 17px; font-weight: 700; }
+  .plan-opt .d { display: block; margin-top: 4px; font-size: 15px; color: var(--ink-2); line-height: 1.6; }
+  .plan-opt.sel { border-color: var(--forest); background: var(--forest-tint); box-shadow: inset 0 0 0 1px var(--forest); }
+  .plan-opt.sel .rd { background: var(--forest); border-color: var(--forest); color: #fff; }
+  .badge { display: inline-block; margin-left: 6px; padding: 0 9px; border-radius: 999px; background: var(--forest); color: #fff; font-size: 14px; font-weight: 600; vertical-align: 2px; line-height: 1.6; white-space: nowrap; }
 
-  /* 滑桿 */
-  .slider-row { padding: 12px 0; border-bottom: 1px dashed #F0E6D0; }
-  .slider-row .top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-  .slider-row .lbl { font-size: 17px; }
-  .slider-row .lbl .hint { display: block; font-size: 13px; color: var(--text-soft); margin-top: 2px; line-height: 1.5; }
-  .slider-row .v {
-    font-family: 'Inter', 'Noto Sans TC', sans-serif; font-size: 19px;
-    font-weight: 700; color: var(--num); white-space: nowrap;
+  #eligCard { margin-top: 22px; padding-top: 4px; border-top: 1px solid var(--hair); }
+  .qrow { padding: 14px 0; border-bottom: 1px dashed var(--hair); }
+  .qrow-in { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; }
+  .qtext { flex: 1 1 260px; min-width: 0; font-size: 17px; font-weight: 700; line-height: 1.6; }
+  .q.q-in { vertical-align: -6px; margin-left: 8px; }
+  .yn { display: inline-grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 999px; background: var(--tint); flex-shrink: 0; }
+  .yn button {
+    min-height: 48px; min-width: 76px; padding: 0 18px; border: 0; border-radius: 999px; cursor: pointer;
+    background: transparent; color: var(--ink-2); font-size: 17px;
   }
-  input[type="range"] { width: 100%; accent-color: var(--wood); height: 26px; }
-  .slider-scale { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-soft); margin-top: -2px; }
-
-  .checkbox-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; cursor: pointer; }
-  .checkbox-row input[type="checkbox"] { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--wood); flex-shrink: 0; }
-  .checkbox-row .ckbox-text { font-size: 16px; color: var(--text); }
-  .checkbox-row .ckbox-text small { display: block; color: var(--text-soft); font-size: 13px; margin-top: 2px; line-height: 1.5; }
-
-  .note-box { background: var(--info-bg); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: #7A5D2E; margin-top: 10px; line-height: 1.65; }
-
-  .result-card {
-    background: var(--card); border-radius: 14px; padding: 24px;
-    border: 1px solid var(--line); box-shadow: 0 2px 14px rgba(139, 111, 75, 0.07);
-    margin-bottom: 22px;
+  .yn button[aria-pressed="true"][data-yn="1"] { background: var(--forest); color: #fff; font-weight: 700; }
+  .yn button[aria-pressed="true"][data-yn="0"] { background: var(--clay); color: #fff; font-weight: 700; }
+  .qgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+  .qf { padding: 14px 0; border-bottom: 1px dashed var(--hair); min-width: 0; }
+  .qf .lbl-row { margin-bottom: 8px; }
+  .qf .help { margin: 0 0 8px; }
+  .qf.full { grid-column: 1 / -1; }
+  .toggles { display: flex; gap: 10px; flex-wrap: wrap; }
+  .toggle {
+    position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 16px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--hair-2); background: var(--surface); font-size: 16px; color: var(--ink); user-select: none;
   }
+  .toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+  .toggle .tk { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--hair-2); display: inline-flex; align-items: center; justify-content: center; color: transparent; flex-shrink: 0; }
+  .toggle .tk .ico { width: 14px; height: 14px; stroke-width: 2.8; }
+  .toggle b { font-variant-numeric: tabular-nums; }
+  .toggle.on { border-color: var(--forest); background: var(--forest-tint); color: var(--forest); font-weight: 700; }
+  .toggle.on .tk { background: var(--forest); border-color: var(--forest); color: #fff; }
+  .toggle:focus-within { outline: 3px solid var(--forest); outline-offset: 2px; }
+  .auto-row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; justify-content: space-between; }
+  .auto-tag { display: inline-block; margin-left: 8px; padding: 0 10px; border-radius: 999px; background: var(--tint); color: var(--wood-ink); font-size: 14px; font-weight: 600; white-space: nowrap; vertical-align: 2px; }
+  .auto-v { font-size: 16px; line-height: 1.6; }
+  .auto-v.ok { color: var(--forest); }
+  .auto-v.no { color: var(--clay); font-weight: 700; }
 
-  /* 資格檢核 */
-  .elig-list { display: grid; gap: 8px; margin-top: 4px; }
-  .elig-item {
-    display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
-    border-radius: 8px; font-size: 15px; line-height: 1.6;
-  }
-  .elig-item.pass { background: var(--ok-bg); color: #2C4A2E; }
-  .elig-item.fail { background: var(--warn-bg); color: #6B3925; }
-  .elig-item.note { background: var(--info-bg); color: #7A5D2E; }
-  .elig-item .ic { font-size: 17px; flex-shrink: 0; }
-  .elig-item b { font-weight: 700; }
   .elig-verdict {
-    margin-top: 12px; padding: 14px 16px; border-radius: 10px;
-    font-size: 16.5px; font-weight: 600; text-align: center; line-height: 1.7;
+    margin-top: 18px; padding: 16px 20px; border-radius: 14px;
+    font-size: 19px; font-weight: 700; line-height: 1.6; text-align: left;
   }
-  .elig-verdict.ok { background: var(--ok-bg); color: #2C4A2E; border: 2px solid #C7DBC2; }
-  .elig-verdict.no { background: var(--warn-bg); color: #6B3925; border: 2px solid #E9C0AC; }
+  .elig-verdict .vsub { display: block; margin-top: 4px; font-size: 15px; font-weight: 400; line-height: 1.65; }
+  .elig-verdict.ok { background: var(--forest-tint); color: var(--forest); border: 1px solid var(--sage); }
+  .elig-verdict.no { background: var(--clay-tint); color: #6E2F18; border: 1px solid #E2BFAE; }
+  .elig-list { display: grid; gap: 0; margin-top: 12px; }
+  .elig-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 2px; font-size: 15px; line-height: 1.65; color: var(--ink-2); border-bottom: 1px solid var(--hair); }
+  .elig-item:last-child { border-bottom: 0; }
+  .elig-item .ic {   /* 原本的 ✅❌💡 改畫成細線圖示（文字不動，只換外觀） */
+    font-size: 0; width: 20px; height: 20px; margin-top: 3px; flex-shrink: 0; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--sage); color: var(--forest);
+  }
+  .elig-item .ic::before { content: "\2713"; font-size: 14px; font-weight: 700; line-height: 1; }
+  .elig-item.fail .ic { border-color: #E2BFAE; color: var(--clay); }
+  .elig-item.fail .ic::before { content: "\2715"; }
+  .elig-item.note .ic { border-color: var(--hair-2); color: var(--wood-ink); }
+  .elig-item.note .ic::before { content: "i"; font-family: var(--serif); font-style: italic; }
+  .elig-verdict .vic { font-size: 0; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin-right: 4px; vertical-align: -5px; border-radius: 50%; background: var(--forest); color: #fff; }
+  .elig-verdict .vic::before { content: "\2713"; font-size: 15px; font-weight: 700; line-height: 1; }
+  .elig-verdict.no .vic { background: var(--clay); }
+  .elig-verdict.no .vic::before { content: "\2715"; }
+  .emo { display: none; }
+  .elig-item b { color: var(--ink); }
+  .elig-item.fail { color: #6E2F18; }
+  .elig-item.fail b { color: #6E2F18; }
 
-  /* 自備款主結果 */
-  .cash-hero {
-    background: linear-gradient(135deg, #F5EFE3 0%, #FDFCF7 100%);
-    border: 2px solid var(--wood); border-radius: 14px;
-    padding: 24px; margin-bottom: 22px;
+  .policy {
+    margin-top: 24px; padding: 22px 24px; border-radius: 16px;
+    border: 1px solid var(--hair-2); background: linear-gradient(180deg, #FBF7EF 0%, #F6EFE2 100%);
   }
-  .cash-hero h2 {
-    font-size: 22px; margin: 0 0 4px; color: var(--wood-deep);
-    display: flex; align-items: center; gap: 8px;
-  }
-  .cash-hero .lead { font-size: 14.5px; color: var(--text-soft); margin-bottom: 16px; line-height: 1.6; }
-  .cash-steps { display: grid; gap: 0; }
-  .cash-row {
-    display: flex; justify-content: space-between; align-items: baseline;
-    gap: 12px; padding: 11px 0; border-bottom: 1px dashed #DCD2BB;
-  }
-  .cash-row .k { font-size: 16px; color: var(--text); min-width: 0; flex: 1 1 auto; }
-  .cash-row .k small { display: block; font-size: 12.5px; color: var(--text-soft); margin-top: 2px; line-height: 1.5; }
-  .cash-row .v {
-    font-family: 'Inter', 'Noto Sans TC', sans-serif; font-size: 19px;
-    font-weight: 600; color: var(--num); white-space: nowrap; flex-shrink: 0;
-  }
+  .policy h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 18px; letter-spacing: .06em; color: var(--wood-ink); }
+  .policy ul { margin: 0; padding-left: 20px; font-size: 16px; line-height: 1.85; color: var(--ink-2); }
+  .policy li + li { margin-top: 6px; }
+  .policy strong { color: var(--ink); }
+
+  /* ============ ③ 結果明細 ============ */
+  .block { padding: 30px 0 6px; border-top: 1px solid var(--hair); margin-top: 26px; }
+  .block:first-of-type { margin-top: 20px; }
+  .block > h3 { margin: 0 0 6px; font-size: 22px; font-weight: 700; letter-spacing: .05em; }
+  .block .lead { color: var(--ink-2); margin-bottom: 12px; font-size: 16px; }
+  .cash-hero { scroll-margin-top: 16px; }
+  .cash-steps { margin: 0; }
+  .cash-row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 12px 0; border-bottom: 1px dashed var(--hair-2); }
+  .cash-row .k { min-width: 0; font-size: 16px; }
+  .cash-row .k small { display: block; font-size: 14px; font-weight: 400; color: var(--ink-3); line-height: 1.55; margin-top: 2px; }
+  .cash-row .v { font-size: 18px; font-weight: 700; white-space: nowrap; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .cash-row.minus .v { color: var(--wood-ink); }
   .cash-row.sub { padding-left: 18px; }
-  .cash-row.sub .k { font-size: 14.5px; color: var(--text-soft); }
-  .cash-row.sub .v { font-size: 16px; color: var(--warn); }
-  .cash-row.minus .v { color: var(--wood-deep); }
+  .cash-row.sub .k { font-size: 15px; color: var(--ink-2); }
+  .cash-row.sub .v { font-size: 16px; color: var(--clay); }
   .cash-total {
-    display: flex; justify-content: space-between; align-items: baseline;
-    gap: 12px; margin-top: 8px; padding: 18px 16px;
-    background: #fff; border: 2px solid var(--wood); border-radius: 10px;
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 12px 16px; flex-wrap: wrap;
+    margin-top: 14px; padding: 20px 24px; border-radius: 16px; background: var(--surface);
+    border: 1px solid var(--hair-2); border-left: 3px solid var(--forest);
   }
-  .cash-total .k { font-size: 17px; font-weight: 700; color: var(--wood-deep); min-width: 0; }
-  .cash-total .k small { display: block; font-size: 12.5px; font-weight: 400; color: var(--text-soft); margin-top: 3px; }
-  .cash-total .v {
-    font-family: 'Inter', 'Noto Sans TC', sans-serif; font-size: 34px;
-    font-weight: 700; color: var(--num); letter-spacing: .5px; white-space: nowrap;
-    flex-shrink: 0;
-  }
-  /* 小字不可繼承 nowrap，否則會撐爆數值欄、把標籤擠成直排 */
-  .cash-total .v small {
-    display: block; font-size: 13px; font-weight: 400; color: var(--text-soft);
-    text-align: right; margin-top: 2px; white-space: normal;
-  }
-  /* 窄螢幕：標籤與大數字改上下排，數字更醒目也不會擠壓標籤 */
-  @media (max-width: 480px) {
-    .cash-total { flex-direction: column; align-items: stretch; gap: 10px; }
-    .cash-total .v { font-size: 38px; }
-    .cash-total .v, .cash-total .v small { text-align: left; }
-  }
+  .cash-total .k { font-weight: 700; color: var(--ink); min-width: 0; }
+  .cash-total .k small { display: block; font-weight: 400; font-size: 15px; color: var(--ink-2); margin-top: 2px; }
+  .cash-total .v { text-align: right; font-family: var(--serif); font-weight: 700; font-size: 40px; line-height: 1.1; color: var(--forest); white-space: nowrap; font-variant-numeric: lining-nums; }
+  .cash-total .v small { display: block; font-family: var(--sans); font-weight: 400; font-size: 15px; color: var(--ink-3); margin-top: 6px; white-space: normal; }
 
-  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  table.fee-table { width: 100%; border-collapse: collapse; font-size: 16px; min-width: 460px; }
-  table.fee-table th, table.fee-table td {
-    text-align: left; padding: 11px 8px; border-bottom: 1px solid #F0E6D0; vertical-align: top;
+  /* 結果內的按鈕 */
+  .cta-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+  .cta-row.vert { grid-template-columns: 1fr; gap: 8px; margin-top: 0; }
+  .cta {
+    display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 52px; padding: 0 16px;
+    border-radius: 14px; cursor: pointer; text-decoration: none; font-size: 17px; font-weight: 700; letter-spacing: .04em; text-align: center;
   }
-  table.fee-table th { background: var(--card-tint); font-size: 15px; color: var(--wood-deep); font-weight: 600; }
-  table.fee-table td.num {
-    text-align: right; font-family: 'Inter', 'Noto Sans TC', sans-serif;
-    color: var(--num); font-weight: 600; white-space: nowrap;
-  }
-  table.fee-table td .formula { display: block; font-size: 13px; color: var(--text-soft); margin-top: 2px; line-height: 1.5; }
-  table.fee-table tr.total { background: #F5EFE3; font-size: 18px; }
-  table.fee-table tr.total td { border-bottom: none; padding: 14px 8px; color: var(--wood-deep); font-weight: 700; }
-  table.fee-table tr.total td.num { color: var(--num); font-size: 22px; }
-  /* 窄螢幕：費用表改卡片式堆疊，不必左右捲動 */
-  @media (max-width: 560px) {
-    .table-scroll { overflow-x: visible; }
-    table.fee-table { min-width: 0; display: block; }
-    table.fee-table thead { display: none; }
-    table.fee-table tbody { display: block; }
-    table.fee-table tr {
-      display: block; padding: 12px 4px; border-bottom: 1px solid #F0E6D0;
-    }
-    table.fee-table td { display: block; border: none; padding: 0; }
-    table.fee-table td:first-child { font-weight: 600; font-size: 16.5px; color: var(--text); }
-    table.fee-table td .formula { margin-top: 3px; }
-    table.fee-table td.num {
-      text-align: left; font-size: 19px; margin-top: 6px;
-    }
-    table.fee-table tr.total { padding: 14px 4px; border-radius: 8px; margin-top: 6px; }
-    table.fee-table tr.total td { padding: 0; }
-    table.fee-table tr.total td.num { margin-top: 4px; }
-  }
+  .cta .ico { width: 22px; height: 22px; }
+  .cta.primary { background: var(--forest); color: #fff; border: 1px solid var(--forest); }
+  .cta.primary:hover { background: var(--forest-2); }
+  .cta.ghost { background: var(--surface); color: var(--forest); border: 1.5px solid var(--forest); }
+  .cta.ghost:hover { background: var(--forest-tint); }
+  .nw { white-space: nowrap; }
+  p, small, .lbl, .k, .help, .d, summary, .elig-item span, li { text-wrap: pretty; }
+  .cash-total .k small b { white-space: nowrap; }
+  .share-note { margin-top: 8px; font-size: 14px; line-height: 1.5; color: var(--ink-3); text-align: center; text-wrap: balance; }
+  .pre-note { margin: 22px 0 0; }
+  .cash-total .v .from { display: inline-block; margin-left: 8px; vertical-align: 6px; font-family: var(--sans); font-weight: 700; font-size: 14px; color: var(--clay); border: 1px solid #E2BFAE; border-radius: 999px; padding: 0 10px; line-height: 1.7; }
+  .tax-go { position: relative; color: var(--clay); font-weight: 700; white-space: nowrap; }
+  .tax-go::after { content: ""; position: absolute; inset: -14px -8px; }
+  table.fee-table td.num .tax-go { display: block; margin-top: 2px; font-size: 15px; }
+  #sumRate .sep { margin: 0 6px; color: var(--hair-2); }
+  .wl-entry button { display: inline-flex; align-items: center; gap: 8px; }
+  .wl-entry button .ico { width: 18px; height: 18px; }
+  .store, .plan-opt .t, .qtext, .hero .sub { text-wrap: balance; }
+  @media (min-width: 1024px) { #cashHero .cta-row, #cashHero .share-note { display: none; } }
 
-  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
-  @media (max-width: 720px) { .compare-grid { grid-template-columns: 1fr; } }
-  .compare-col { background: var(--card-tint); border-radius: 12px; padding: 18px; border: 1px solid var(--line); }
-  .compare-col.qa { background: var(--ok-bg); border-color: #C7DBC2; }
-  .compare-col h3 {
-    margin: 0 0 12px; font-size: 19px; color: var(--wood-deep);
-    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  /* 費用帳本（保留 table，樣式改成帳本） */
+  .table-scroll { margin-top: 4px; }
+  table.fee-table { width: 100%; border-collapse: collapse; font-size: 16px; }
+  table.fee-table th { padding: 8px 6px; text-align: left; font-size: 14px; font-weight: 700; color: var(--wood-ink); letter-spacing: .12em; border-bottom: 1px solid var(--hair-2); }
+  table.fee-table th.n { text-align: right; }
+  table.fee-table td { padding: 12px 6px; border-bottom: 1px solid var(--hair); vertical-align: top; text-align: left; }
+  table.fee-table td:first-child { font-size: 17px; }
+  table.fee-table td .formula { display: block; font-size: 15px; color: var(--ink-2); line-height: 1.65; }
+  table.fee-table td .formula .f-sub { display: block; font-size: 14px; color: var(--ink-3); }
+  table.fee-table td.num { text-align: right; font-weight: 700; font-size: 17px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  table.fee-table td.num .na { color: var(--clay); font-weight: 600; font-size: 15px; }
+  table.fee-table tr.fee-g td { padding: 22px 6px 8px; border-bottom: 1px solid var(--hair-2); }
+  .fee-g .gh { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .fee-g .g-n { font-size: 15px; font-weight: 700; letter-spacing: .14em; color: var(--wood-ink); }
+  .fee-g .g-c { letter-spacing: .04em; font-weight: 600; }
+  .fee-g .g-s { font-size: 15px; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .fee-g .g-s small { font-size: 14px; font-weight: 600; color: var(--clay); margin-left: 4px; }
+  table.fee-table tr.total td { padding: 18px 16px; background: var(--tint); border-bottom: 0; font-weight: 700; font-size: 17px; color: var(--ink); }
+  table.fee-table tr.total td:first-child { border-radius: 14px 0 0 14px; }
+  table.fee-table tr.total td.num { border-radius: 0 14px 14px 0; font-size: 24px; color: var(--forest); }
+  table.fee-table .tot-note { font-size: 14px; font-weight: 600; color: var(--clay); margin-left: 4px; }
+  details.plain { margin-top: 14px; border-radius: 14px; background: var(--tint-2); }
+  details.plain > summary {
+    list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    min-height: 56px; padding: 6px 18px; cursor: pointer; font-size: 16px; font-weight: 700; color: var(--ink);
   }
-  .compare-col.qa h3 { color: #2C4A2E; }
-  .compare-col .tag {
-    font-size: 12px; background: var(--wood); color: white;
-    padding: 3px 10px; border-radius: 12px; font-weight: 500; white-space: nowrap;
-  }
-  .compare-col.qa .tag { background: var(--ok); }
-  .pay-row {
-    display: flex; justify-content: space-between; align-items: baseline;
-    gap: 10px; padding: 8px 0; border-bottom: 1px dashed #DCD2BB; font-size: 16px;
-  }
-  .pay-row:last-child { border-bottom: none; }
-  .pay-row .lbl { color: var(--text-soft); min-width: 0; }
-  .pay-row .val {
-    font-family: 'Inter', 'Noto Sans TC', sans-serif; color: var(--num);
-    font-weight: 600; font-size: 18px; white-space: nowrap;
-    flex-shrink: 0;   /* 數值不縮，但下面 min-width:0 讓標籤能正常換行而非逐字直排 */
-  }
-  .pay-row.big .val { font-size: 24px; color: var(--wood-deep); }
-  .pay-row.sub-loan { padding-left: 12px; }
-  .pay-row.sub-loan .lbl { font-size: 15px; }
-  .pay-row.sub-loan .lbl small {
-    display: block; font-size: 12.5px; color: var(--text-soft);
-    margin-top: 2px; font-family: 'Inter', 'Noto Sans TC', sans-serif;
-  }
+  details.plain > summary::-webkit-details-marker { display: none; }
+  details.plain > summary .ico { color: var(--forest); transition: transform .2s; }
+  details.plain[open] > summary .ico { transform: rotate(180deg); }
+  details.plain .pbody { padding: 0 18px 16px; font-size: 15px; line-height: 1.8; color: var(--ink-2); }
+  details.plain .pbody p + p { margin-top: 10px; }
+  details.plain .pbody strong, details.plain .pbody b { color: var(--ink); }
+
+  /* 月付對照 */
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+  .compare-col { min-width: 0; padding: 20px 22px; border-radius: 16px; border: 1px solid var(--hair); background: var(--surface); }
+  .compare-col.qa { border-color: var(--sage); background: linear-gradient(180deg, #F0F5F1 0%, var(--surface) 60%); }
+  .compare-col h3 { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 19px; }
+  .tag { padding: 1px 10px; border-radius: 999px; background: var(--tint); color: var(--wood-ink); font-size: 14px; font-weight: 600; white-space: nowrap; }
+  .compare-col.qa .tag { background: var(--forest-tint); color: var(--forest); }
+  .pay-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 12px; padding: 10px 0; border-bottom: 1px dashed var(--hair); font-size: 16px; }
+  .pay-row:last-child { border-bottom: 0; }
+  .pay-row .lbl { min-width: 0; flex: 1 1 auto; color: var(--ink-2); text-wrap: pretty; }
+  .pay-row .lbl small { display: block; font-size: 14px; font-weight: 400; color: var(--ink-3); line-height: 1.55; margin-top: 1px; text-wrap: pretty; }
+  .pay-row .val { margin-left: auto; font-size: 17px; font-weight: 700; white-space: nowrap; flex-shrink: 0; font-variant-numeric: tabular-nums; color: var(--ink); }
+  .pay-row.big .lbl { color: var(--ink); font-weight: 700; }
+  .pay-row.big .val { font-size: 22px; color: var(--forest); }
+  .pay-row.sub-loan { padding-left: 10px; }
   .pay-row.sub-loan .val { font-size: 16px; }
-  /* 窄螢幕：擠得下就同一行，擠不下才讓數值換到下一行（不強制拆行、不擠扁標籤） */
-  @media (max-width: 480px) {
-    .pay-row { flex-wrap: wrap; }
-    .pay-row .lbl { flex: 1 1 auto; min-width: 0; }
-    .pay-row .val { flex: 0 0 auto; margin-left: auto; }
-  }
-
-  /* 階梯利率表 */
-  .step-table { width: 100%; border-collapse: collapse; font-size: 14.5px; margin-top: 10px; }
-  .step-table th, .step-table td { padding: 7px 8px; border-bottom: 1px solid #E3DAC6; text-align: left; }
-  .step-table th { background: rgba(255,255,255,.6); font-size: 13.5px; color: var(--wood-deep); font-weight: 600; }
-  .step-table td.n {
-    text-align: right; font-family: 'Inter', 'Noto Sans TC', sans-serif;
-    font-weight: 600; color: var(--num); white-space: nowrap;
-  }
-  details.step-detail { margin-top: 12px; }
-  details.step-detail summary {
-    cursor: pointer; font-size: 14.5px; color: var(--wood-deep);
-    padding: 8px 0; font-weight: 600;
-  }
-  details.topup-detail {
-    margin-top: 10px; background: var(--info-bg);
-    border-radius: 8px; border-left: 4px solid var(--wood);
-  }
-  details.topup-detail summary {
-    cursor: pointer; font-size: 14.5px; color: #7A5D2E;
-    padding: 10px 14px; font-weight: 600;
-  }
-  details.topup-detail .topup-body { padding: 0 14px 12px; }
-  details.topup-detail .topup-body p {
-    margin: 0 0 10px; font-size: 13.5px; color: #6B5A3C; line-height: 1.75;
-  }
+  .blocked-msg { padding: 18px 0; color: var(--ink-3); font-size: 16px; text-align: center; line-height: 1.7; }
+  .info-line { margin-top: 12px; padding: 12px 16px; border-radius: 12px; background: var(--tint-2); color: var(--ink-2); font-size: 15px; line-height: 1.7; }
+  .info-line.sm { font-size: 14px; }
+  details.topup-detail { margin-top: 10px; border-radius: 12px; background: var(--tint-2); border-left: 3px solid var(--wood); }
+  details.topup-detail summary { cursor: pointer; font-size: 15px; font-weight: 700; color: var(--wood-ink); padding: 14px 16px; min-height: 48px; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  details.topup-detail .topup-body { padding: 0 16px 14px; }
+  details.topup-detail .topup-body p { margin: 0 0 10px; font-size: 15px; color: var(--ink-2); line-height: 1.75; }
   details.topup-detail .topup-body p:last-child { margin-bottom: 0; }
-  details.topup-detail .topup-body p.src { font-size: 12px; color: var(--text-soft); }
-  details.topup-detail .topup-body a { color: var(--wood-deep); }
-  @media print { details.topup-detail { border-left-color: #999; } details.topup-detail[open] .topup-body { display: block; } }
+  details.topup-detail .topup-body p.src { font-size: 14px; color: var(--ink-3); }
+  details.topup-detail .topup-body a { color: var(--wood-ink); }
+  details.step-detail { margin-top: 12px; border-top: 1px solid var(--hair); }
+  details.step-detail summary { cursor: pointer; font-size: 15px; font-weight: 700; color: var(--forest); padding: 12px 0; min-height: 48px; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  details.step-detail summary::-webkit-details-marker, details.topup-detail summary::-webkit-details-marker { display: none; }
+  details.step-detail summary::after, details.topup-detail summary::after {
+    content: ""; width: 9px; height: 9px; flex-shrink: 0; margin: 0 6px 4px 0;
+    border-right: 1.8px solid currentColor; border-bottom: 1.8px solid currentColor; transform: rotate(45deg); transition: transform .2s;
+  }
+  details.step-detail[open] summary::after, details.topup-detail[open] summary::after { transform: rotate(-135deg); margin-bottom: -4px; }
+  .step-table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 16px; }
+  .step-table th, .step-table td { padding: 8px 4px; border-bottom: 1px solid var(--hair); text-align: left; }
+  .step-table th { font-size: 14px; font-weight: 700; color: var(--wood-ink); letter-spacing: .06em; }
+  .step-table td.n { text-align: right; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .step-table .g-tag { font-size: 14px; color: var(--ink-3); margin-left: 4px; }
+  .print-btn {
+    position: relative; display: inline-flex; align-items: center; gap: 10px; margin-top: 28px; min-height: 52px; padding: 0 22px;
+    border-radius: 999px; border: 1px solid var(--hair-2); background: var(--surface); color: var(--ink-2); cursor: pointer; font-size: 16px;
+  }
+  .print-btn:hover { border-color: var(--forest); color: var(--forest); }
 
-  .alert-line {
-    background: var(--warn-bg); border-left: 4px solid var(--warn);
-    border-radius: 6px; padding: 10px 14px; font-size: 14px;
-    color: #6B3925; margin-top: 12px; line-height: 1.65;
+  /* ============ 結果面板（桌機右欄 / 手機底部抽屜） ============ */
+  .result {
+    position: relative; overflow: hidden; display: flex; flex-direction: column;
+    max-height: var(--rs-max, calc(100vh - 136px)); min-height: 0;
+    background: var(--surface); border: 1px solid var(--hair); border-radius: 22px; box-shadow: var(--shadow);
   }
-  .info-line {
-    background: var(--info-bg); border-left: 4px solid var(--wood);
-    border-radius: 6px; padding: 10px 14px; font-size: 14px;
-    color: #7A5D2E; margin-top: 12px; line-height: 1.65;
-  }
+  .result::before { content: ""; position: absolute; z-index: 2; inset: 0 0 auto 0; height: 3px; background: linear-gradient(90deg, var(--forest) 0%, #3B6B58 55%, var(--gold) 100%); }
+  .rs-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 26px 12px; -webkit-overflow-scrolling: touch; }
+  .rs-body.has-more { -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 44px), rgba(0, 0, 0, .12) 100%); mask-image: linear-gradient(180deg, #000 calc(100% - 44px), rgba(0, 0, 0, .12) 100%); }
+  .rs-foot { flex-shrink: 0; padding: 12px 26px 14px; border-top: 1px solid var(--hair); background: var(--surface); }
+  .sheet-bar { display: none; }
+  .rs-label.rs-first { margin-top: 0; }
+  .rs-first { display: flex; justify-content: space-between; align-items: center; gap: 4px 12px; flex-wrap: wrap; }
+  .rs-stamp { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: var(--ink-3); white-space: nowrap; }
+  .rs-stamp .ico { width: 17px; height: 17px; color: var(--wood-ink); }
+  .rs-label { margin-top: 8px; font-size: 16px; color: var(--ink-2); }
+  .hero-num { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; margin-top: 0; font-family: var(--serif); font-weight: 700; font-variant-numeric: lining-nums; font-size: clamp(44px, 4.2vw, 56px); line-height: 1.06; color: var(--forest); }
+  .hero-num .u { font-family: var(--sans); font-weight: 400; font-size: 21px; color: var(--ink-2); }
+  .hero-num .from { align-self: center; font-family: var(--sans); font-weight: 700; font-size: 14px; color: var(--clay); border: 1px solid #E2BFAE; border-radius: 999px; padding: 0 10px; line-height: 1.7; }
+  .rs-sub { font-size: 15px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .stack { display: flex; gap: 2px; height: 28px; margin: 12px 0 8px; }
+  .stack span { display: flex; align-items: center; justify-content: center; min-width: 0; overflow: hidden; white-space: nowrap; font-size: 14px; font-weight: 700; line-height: 1; }
+  .stack span:first-child { border-radius: 8px 3px 3px 8px; }
+  .stack span:last-child { border-radius: 3px 8px 8px 3px; }
+  .stack span:only-child { border-radius: 8px; }
+  .stack .s1 { background: var(--forest); color: #fff; }
+  .stack .s2 { background: var(--gold); color: var(--ink); }
+  .stack .s3 { min-width: 26px; color: var(--clay); border: 1.5px dashed var(--clay); background: repeating-linear-gradient(135deg, #F7E7DD 0 5px, #FFFDF9 5px 10px); }
+  .legend { display: grid; gap: 0; }
+  .legend .it { display: flex; align-items: center; gap: 10px; font-size: 15px; color: var(--ink-2); line-height: 1.65; }
+  .legend .dot { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+  .legend .dot.d1 { background: var(--forest); }
+  .legend .dot.d2 { background: var(--gold); }
+  .legend .dot.d3 { border: 1.5px dashed var(--clay); background: #F7E7DD; }
+  .legend .v { margin-left: auto; font-size: 17px; font-weight: 700; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .legend .v small { font-size: 14px; font-weight: 400; color: var(--ink-3); margin-left: 3px; }
+  .rs-warn { display: flex; gap: 8px; align-items: flex-start; margin-top: 6px; font-size: 14px; line-height: 1.6; color: #6E3420; }
+  .rs-warn .ico { width: 17px; height: 17px; margin-top: 2px; color: var(--clay); }
+  .rs-warn a { position: relative; color: var(--clay); font-weight: 700; white-space: nowrap; }
+  .rs-warn a::after { content: ""; position: absolute; inset: -14px -8px; }
+  .rs-sec { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--hair); }
+  .rs-sec .rs-label { margin-top: 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .rs-sec .rs-label small { font-size: 14px; color: var(--ink-3); }
+  .rs-l { display: inline-flex; align-items: center; gap: 8px; }
+  .q.q-s { width: 26px; height: 26px; font-size: 14px; }
+  .q.q-s::after { inset: -11px; }
+  .rs-blocked { margin-top: 4px; font-size: 14px; color: var(--clay); font-weight: 600; }
+  .pair { display: flex; align-items: flex-start; gap: 14px; margin-top: 2px; }
+  .pair > div { min-width: 0; }
+  .pair .fig { display: block; font-family: var(--serif); font-weight: 700; font-variant-numeric: lining-nums; font-size: clamp(32px, 2.9vw, 38px); line-height: 1.12; color: var(--forest); white-space: nowrap; }
+  .pair .fig .u { font-family: var(--sans); font-weight: 400; font-size: 16px; color: var(--ink-2); margin-left: 3px; }
+  .pair .cap { display: block; font-size: 14px; color: var(--ink-3); margin-top: 2px; line-height: 1.5; }
+  .pair .arr { color: var(--wood); margin-top: 12px; flex-shrink: 0; }
+  .pair .cap-next { display: block; margin-top: 2px; color: var(--ink-2); white-space: nowrap; }
+  .pair .later .fig { color: var(--ink); }
 
-  footer { margin-top: 50px; padding-top: 28px; border-top: 1px solid var(--line); text-align: center; }
-  footer .legal {
-    background: #F5EFE3; border-radius: 10px; padding: 16px 20px;
-    font-size: 13px; color: var(--text-soft); line-height: 1.8;
-    text-align: left; margin-bottom: 24px;
+  /* 月付分年圖 */
+  .tl { margin-top: 12px; }
+  .tl-row { display: flex; align-items: stretch; gap: 6px; }
+  .tl-plot { position: relative; flex: 1 1 auto; min-width: 0; display: flex; align-items: flex-end; gap: 6px; border-bottom: 1px solid var(--hair-2); }
+  .tl-col { position: relative; z-index: 1; height: 100%; display: flex; align-items: flex-end; min-width: 0; }
+  .tl-bar { display: block; width: 100%; border-radius: 6px 6px 0 0; background: var(--sage-2); }
+  .tl-col.pay .tl-bar { background: var(--forest); }
+  .tl-v { position: absolute; left: 0; right: 0; text-align: center; font-size: 15px; font-weight: 700; line-height: 20px; height: 20px; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tl-col.pay .tl-v.in { color: #fff; }
+  .tl-ref { position: absolute; z-index: 2; left: 0; right: -6px; height: 0; border-top: 2px dashed var(--clay); pointer-events: none; }
+  .tl-gut { position: relative; flex: 0 0 64px; }
+  .tl-reflbl { position: absolute; left: 4px; right: 0; font-size: 14px; line-height: 18px; color: var(--clay); font-weight: 600; white-space: nowrap; }
+  .tl-x, .tl-rt, .tl-br { display: flex; gap: 6px; }
+  .tl-x > div, .tl-rt > div, .tl-br > div { flex: 1 1 auto; min-width: 0; display: flex; gap: 6px; }
+  .tl-x > i, .tl-rt > i, .tl-br > i { flex: 0 0 64px; }
+  .tl-rt > i.rt-u { font-style: normal; font-size: 14px; padding-left: 4px; white-space: nowrap; }
+  .tl-x span, .tl-rt span { min-width: 0; text-align: center; font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .tl-x { margin-top: 6px; color: var(--ink-2); }
+  .tl-rt { color: var(--ink-3); }
+  .tl-br { margin-top: 6px; }
+  .tl-br span { padding-top: 4px; text-align: center; font-size: 14px; line-height: 1.4; min-width: 0; }
+  .tl-br .g { border-top: 2px solid var(--sage); color: #3D5C4F; }
+  .tl-br .p { border-top: 2px solid var(--forest); color: var(--forest); font-weight: 700; }
+  .jump { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 8px 12px; border-radius: 12px; background: #FBF3EC; color: #5C2D1B; font-size: 15px; line-height: 1.6; }
+  .jump .ico { width: 18px; height: 18px; margin-top: 3px; color: var(--clay); }
+  .jump b { font-variant-numeric: tabular-nums; }
+
+  /* ============ 頁尾 ============ */
+  .foot { background: var(--surface); border-top: 1px solid var(--hair); }
+  .foot::before { content: ""; display: block; height: 3px; border-bottom: 1px solid var(--hair); background: var(--paper); }
+  .foot-in { max-width: 1240px; margin: 0 auto; padding: 52px 32px calc(48px + env(safe-area-inset-bottom)); }
+
+  /* 名片：金色內框（由白牌程式 buildCard() 產生） */
+  .agent-card {
+    position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 24px 40px; align-items: center;
+    padding: 30px 34px; border-radius: 20px; background: var(--paper); border: 1px solid var(--hair-2); text-align: left;
   }
-  footer .legal strong { color: var(--wood-deep); }
-  footer .legal a { color: var(--wood-deep); }
+  .agent-card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; border-radius: 20px 20px 0 0; background: linear-gradient(90deg, var(--forest) 0%, #3B6B58 55%, var(--gold) 100%); }
+  .agent-card::after { content: ""; position: absolute; inset: 8px; border: 1px solid rgba(201, 168, 106, .5); border-radius: 15px; pointer-events: none; }
+  .agent-card.no-act { grid-template-columns: 1fr; }
+  .ac-head { display: flex; gap: 18px; align-items: center; min-width: 0; }
+  .ac-head .av { width: 68px; height: 68px; font-size: 20px; }
+  .ac-id { min-width: 0; }
+  .ac-name { font-size: 26px; font-weight: 700; letter-spacing: .06em; line-height: 1.3; color: var(--ink); }
+  .ac-name .nick { font-size: 20px; letter-spacing: 0; }
+  .ac-brand { font-size: 15px; color: var(--ink-2); line-height: 1.6; margin-top: 4px; }
+  .ac-actions { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ac-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 6px 14px; min-width: 0;
+    border-radius: 14px; border: 1px solid var(--hair-2); background: var(--surface); color: var(--ink);
+    text-decoration: none; font-size: 18px; font-weight: 700; text-align: center; overflow-wrap: anywhere;
+  }
+  .ac-btn .ico { color: var(--forest); }
+  .ac-btn:hover { border-color: var(--forest); }
+  .ac-btn.primary { grid-column: 1 / -1; background: var(--forest); border-color: var(--forest); color: #fff; font-size: 20px; letter-spacing: .04em; }
+  .ac-btn.primary .ico { color: #fff; }
+  .ac-btn:only-child { grid-column: 1 / -1; }
+  .ac-cert { grid-column: 1 / -1; padding-top: 14px; border-top: 1px solid var(--hair-2); font-size: 15px; color: var(--ink-2); line-height: 1.9; display: flex; flex-wrap: wrap; gap: 0 32px; }
+
+  .legal { margin-top: 44px; }
+  .legal h2 { margin: 0 0 14px; font-size: 17px; letter-spacing: .1em; color: var(--ink); font-weight: 700; }
+  .legal ol { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 48px; column-rule: 1px solid var(--hair); }
+  .legal li { break-inside: avoid; position: relative; padding-left: 1.7em; margin-bottom: 12px; font-size: 14px; line-height: 1.85; color: var(--ink-2); }
+  .legal li .ln { position: absolute; left: 0; top: 0; font-weight: 700; font-size: 14px; color: var(--wood-ink); }
+  .legal strong { color: var(--ink); font-weight: 700; }
+  .legal a { color: var(--wood-ink); }
+  .legal .src { margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--hair); }
 
   /* ===== 白牌設定（頁尾入口 → 密碼 → 設定面板）===== */
-  .wl-entry { text-align: center; margin-top: 30px; }
+  .wl-entry { text-align: center; margin-top: 36px; }
   .wl-entry button {
-    font: inherit; font-size: 14px; color: var(--text-soft); cursor: pointer;
-    background: none; border: 1px dashed #D9CCB4; border-radius: 999px; padding: 8px 18px;
+    font: inherit; font-size: 15px; color: var(--ink-3); cursor: pointer; min-height: 48px;
+    background: none; border: 1px dashed var(--hair-2); border-radius: 999px; padding: 0 22px;
   }
-  .wl-entry button:hover { color: var(--wood-deep); border-color: var(--wood); background: #FFF8EC; }
+  .wl-entry button:hover { color: var(--forest); border-color: var(--forest); background: var(--forest-tint); }
 
   html.wl-noscroll { overflow: hidden; }
   .wl-dlg {
     border: none; padding: 0; color: var(--text); background: var(--card);
-    box-shadow: 0 24px 64px rgba(58, 53, 48, 0.28); font-family: inherit;
+    box-shadow: 0 24px 64px rgba(38, 35, 31, 0.28); font-family: inherit;
   }
-  .wl-dlg::backdrop { background: rgba(58, 53, 48, 0.48); }
+  .wl-dlg::backdrop { background: rgba(38, 35, 31, 0.48); }
   .wl-dlg:not([open]) { display: none; }
   /* 不支援 <dialog> 的舊瀏覽器：退回固定定位 */
   .wl-dlg.wl-fallback[open] { position: fixed; z-index: 1000; inset: 0; margin: auto; }
 
   .wl-btn {
-    font: inherit; font-size: 16px; font-weight: 600; padding: 12px 16px; border-radius: 10px;
-    cursor: pointer; border: 1px solid var(--line); background: #FDFCF7; color: var(--text);
+    font: inherit; font-size: 16px; font-weight: 700; min-height: 48px; padding: 10px 16px; border-radius: 12px;
+    cursor: pointer; border: 1px solid var(--hair-2); background: var(--paper); color: var(--text);
   }
-  .wl-btn:hover { border-color: var(--wood); }
-  .wl-btn.primary { background: var(--wood); border-color: var(--wood); color: #fff; }
-  .wl-btn.primary:hover { background: var(--wood-deep); border-color: var(--wood-deep); }
+  .wl-btn:hover { border-color: var(--forest); }
+  .wl-btn.primary { background: var(--forest); border-color: var(--forest); color: #fff; }
+  .wl-btn.primary:hover { background: var(--forest-2); border-color: var(--forest-2); }
   .wl-btn:disabled { opacity: .55; cursor: default; }
 
   /* 密碼視窗 */
@@ -484,26 +717,26 @@
   .wl-lock form { padding: 28px 24px 22px; text-align: center; }
   .wl-lock-ic {
     width: 62px; height: 62px; margin: 0 auto 12px; border-radius: 50%;
-    background: var(--card-tint); border: 2px solid var(--wood);
+    background: var(--tint); border: 2px solid var(--gold);
     display: flex; align-items: center; justify-content: center; font-size: 26px;
   }
-  .wl-lock h2 { margin: 0 0 6px; font-size: 22px; color: var(--wood-deep); }
-  .wl-lock-desc { margin: 0 0 18px; font-size: 15px; color: var(--text-soft); line-height: 1.65; text-wrap: balance; }
+  .wl-lock h2 { margin: 0 0 6px; font-size: 22px; color: var(--ink); }
+  .wl-lock-desc { margin: 0 0 18px; font-size: 15px; color: var(--ink-2); line-height: 1.65; text-wrap: balance; }
   .wl-pin { position: relative; }
   .wl-pin input {
-    width: 100%; padding: 14px 52px; border: 2px solid var(--line); border-radius: 12px;
-    background: #FDFCF7; color: var(--text); text-align: center;
-    font-family: 'Inter', 'Noto Sans TC', sans-serif; font-size: 24px; letter-spacing: 6px;
+    width: 100%; padding: 14px 52px; border: 2px solid var(--hair-2); border-radius: 12px;
+    background: var(--paper); color: var(--text); text-align: center;
+    font-size: 24px; letter-spacing: 6px;
   }
-  .wl-pin input:focus { outline: none; border-color: var(--wood); background: #FFFEF8; box-shadow: 0 0 0 4px rgba(200, 165, 116, 0.2); }
-  .wl-pin input::placeholder { font-size: 16px; letter-spacing: 1px; color: #B5AA99; }
+  .wl-pin input:focus { outline: none; border-color: var(--forest); background: var(--surface); box-shadow: 0 0 0 4px rgba(31, 74, 60, 0.15); }
+  .wl-pin input::placeholder { font-size: 16px; letter-spacing: 1px; color: #8C8172; }
   .wl-eye {
-    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-    width: 42px; height: 42px; border: none; border-radius: 8px; background: none;
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    width: 48px; height: 48px; border: none; border-radius: 8px; background: none;
     font-size: 19px; cursor: pointer; opacity: .7;
   }
-  .wl-eye:hover { opacity: 1; background: var(--card-tint); }
-  .wl-err { min-height: 26px; margin-top: 8px; font-size: 14.5px; color: var(--warn); line-height: 1.5; }
+  .wl-eye:hover { opacity: 1; background: var(--tint); }
+  .wl-err { min-height: 26px; margin-top: 8px; font-size: 15px; color: var(--clay); line-height: 1.5; }
   .wl-shake { animation: wlShake .38s; }
   @keyframes wlShake {
     0%, 100% { transform: translateX(0); } 20% { transform: translateX(-8px); }
@@ -523,95 +756,98 @@
   .wl-panel-in { display: flex; flex-direction: column; height: 100%; }
   .wl-ph {
     display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
-    padding: 20px 22px 14px; border-bottom: 1px solid var(--line);
-    background: linear-gradient(135deg, #F5EFE3 0%, #FDFCF7 100%);
+    padding: 20px 22px 14px; border-bottom: 1px solid var(--hair);
+    background: linear-gradient(135deg, var(--tint) 0%, var(--surface) 100%);
   }
-  .wl-ph h2 { margin: 0; font-size: 21px; color: var(--wood-deep); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .wl-ph p { margin: 4px 0 0; font-size: 14px; color: var(--text-soft); line-height: 1.55; text-wrap: balance; }
+  .wl-ph h2 { margin: 0; font-size: 21px; color: var(--ink); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .wl-ph p { margin: 4px 0 0; font-size: 14px; color: var(--ink-2); line-height: 1.55; text-wrap: balance; }
   .wl-badge {
-    font-size: 12px; font-weight: 600; color: var(--ok); background: var(--ok-bg);
-    border: 1px solid #C7DBC2; border-radius: 999px; padding: 2px 10px;
+    font-size: 14px; font-weight: 700; color: var(--forest); background: var(--forest-tint);
+    border: 1px solid var(--sage); border-radius: 999px; padding: 0 10px;
   }
   .wl-x {
-    width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; cursor: pointer;
-    border: 1px solid var(--line); background: #fff; color: var(--text-soft); font-size: 16px;
+    position: relative; width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; cursor: pointer;
+    border: 1px solid var(--hair-2); background: var(--surface); color: var(--ink-2); font-size: 16px;
   }
-  .wl-x:hover { border-color: var(--wood); color: var(--wood-deep); }
+  .wl-x::after { content: ""; position: absolute; inset: -4px; }
+  .wl-x:hover { border-color: var(--forest); color: var(--forest); }
   .wl-body { flex: 1; overflow-y: auto; padding: 4px 22px 18px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
   /* 段落編號用 CSS 計數器：被隱藏的段落不計數，編號自動接續 */
   .wl-body { counter-reset: wlsec; }
-  .wl-body section { padding: 16px 0; border-bottom: 1px dashed var(--line); counter-increment: wlsec; }
+  .wl-body section { padding: 16px 0; border-bottom: 1px dashed var(--hair); counter-increment: wlsec; }
   .wl-body section:last-child { border-bottom: none; }
   .wl-body h3 {
-    margin: 0 0 10px; font-size: 16.5px; color: var(--text);
+    margin: 0 0 10px; font-size: 17px; color: var(--text);
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   }
   .wl-body h3::before {
-    content: counter(wlsec); width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%;
-    background: var(--wood); color: #fff; font-size: 13px; font-weight: 700;
+    content: counter(wlsec); width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%;
+    background: var(--forest); color: #fff; font-size: 14px; font-weight: 700;
     display: inline-flex; align-items: center; justify-content: center;
   }
   .wl-modes { display: grid; gap: 8px; }
   .wl-mode {
     position: relative; display: flex; align-items: center; gap: 12px; cursor: pointer;
-    padding: 12px 14px; border: 2px solid var(--line); border-radius: 12px; background: #FDFCF7;
+    padding: 12px 14px; border: 1.5px solid var(--hair-2); border-radius: 14px; background: var(--paper);
     transition: border-color .15s, background .15s;
   }
-  .wl-mode:hover { border-color: var(--wood); }
+  .wl-mode:hover { border-color: var(--forest); }
   .wl-mode input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
-  .wl-mode:focus-within { box-shadow: 0 0 0 3px rgba(200, 165, 116, 0.35); }
+  .wl-mode:focus-within { box-shadow: 0 0 0 3px var(--forest); }
   .wl-mode .m-ic {
     width: 42px; height: 42px; flex-shrink: 0; border-radius: 11px; font-size: 20px;
-    display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--hair);
   }
   .wl-mode .m-tx { flex: 1; min-width: 0; }
   .wl-mode b { display: block; font-size: 16px; }
-  .wl-mode small { display: block; font-size: 13.5px; color: var(--text-soft); margin-top: 1px; line-height: 1.45; }
+  .wl-mode small { display: block; font-size: 14px; color: var(--ink-2); margin-top: 1px; line-height: 1.45; }
   .wl-mode .m-ck {
-    width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; border: 2px solid var(--line);
-    display: flex; align-items: center; justify-content: center; font-size: 13px; color: transparent;
+    width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; border: 2px solid var(--hair-2);
+    display: flex; align-items: center; justify-content: center; font-size: 14px; color: transparent;
   }
-  .wl-mode.sel { border-color: var(--wood); background: #FFF8EC; }
-  .wl-mode.sel .m-ic { background: var(--card-tint); border-color: var(--wood); }
-  .wl-mode.sel .m-ck { background: var(--wood); border-color: var(--wood); color: #fff; }
-  .wl-group { font-size: 13px; font-weight: 700; color: var(--wood-deep); letter-spacing: 1px; margin: 14px 0 8px; }
+  .wl-mode.sel { border-color: var(--forest); background: var(--forest-tint); }
+  .wl-mode.sel .m-ic { background: var(--surface); border-color: var(--sage); }
+  .wl-mode.sel .m-ck { background: var(--forest); border-color: var(--forest); color: #fff; }
+  .wl-group { font-size: 14px; font-weight: 700; color: var(--wood-ink); letter-spacing: 1px; margin: 14px 0 8px; }
   .wl-group:first-of-type { margin-top: 2px; }
   .wl-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
   .wl-grid2.cert { grid-template-columns: 1fr 1.5fr; }
   .wl-f { display: block; margin-bottom: 10px; }
-  .wl-f > span { display: block; font-size: 14px; color: var(--text-soft); margin-bottom: 4px; }
+  .wl-f > span { display: block; font-size: 14px; color: var(--ink-2); margin-bottom: 4px; }
   .wl-f input {
-    width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px;
-    background: #FDFCF7; color: var(--text); font-family: inherit; font-size: 16px;
+    width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid var(--hair-2); border-radius: 10px;
+    background: var(--paper); color: var(--text); font-family: inherit; font-size: 16px;
   }
-  .wl-f input:focus { outline: none; border-color: var(--wood); background: #FFFEF8; box-shadow: 0 0 0 3px rgba(200, 165, 116, 0.18); }
+  .wl-f input:focus { outline: none; border-color: var(--forest); background: var(--surface); box-shadow: 0 0 0 3px rgba(31, 74, 60, 0.15); }
   .wl-locked {
     display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; margin-bottom: 4px;
-    background: #F2EEE6; border: 1px dashed #D9CCB4; border-radius: 10px;
+    background: var(--tint); border: 1px dashed var(--hair-2); border-radius: 12px;
   }
   .wl-locked .lk-ic { font-size: 16px; line-height: 1.5; flex-shrink: 0; }
-  .wl-locked .lk-tx { min-width: 0; font-size: 13.5px; color: var(--text-soft); line-height: 1.6; }
-  .wl-locked .lk-tx small { display: block; font-size: 12.5px; color: var(--wood-deep); font-weight: 600; }
+  .wl-locked .lk-tx { min-width: 0; font-size: 14px; color: var(--ink-2); line-height: 1.6; }
+  .wl-locked .lk-tx small { display: block; font-size: 14px; color: var(--wood-ink); font-weight: 700; }
   .wl-locked .lk-tx b { display: block; font-size: 15px; color: var(--text); }
   .wl-warn {
-    font-size: 13.5px; color: #8A4A30; background: var(--warn-bg); border-radius: 8px;
+    font-size: 14px; color: #6E2F18; background: var(--clay-tint); border-radius: 10px;
     padding: 8px 12px; margin: 2px 0 10px; line-height: 1.6; white-space: pre-line;
   }
-  .wl-preview { background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
-  .wl-preview .agent-card { box-shadow: none; }
-  .wl-preview-empty { color: var(--text-soft); font-size: 14px; line-height: 1.65; margin: 0 2px 10px; }
-  .wl-note { margin: 0 0 10px; font-size: 14px; color: var(--text-soft); line-height: 1.65; }
+  .wl-preview { background: var(--paper); border: 1px solid var(--hair); border-radius: 16px; padding: 14px; }
+  .wl-preview .agent-card { grid-template-columns: 1fr; padding: 22px 20px; gap: 16px; }
+  .wl-preview .ac-actions { grid-template-columns: 1fr; }
+  .wl-preview .ac-name { font-size: 22px; }
+  .wl-preview-empty { color: var(--ink-2); font-size: 14px; line-height: 1.65; margin: 0 2px 10px; }
+  .wl-note { margin: 0 0 10px; font-size: 14px; color: var(--ink-2); line-height: 1.65; }
   .wl-linkbox { display: flex; gap: 8px; }
   .wl-linkbox input {
-    flex: 1; min-width: 0; padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px;
-    background: #F2EEE6; color: var(--text-soft); font-family: 'Inter', monospace; font-size: 14px;
+    flex: 1; min-width: 0; min-height: 48px; padding: 10px 12px; border: 1px solid var(--hair-2); border-radius: 10px;
+    background: var(--tint); color: var(--ink-2); font-family: ui-monospace, Consolas, monospace; font-size: 14px;
   }
   .wl-linkbox .wl-btn { padding: 10px 16px; font-size: 15px; white-space: nowrap; }
   .wl-share { width: 100%; margin-top: 8px; }
-  .wl-fine { margin: 10px 0 0; font-size: 12.5px; color: var(--text-soft); line-height: 1.6; }
+  .wl-fine { margin: 10px 0 0; font-size: 14px; color: var(--ink-3); line-height: 1.6; }
   .wl-pf {
-    display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px; background: #fff;
-    padding: 12px 22px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line);
+    display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px; background: var(--surface);
+    padding: 12px 22px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--hair);
   }
   @media (max-width: 640px) {
     .wl-panel {
@@ -627,402 +863,666 @@
   .wl-toast {
     position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); z-index: 2000;
     transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
-    background: var(--text); color: #fff; border-radius: 999px; padding: 10px 20px;
+    background: var(--ink); color: #fff; border-radius: 999px; padding: 10px 20px;
     font-size: 15px; max-width: calc(100vw - 32px); text-align: center;
     transition: opacity .2s, transform .2s;
   }
   .wl-toast.show { opacity: 1; transform: translate(-50%, 0); }
   /* 面板開著時提示放進面板裡、浮在底部按鈕上方 */
   .wl-panel .wl-toast { position: absolute; bottom: calc(84px + env(safe-area-inset-bottom)); width: max-content; max-width: calc(100% - 32px); }
-  @media print { .wl-entry, .wl-dlg, .wl-toast { display: none !important; } }
 
-  .print-btn {
-    background: var(--wood); color: white; border: none; padding: 12px 28px;
-    border-radius: 8px; font-size: 16px; cursor: pointer;
-    margin: 20px auto; display: block; font-family: inherit;
+  .dock, .scrim { display: none; }
+  .on-m { display: none; }
+
+  /* ============ 平板 / 手機：結果改成底部常駐列 + 抽屜 ============ */
+  @media (max-width: 1023px) {
+    .layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .on-d { display: none; } .on-m { display: inline; }
+    .page { padding: 0 24px 40px; }
+    body { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+
+    .col-side {
+      position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 60; margin: 0;
+      transform: translateY(105%); visibility: hidden;
+      transition: transform .32s cubic-bezier(.2, .8, .2, 1), visibility 0s linear .32s;
+    }
+    body.sheet-open .col-side { transform: none; visibility: visible; transition: transform .32s cubic-bezier(.2, .8, .2, 1), visibility 0s; }
+    .result {
+      max-height: 92vh; max-height: 92dvh; max-width: 640px; margin: 0 auto;
+      border-radius: 24px 24px 0 0; border-bottom: 0; box-shadow: 0 -12px 40px -12px rgba(38, 35, 31, .35);
+    }
+    .result::before { display: none; }
+    .rs-body { padding: 4px 22px 12px; }
+    .rs-foot { padding: 12px 22px calc(12px + env(safe-area-inset-bottom)); box-shadow: 0 -8px 18px -12px rgba(38, 35, 31, .25); }
+    .sheet-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0 2px; position: relative; }
+    .sheet-bar::before { content: ""; position: absolute; top: 4px; left: 50%; width: 44px; height: 5px; margin-left: -22px; border-radius: 99px; background: var(--hair-2); }
+    .sheet-bar .sb-ttl { margin: 12px 0 0; display: flex; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; }
+    .sheet-bar .sb-ttl b { font-size: 19px; letter-spacing: .06em; }
+    .rs-first .rs-stamp { display: none; }
+    .sheet-x {
+      width: 48px; height: 48px; flex-shrink: 0; margin: 6px -10px 0 0; border-radius: 50%; border: 0; background: transparent; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; color: var(--ink-2);
+    }
+    .sheet-x .ico { width: 24px; height: 24px; }
+    .rs-foot .cta-row.vert:not(.solo) { grid-template-columns: 1fr 1fr; }
+    .rs-foot .cta-row.vert:not(.solo) .lg-only { display: none; }
+    .rs-foot .cta { padding: 0 10px; gap: 8px; letter-spacing: .02em; }
+    .rs-foot .share-note { display: none; }
+    .rs-foot .cta .lt { text-wrap: balance; }
+    .wl-toast { bottom: calc(96px + env(safe-area-inset-bottom)); }
+    body.dock-off .wl-toast { bottom: calc(24px + env(safe-area-inset-bottom)); }
+    .scrim { display: block; position: fixed; inset: 0; z-index: 55; background: rgba(38, 35, 31, .45); opacity: 0; pointer-events: none; transition: opacity .3s; }
+    body.sheet-open .scrim { opacity: 1; pointer-events: auto; }
+    html.sheet-lock, html.sheet-lock body { overflow: hidden; }
+
+    /* 底部常駐結果列（不透明） */
+    .dock {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; display: flex; align-items: center; gap: 12px; width: 100%;
+      padding: 9px 14px calc(9px + env(safe-area-inset-bottom)); text-align: left; cursor: pointer;
+      border: 0; border-top: 1px solid var(--hair-2); background: #FFFDF9;
+      box-shadow: 0 -10px 28px -14px rgba(38, 35, 31, .3);
+      transition: transform .25s ease, visibility 0s;
+    }
+    .dock::before { content: ""; position: absolute; inset: -1px 0 auto 0; height: 2px; background: linear-gradient(90deg, var(--forest), #3B6B58 55%, var(--gold)); }
+    body.dock-off .dock { transform: translateY(110%); visibility: hidden; transition: transform .25s ease, visibility 0s linear .25s; }
+    body.sheet-open .dock { visibility: hidden; }
+    .dk { min-width: 0; }
+    .dk small { display: block; font-size: 14px; color: var(--ink-3); line-height: 1.35; white-space: nowrap; }
+    .dk b { display: block; font-weight: 800; font-size: 24px; line-height: 1.2; color: var(--forest); white-space: nowrap; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+    .dk b i { font-style: normal; font-weight: 600; font-size: 15px; color: var(--ink-2); margin-left: 2px; }
+    .dk.m b { font-size: 21px; color: var(--ink); }
+    .dk-sep { width: 1px; align-self: stretch; margin: 4px 0; background: var(--hair); flex-shrink: 0; }
+    .dk-more {
+      margin-left: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+      min-width: 58px; min-height: 54px; border-radius: 14px; background: var(--forest); color: #fff; font-size: 14px; font-weight: 700; flex-shrink: 0;
+    }
+    .dk-more .ico { width: 18px; height: 18px; stroke-width: 2.2; }
+
+    .agent-card { grid-template-columns: 1fr; }
+    .legal ol { columns: 1; }
   }
-  .print-btn:hover { background: var(--wood-deep); }
+  @media (max-width: 720px) {
+    .mast-in { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 16px; }
+    .brandline { gap: 12px; }
+    .logo { height: 32px; }
+    .store { padding-left: 12px; font-size: 14px; letter-spacing: .02em; line-height: 1.45; }
+    .agent-chip { width: 100%; border-radius: 16px; padding: 4px 4px 4px 6px; gap: 10px; }
+    .agent-chip .av { width: 36px; height: 36px; font-size: 14px; }
+    .agent-chip .call { margin-left: auto; padding: 0 16px; }
+    .who small { display: none; }
+    .page { padding: 0 16px 32px; }
+    .hero { padding: 18px 0 14px; }
+    .overline { display: none; }
+    .hero .sub { font-size: 16px; margin-top: 6px; }
+    .pre-note { margin-top: 16px; padding: 12px 14px; font-size: 14px; line-height: 1.7; }
+    .progress { padding: 2px 0; }
+    .ps { gap: 6px; min-height: 48px; font-size: 14px; }
+    .pn { width: 28px; height: 28px; font-size: 14px; }
+    .pline { margin: 0 6px; }
+    .step { padding-top: 26px; }
+    .step-h { gap: 12px; margin-bottom: 14px; }
+    .step-no { font-size: 36px; }
+    .step-h h2 { font-size: 23px; }
+    .step-h p { font-size: 16px; }
+    .panel { padding: 20px 18px; border-radius: 16px; }
+    .chips { gap: 8px; }
+    .chip { font-size: 14px; padding: 0 2px; }
+    .chip .n { font-size: 17px; }
+    .split .seg { width: 100%; }
+    .seg button { min-width: 0; }
+    .mini dd { font-size: 25px; }
+    .mini > div + div { padding-left: 16px; }
+    .plan-picker { grid-template-columns: 1fr; }
+    .field { grid-template-columns: 1fr; gap: 8px; }
+    .qgrid { grid-template-columns: 1fr 1fr; gap: 0 14px; }
+    .policy { padding: 18px; }
+    .compare-grid { grid-template-columns: 1fr; }
+    .compare-col { padding: 18px; }
+    .cash-total { flex-direction: column; align-items: stretch; padding: 18px; }
+    .cash-total .v { text-align: left; font-size: 38px; }
+    .hero-num { font-size: 42px; }
+    .foot-in { padding: 40px 16px calc(40px + env(safe-area-inset-bottom)); }
+    .agent-card { padding: 26px 20px; }
+    .ac-actions { grid-template-columns: 1fr; }
+    .ac-cert { flex-direction: column; }
+  }
+  @media (max-width: 560px) {
+    /* 費用表改卡片式堆疊，不必左右捲動 */
+    table.fee-table, table.fee-table tbody { display: block; }
+    table.fee-table thead { display: none; }
+    table.fee-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 12px 0; border-bottom: 1px solid var(--hair); }
+    table.fee-table td { display: block; border: 0; padding: 0; }
+    table.fee-table td:first-child { grid-column: 1; grid-row: 1; font-weight: 600; }
+    table.fee-table td.num { grid-column: 2; grid-row: 1; font-size: 18px; }
+    table.fee-table td:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+    table.fee-table tr.fee-g { display: block; padding: 0; border-bottom: 1px solid var(--hair-2); }
+    table.fee-table tr.fee-g td { padding: 20px 0 8px; border: 0; }
+    table.fee-table tr.total { display: grid; grid-template-columns: 1fr; padding: 16px; margin-top: 12px; border-radius: 14px; background: var(--tint); border: 0; }
+    table.fee-table tr.total td { padding: 0; background: none; border-radius: 0 !important; }
+    table.fee-table tr.total td:first-child { grid-column: 1; grid-row: 1; }
+    table.fee-table tr.total td.num { grid-column: 1; grid-row: 2; text-align: left; margin-top: 4px; font-size: 26px; }
+    .cta-row { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 380px) {
+    .rs-foot .cta .ico { display: none; }
+    .agent-chip .call { padding: 0 12px; gap: 6px; }
+    .pline { min-width: 6px; margin: 0 4px; }
+    .ps { gap: 4px; }
+    .chip .n { font-size: 16px; }
+    .qgrid { grid-template-columns: 1fr; }
+    .dk b { font-size: 21px; }
+    .dk.m b { font-size: 18px; }
+  }
+  @media (max-width: 340px) {
+    .ps .pn { width: 26px; height: 26px; }
+    .ps { font-size: 14px; letter-spacing: -.02em; }
+    .chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .col-side, .scrim, .pn, .dock, details.adv > summary .chev { transition: none !important; }
+  }
+
+  /* ============ 列印：結果、明細、月付對照、法定揭露、名片 ============ */
   @media print {
-    .print-btn { display: none; }
-    body { background: white; }
-    .card, .result-card, .cash-hero { box-shadow: none; }
-    details.step-detail[open] summary { display: none; }
+    @page { margin: 14mm 12mm; }
+    body { background: #fff; padding: 0 !important; font-size: 14px; }
+    /* 只藏輸入控制項；青安重點、資料來源、資格結論、提醒框都要印出來 */
+    .dock, .scrim, .col-side, .wl-entry, .wl-dlg, .wl-toast, .print-btn, .cta-row, .share-note,
+    .progress, .chips, .seg, .q, .why, .linkbtn, .remember, .step-no, .step-h p, #s1 .step-h,
+    #s1 .panel > .lbl-row, #s1 .price-field, #s1 .split, #s1 .mini, #advLoan, #advTax, #advRate > summary,
+    #advRate .adv-body > :not(#qaNote), #s2 .plan-picker, #planNote, #s2 .qrow, #qa3Fields, #s2 .grp-t,
+    .tax-go, .js-open-tax { display: none !important; }
+    .layout { display: block; }
+    .page { padding: 0; max-width: none; }
+    .help[hidden], .more[hidden] { display: block !important; }
+    #s1 .panel > .help, #s2 .help { display: none !important; }
+    .print-only { display: block !important; }
+    .print-stamp { margin-top: 6px; font-size: 14px; color: var(--ink-3); }
+    #s1 .panel, #s2 .panel { border: 0; padding: 0; background: none; }
+    details.adv { border: 0; }
+    .step { padding-top: 18px; }
+    .hero-chip .call { min-height: 0; padding: 0; background: none; color: var(--ink); font-size: 16px; }
+    .hero-chip .call .ico { color: var(--forest); }
+    .panel, .compare-col, .cash-total, .agent-card, .note, .policy { box-shadow: none; break-inside: avoid; }
+    .block { break-inside: auto; padding-top: 16px; }
+    tr, .pay-row, .cash-row { break-inside: avoid; }
+    .foot { border-top: 1px solid #ccc; }
+    .foot-in { padding: 20px 0; }
+    .legal ol { columns: 1; }
+    a { color: inherit; text-decoration: none; }
   }
 </style>
 </head>
 <body>
-<div class="wrap">
 
-<header>
-  <img class="hero-logo" src="logo-bkb.png" alt="房仲大看板 BigKanBan" width="411" height="144">
-  <div class="brand">一品不動產．有巢氏房屋台中世界之心加盟店</div>
-  <h1>買房自備款試算</h1>
-  <div class="sub">看清楚成交時要準備多少現金．每個月要繳多少</div>
-  <div class="hero-chip pz" id="pzChip">
-    <div class="agent-chip">
-      <span class="av" aria-hidden="true">景泰</span>
-      <span class="who"><b>陳景泰</b><span class="nick">Teddy</span><small>試算有疑問，歡迎直接問我</small></span>
-      <a class="call" href="tel:0920118756">📞 0920-118-756</a>
+<!-- ===== 細線圖示 ===== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M12 4c4.97 0 9 3.13 9 7s-4.03 7-9 7c-.9 0-1.77-.1-2.6-.3L5 20l1-3.6C4.15 15.1 3 13.15 3 11c0-3.87 4.03-7 9-7z"/><path d="M8.5 9.5v3M11 9.5v3M11 9.5l2 3V9.5M15.5 9.5h-1.2v3h1.2M14.3 11h1.1"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V3M8 7l4-4 4 4"/><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></symbol>
+  <symbol id="i-ig" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4.5"/><circle cx="12" cy="12" r="3.6"/><path d="M16.6 7.4h.01"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V3h10v6M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></symbol>
+  <symbol id="i-device" viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M11 17.5h2"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></symbol>
+  <symbol id="i-seal" viewBox="0 0 24 24"><path d="M12 3l2.2 1.6 2.7-.1.8 2.6 2.2 1.6-.9 2.5.9 2.5-2.2 1.6-.8 2.6-2.7-.1L12 21l-2.2-1.6-2.7.1-.8-2.6-2.2-1.6.9-2.5-.9-2.5 2.2-1.6.8-2.6 2.7.1z"/><path d="M9 12l2 2 4-4"/></symbol>
+</svg>
+
+<!-- ===== 刊頭 ===== -->
+<header class="mast">
+  <div class="mast-in">
+    <div class="brandline">
+      <img class="logo" src="logo-bkb.png" alt="房仲大看板 BigKanBan" width="411" height="144">
+      <span class="store"><span class="nw">一品不動產．</span><wbr><span class="nw">有巢氏房屋</span><wbr><span class="nw">台中世界之心加盟店</span></span>
+    </div>
+    <div class="hero-chip pz" id="pzChip">
+      <div class="agent-chip">
+        <span class="av" aria-hidden="true">景泰</span>
+        <span class="who"><b>陳景泰</b><span class="nick">Teddy</span><small>試算有疑問，歡迎直接問我</small></span>
+        <a class="call" href="tel:0920118756"><svg class="ico" aria-hidden="true"><use href="#i-phone"/></svg>0920-118-756</a>
+      </div>
     </div>
   </div>
 </header>
 
-<!-- 政策快訊 -->
-<div class="policy-alert">
-  <h3>📢 青安3.0 重點</h3>
-  <ul>
-    <li><strong>青安3.0</strong> 自 <strong>2026/08/01</strong> 上路（受理至 2029/07/31）。三道門檻：<strong>申貸未滿 50 歲</strong>、<strong>本人年所得 200 萬以內</strong>、<strong>房屋總價上限（台中 2,000 萬）</strong>；婚育另有加碼額度（新婚 1,200 萬／育有未成年子女 1,500 萬）。</li>
-    <li>青安的 1.775% 是<strong>機動利率</strong>、且<strong>只全額補貼前 3 年</strong>，第 4 年起補貼每年減半碼、<strong>第 7 年起回到約 2.275%</strong>。此「3+3」設計依財政部 2026/07 定案。</li>
-  </ul>
-  <div class="src-note">
-    📌 資料來源：財政部國庫署「貸款原則(青安3.0)」（<a href="https://www.nta.gov.tw/singlehtml/108" target="_blank" rel="noopener">nta.gov.tw/singlehtml/108</a>）、「問答集(青安3.0)」（<a href="https://www.nta.gov.tw/singlehtml/109" target="_blank" rel="noopener">nta.gov.tw/singlehtml/109</a>），2026/07/28 公布。實際以財政部公告與承辦銀行核定為準。｜查證日：2026-10-02
-  </div>
-</div>
+<main class="page">
+<div class="layout">
 
-<a href="#cashHero" class="jump-cash">
-  <span class="t">💰 直接看：我要準備多少現金？</span>
-  <span class="v" id="jumpVal">─</span>
-</a>
+  <!-- ================= 左欄：輸入與明細 ================= -->
+  <div class="col-main">
+    <section class="hero">
+      <p class="overline">買方試算工具</p>
+      <h1>買房自備款試算</h1>
+      <p class="sub"><span class="nw">看清楚成交時要準備多少現金．</span><wbr><span class="nw">每個月要繳多少</span></p>
+      <p class="print-only print-stamp" id="printStamp"></p>
+    </section>
 
-<div class="disclaimer-top">
-  ⚠️ <strong>使用前請看：</strong>本工具依現行法規與市場行情試算，僅供參考，<strong>不是銀行核貸承諾</strong>。實際金額以代書、銀行核定為準。土地申報地價、房屋核定契價請以最新「土地謄本」、「房屋稅單」為準（<strong>不等於市價</strong>）。
-</div>
+    <nav class="progress" aria-label="試算步驟">
+      <a class="ps is-current" href="#s1" data-step="s1" aria-current="step"><span class="pn"><span class="d">1</span><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></span><span class="pl">房子多少錢</span></a>
+      <span class="pline" aria-hidden="true"></span>
+      <a class="ps" href="#s2" data-step="s2"><span class="pn"><span class="d">2</span><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></span><span class="pl">用不用青安</span></a>
+      <span class="pline" aria-hidden="true"></span>
+      <a class="ps" href="#s3" data-step="s3"><span class="pn"><span class="d">3</span><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></span><span class="pl">看結果</span></a>
+    </nav>
 
-<!-- 步驟 1：制度選擇 -->
-<div class="card" style="margin-bottom:22px;">
-  <h2><span class="step">1</span>你要試算哪一種貸款？</h2>
-  <div class="plan-picker" id="planPicker">
-    <label class="plan-opt" data-plan="qa3">
-      <input type="radio" name="plan" value="qa3" checked>
-      <span>
-        <span class="t">青安3.0<span class="badge new">現行方案</span></span>
-        <span class="d">有年齡／排富／總價門檻，婚育可加貸到 1,200～1,500 萬。利率 1.775% 只保 3 年。</span>
-      </span>
-    </label>
-    <label class="plan-opt" data-plan="none">
-      <input type="radio" name="plan" value="none">
-      <span>
-        <span class="t">不用優惠貸款，只算一般房貸</span>
-        <span class="d">不符資格、或房屋總價超過青安3.0 上限時選這個。</span>
-      </span>
-    </label>
-  </div>
-  <div class="note-box" id="planNote"></div>
-</div>
-
-<!-- 步驟 2 + 3 -->
-<div class="grid">
-  <div class="card">
-    <h2><span class="step">2</span>交易條件</h2>
-    <div class="field">
-      <label>成交總價
-        <span class="hint">買賣合約上的金額</span>
-      </label>
-      <div class="field-inline">
-        <input type="number" id="price" value="1000" min="0" step="10">
-        <span class="unit">萬</span>
-      </div>
+    <div class="note warn pre-note"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>
+      <p><strong>使用前請看：</strong>本工具依現行法規與市場行情試算，僅供參考，<strong>不是銀行核貸承諾</strong>。實際金額以代書、銀行核定為準。土地申報地價、房屋核定契價請以最新「土地謄本」、「房屋稅單」為準（<strong>不等於市價</strong>）。</p>
     </div>
 
-    <div class="slider-row">
-      <div class="top">
-        <span class="lbl">銀行鑑價
-          <span class="hint">銀行對這間房子的估值。核貸金額是用「鑑價 vs 成交價<b>較低者</b>」× 成數計算（央行規定），鑑價低於成交價時，差額要用<b>現金</b>補。</span>
-        </span>
-        <span class="v" id="apprValLabel">─</span>
+    <!-- ---------- ① 房子多少錢 ---------- -->
+    <section class="step" id="s1" aria-labelledby="s1h">
+      <div class="step-h">
+        <span class="step-no" aria-hidden="true">01</span>
+        <div><h2 id="s1h">房子多少錢？</h2><p>只要填這一格，就能看到結果。</p></div>
       </div>
-      <input type="range" id="apprRatio" min="85" max="100" step="1" value="100">
-      <div class="slider-scale"><span>85%（鑑價偏低）</span><span>100%（等於成交價）</span></div>
-    </div>
-
-    <div class="field">
-      <label>貸款成數
-        <span class="hint" id="ratioHint">依銀行對鑑價的成數</span>
-      </label>
-      <div class="field-inline">
-        <input type="number" id="loanRatio" value="80" min="0" max="100" step="1">
-        <span class="unit">%</span>
-      </div>
-    </div>
-    <div class="field">
-      <label>核貸金額
-        <span class="hint" id="loanHint">自動計算（可手動覆寫成銀行實際核貸數字）</span>
-      </label>
-      <div class="field-inline">
-        <input type="number" id="loanAmount" value="800" min="0" step="10">
-        <span class="unit">萬</span>
-      </div>
-    </div>
-    <div class="note-box" id="loanNote"></div>
-  </div>
-
-  <div class="card" id="eligCard">
-    <h2><span class="step">3</span>青安3.0 資格檢核</h2>
-    <label class="checkbox-row" style="border-bottom:1px dashed #F0E6D0;padding-bottom:12px;">
-      <input type="checkbox" id="noHouse" checked>
-      <span class="ckbox-text">
-        本人、配偶、未成年子女名下<b>皆無自有住宅</b>
-        <small>青安<b>最核心</b>的條件。以三人「全國財產稅總歸戶財產查詢清單」均查無建物為準；名下有房就不能申請</small>
-      </span>
-    </label>
-    <div id="qa3Fields">
-      <div class="field">
-        <label>申貸時年齡
-          <span class="hint">青安3.0 須<b>未滿 50 歲</b>，且「年齡 + 貸款年限 ≤ 80」</span>
-        </label>
-        <div class="field-inline">
-          <input type="number" id="age" value="35" min="18" max="99" step="1">
-          <span class="unit">歲</span>
+      <div class="panel">
+        <div class="lbl-row"><label for="price">成交總價</label>
+          <button type="button" class="q" data-help aria-expanded="false" aria-controls="h-price" aria-label="說明：成交總價">?</button></div>
+        <p class="help" id="h-price" hidden>買賣合約上的金額</p>
+        <div class="price-field">
+          <input type="number" id="price" value="1000" min="0" step="10" inputmode="decimal" autocomplete="off" aria-describedby="priceUnit">
+          <span class="u" id="priceUnit">萬</span>
         </div>
-      </div>
-      <div class="field">
-        <label>本人年所得總額
-          <span class="hint">青安3.0 排富門檻 200 萬。採<b>借款人本人</b>所得，不是家戶合計（雙薪各 190 萬仍可）</span>
-        </label>
-        <div class="field-inline">
-          <input type="number" id="income" value="80" min="0" step="10">
-          <span class="unit">萬</span>
+        <div class="chips" role="group" aria-label="常見總價，點一下直接帶入">
+          <button type="button" class="chip" data-price="800" aria-pressed="false"><span class="n">800</span>萬</button>
+          <button type="button" class="chip" data-price="1000" aria-pressed="false"><span class="n">1,000</span>萬</button>
+          <button type="button" class="chip" data-price="1500" aria-pressed="false"><span class="n">1,500</span>萬</button>
+          <button type="button" class="chip" data-price="2000" aria-pressed="false"><span class="n">2,000</span>萬</button>
         </div>
+
+        <div class="split">
+          <div class="lbl-row">貸款成數
+            <button type="button" class="q" data-help aria-expanded="false" aria-controls="h-ratio" aria-label="說明：貸款成數">?</button></div>
+          <div class="seg" role="group" aria-label="貸款成數">
+            <button type="button" data-ratio="70" aria-pressed="false"><span class="sg-t"><b>7</b>成</span><span class="sg-s">─</span></button>
+            <button type="button" data-ratio="80" aria-pressed="false"><span class="sg-t"><b>8</b>成</span><span class="sg-s">─</span></button>
+          </div>
+        </div>
+        <p class="help" id="h-ratio" hidden><span id="ratioHint">依銀行對鑑價的成數</span></p>
+
+        <dl class="mini">
+          <div><dt>銀行核貸</dt><dd><span id="miniLoan">─</span><small>萬</small></dd></div>
+          <div><dt>頭期款</dt><dd><span id="miniDown">─</span><small>萬</small></dd></div>
+        </dl>
+        <div class="callouts" id="loanNote"></div>
+
+        <details class="adv" id="advLoan">
+          <summary><span>鑑價與核貸金額<small id="sumLoan">─</small></span><span class="chev" aria-hidden="true"><svg class="ico"><use href="#i-chev"/></svg></span></summary>
+          <div class="adv-body">
+            <div class="field wide">
+              <div class="lbl-row sb">
+                <span class="lbl-in"><label for="apprRatio">銀行鑑價</label>
+                <button type="button" class="q" data-help aria-expanded="false" aria-controls="h-appr" aria-label="說明：銀行鑑價">?</button></span>
+                <span class="rv" id="apprValLabel">─</span>
+              </div>
+              <p class="help" id="h-appr" hidden>銀行對這間房子的估值。核貸金額是用「鑑價 vs 成交價<b>較低者</b>」× 成數計算（央行規定），鑑價低於成交價時，差額要用<b>現金</b>補。</p>
+              <div>
+                <input class="range" type="range" id="apprRatio" min="85" max="100" step="1" value="100" aria-describedby="apprValLabel">
+                <div class="range-scale"><span>85%（鑑價偏低）</span><span>100%（等於成交價）</span></div>
+              </div>
+            </div>
+            <div class="field">
+              <div class="lbl-row"><label for="loanRatio">貸款成數</label></div>
+              <div class="inp"><input type="number" id="loanRatio" value="80" min="0" max="100" step="1" inputmode="decimal"><span class="u">%</span></div>
+            </div>
+            <div class="field">
+              <div class="lbl-row"><label for="loanAmount">核貸金額</label></div>
+              <div class="inp"><input type="number" id="loanAmount" value="800" min="0" step="10" inputmode="decimal"><span class="u">萬</span></div>
+              <p class="hint" id="loanHint">自動計算（可手動覆寫成銀行實際核貸數字）</p>
+            </div>
+          </div>
+        </details>
+
+        <details class="adv" id="advTax">
+          <summary><span>稅基資料（契稅、規費、印花稅用）<small id="sumTax">─</small></span><span class="chev" aria-hidden="true"><svg class="ico"><use href="#i-chev"/></svg></span></summary>
+          <div class="adv-body">
+            <div class="note" style="margin-top:0;"><svg class="ico" aria-hidden="true"><use href="#i-bulb"/></svg>
+              <p>契稅、印花稅、登記規費<strong>不是按成交價計算</strong>，而是按<strong>政府評定的價格</strong>（通常遠低於市價）。<br>
+              這些數字在<strong>土地謄本</strong>與<strong>房屋稅單</strong>上，一般在屋主或仲介手上 —— <span class="pz" id="pzAsk"><strong>不用自己找，開口跟我要就好</strong><span class="nw">（0920-118-756）</span></span>。想先抓個大概，就勾下面的「保守估算」。</p>
+            </div>
+            <div class="field">
+              <div class="lbl-row"><label for="landValue">土地申報地價總額</label>
+                <button type="button" class="q" data-help aria-expanded="false" aria-controls="h-land" aria-label="說明：土地申報地價總額">?</button></div>
+              <div class="inp"><input type="number" id="landValue" value="" min="0" step="1" placeholder="例 200" inputmode="decimal"><span class="u">萬</span></div>
+              <p class="help" id="h-land" hidden>政府用來課地價稅的價格，通常只有市價的一到兩成。土地謄本／地價稅單可查（用於登記規費）</p>
+            </div>
+            <div class="field">
+              <div class="lbl-row"><label for="houseValue">房屋核定契價</label>
+                <button type="button" class="q" data-help aria-expanded="false" aria-controls="h-house" aria-label="說明：房屋核定契價">?</button></div>
+              <div class="inp"><input type="number" id="houseValue" value="" min="0" step="1" placeholder="例 80" inputmode="decimal"><span class="u">萬</span></div>
+              <p class="help" id="h-house" hidden>又叫「房屋評定現值」，政府用來課房屋稅的價格，跟成交價無關。房屋稅單可查（用於契稅、登記規費、印花稅）</p>
+            </div>
+            <div class="field">
+              <div class="lbl-row"><label for="landCurrent">土地公告現值總額</label><span class="opt-note">選填</span>
+                <button type="button" class="q" data-help aria-expanded="false" aria-controls="h-landc" aria-label="說明：土地公告現值總額">?</button></div>
+              <div class="inp"><input type="number" id="landCurrent" value="" min="0" step="1" placeholder="選填" inputmode="decimal"><span class="u">萬</span></div>
+              <p class="help" id="h-landc" hidden>選填。土地謄本可查，用於<b>印花稅</b>。未填則以申報地價代入（印花稅會低估）</p>
+            </div>
+            <label class="tick"><input type="checkbox" id="useEstimate">
+              <span>我不知道精確值，使用保守估算
+              <small>土地申報地價 ≈ 成交價 × 20%、房屋契價 ≈ 成交價 × 8%（實務常見比例，<b>誤差可能很大</b>，僅供抓感覺）</small></span></label>
+          </div>
+        </details>
+
+        <details class="adv" id="advRate">
+          <summary><span>利率、年限、寬限期<small id="sumRate">─</small></span><span class="chev" aria-hidden="true"><svg class="ico"><use href="#i-chev"/></svg></span></summary>
+          <div class="adv-body">
+            <p class="grp-t">一般房貸（對照組）</p>
+            <div class="field">
+              <div class="lbl-row"><label for="rateGeneral">利率</label>
+                <button type="button" class="q" data-help aria-expanded="false" aria-controls="h-rg" aria-label="說明：一般房貸利率">?</button></div>
+              <div class="inp"><input type="number" id="rateGeneral" value="2.322" min="0" step="0.005" inputmode="decimal"><span class="u">%</span></div>
+              <p class="help" id="h-rg" hidden>五大行庫新承做購屋貸款平均 2.322%（2026/05 期，央行 2026-06-18 公布）</p>
+            </div>
+            <div class="field">
+              <div class="lbl-row"><label for="yearsGeneral">年限</label></div>
+              <div class="inp"><input type="number" id="yearsGeneral" value="30" min="1" max="40" step="1" inputmode="numeric"><span class="u">年</span></div>
+            </div>
+            <div class="field">
+              <div class="lbl-row"><label for="graceGeneral">寬限期</label></div>
+              <div class="inp"><input type="number" id="graceGeneral" value="0" min="0" max="5" step="1" inputmode="numeric"><span class="u">年</span></div>
+            </div>
+
+            <p class="grp-t" id="qaSecTitle" style="margin-top:24px;">青安3.0</p>
+            <div class="field">
+              <div class="lbl-row"><label for="baseRate">基準利率</label>
+                <button type="button" class="q" data-help aria-expanded="false" aria-controls="h-base" aria-label="說明：基準利率">?</button></div>
+              <div class="inp"><input type="number" id="baseRate" value="1.72" min="0" step="0.005" inputmode="decimal"><span class="u">%</span></div>
+              <p class="help" id="h-base" hidden>青安利率的計算基礎，跟著郵政 2 年期定儲機動利率走，自 2024/03/27 起為 1.72%（央行 2026 年至今未升降息）</p>
+            </div>
+            <div class="field">
+              <div class="lbl-row"><label for="rateQA">優惠後利率</label>
+                <button type="button" class="q" data-help aria-expanded="false" aria-controls="h-rq" aria-label="說明：優惠後利率">?</button></div>
+              <div class="inp"><input type="number" id="rateQA" value="1.775" min="0" step="0.005" readonly><span class="u">%</span></div>
+              <p class="help" id="h-rq" hidden><span id="qaRateHint">基準 1.72% + 加碼 0.555% − 補貼 0.5% = 1.775%</span></p>
+            </div>
+            <div class="field">
+              <div class="lbl-row"><label for="yearsQA">年限</label></div>
+              <div class="inp"><input type="number" id="yearsQA" value="40" min="1" max="40" step="1" inputmode="numeric"><span class="u">年</span></div>
+            </div>
+            <div class="field">
+              <div class="lbl-row"><label for="graceQA">寬限期</label>
+                <button type="button" class="q" data-help aria-expanded="false" aria-controls="h-gq" aria-label="說明：寬限期">?</button></div>
+              <div class="inp"><input type="number" id="graceQA" value="5" min="0" max="5" step="1" inputmode="numeric"><span class="u">年</span></div>
+              <p class="help" id="h-gq" hidden>期內只繳利息、不還本金</p>
+            </div>
+            <div class="callouts" id="qaNote"></div>
+          </div>
+        </details>
+
+        <p class="remember"><svg class="ico" aria-hidden="true"><use href="#i-device"/></svg><span>這台裝置會記住你上次填的數字，下次打開不用重填。<button type="button" class="linkbtn" id="resetInputs">清除我填的數字</button><span class="ok-msg" id="resetMsg" role="status"></span></span></p>
       </div>
-      <div class="field">
-        <label>婚育狀況（可複選）
-          <span class="hint">決定青安3.0 的額度上限；同時符合者<b>取較高者</b></span>
-        </label>
-        <div>
-          <label class="checkbox-row" style="padding:4px 0;">
-            <input type="checkbox" id="famNewlywed">
-            <span class="ckbox-text">新婚 2 年內 <small style="display:inline;">→ 1,200 萬</small></span>
+    </section>
+
+    <!-- ---------- ② 用不用青安 ---------- -->
+    <section class="step" id="s2" aria-labelledby="s2h">
+      <div class="step-h">
+        <span class="step-no" aria-hidden="true">02</span>
+        <div><h2 id="s2h">用不用青安？</h2><p>選貸款方式，再點幾下確認資格。</p></div>
+      </div>
+      <div class="panel">
+        <div class="plan-picker" id="planPicker" role="radiogroup" aria-label="你要試算哪一種貸款？">
+          <label class="plan-opt" data-plan="qa3">
+            <input type="radio" name="plan" value="qa3" checked>
+            <span class="rd" aria-hidden="true"><svg class="ico"><use href="#i-check"/></svg></span>
+            <span>
+              <span class="t">青安3.0<span class="badge">現行方案</span></span>
+              <span class="d">有年齡／排富／總價門檻，婚育可加貸到 1,200～1,500 萬。利率 1.775% 只保 3 年。</span>
+            </span>
           </label>
-          <label class="checkbox-row" style="padding:4px 0;">
-            <input type="checkbox" id="famChild">
-            <span class="ckbox-text">育有未成年子女 <small style="display:inline;">→ 1,500 萬</small></span>
+          <label class="plan-opt" data-plan="none">
+            <input type="radio" name="plan" value="none">
+            <span class="rd" aria-hidden="true"><svg class="ico"><use href="#i-check"/></svg></span>
+            <span>
+              <span class="t">不用優惠貸款，<span class="nw">只算一般房貸</span></span>
+              <span class="d">不符資格、或房屋總價超過青安3.0 上限時選這個。</span>
+            </span>
           </label>
         </div>
-      </div>
-      <div class="field">
-        <label>房屋所在縣市
-          <span class="hint">青安3.0 的房屋總價上限分三級，以<b>鑑價或買賣總價較高者</b>認定</span>
-        </label>
-        <select id="city">
-          <option value="other" selected>台中市（及其他縣市）</option>
-          <option value="taipei">台北市</option>
-          <option value="newtaipei">新北市／新竹縣市</option>
-        </select>
-      </div>
-    </div>
-    <div class="elig-list" id="eligList"></div>
-    <div class="elig-verdict" id="eligVerdict"></div>
-  </div>
-</div>
+        <div class="callouts" id="planNote"></div>
 
-<!-- 步驟 4 + 5 -->
-<div class="grid">
-  <div class="card">
-    <h2><span class="step">4</span>稅基資料</h2>
-    <div class="note-box" style="margin-top:0;margin-bottom:8px;">
-      💡 契稅、印花稅、登記規費<strong>不是按成交價計算</strong>，而是按<strong>政府評定的價格</strong>（通常遠低於市價）。<br>
-      這些數字在<strong>土地謄本</strong>與<strong>房屋稅單</strong>上，一般在屋主或仲介手上 —— <span class="pz" id="pzAsk"><strong>不用自己找，開口跟我要就好</strong>（0920-118-756）</span>。想先抓個大概，就勾下面的「保守估算」。
-    </div>
-    <div class="field">
-      <label>土地申報地價總額
-        <span class="hint">政府用來課地價稅的價格，通常只有市價的一到兩成。土地謄本／地價稅單可查（用於登記規費）</span>
-      </label>
-      <div class="field-inline">
-        <input type="number" id="landValue" value="" min="0" step="1" placeholder="例 200">
-        <span class="unit">萬</span>
+        <div id="eligCard">
+          <p class="grp-t" style="margin-top:18px;">青安3.0 資格檢核（點選即可）</p>
+          <div class="qrow">
+            <div class="qrow-in">
+              <p class="qtext"><span id="nhQ">本人、配偶、未成年子女名下<span class="nw"><b>皆無自有住宅</b>？</span></span><button type="button" class="q q-in" data-help aria-expanded="false" aria-controls="h-nohouse" aria-label="說明：名下無自有住宅">?</button></p>
+              <div class="yn" role="group" aria-labelledby="nhQ">
+                <button type="button" data-yn="1" aria-pressed="true">是</button>
+                <button type="button" data-yn="0" aria-pressed="false">否</button>
+              </div>
+            </div>
+            <input type="checkbox" id="noHouse" checked class="sr" tabindex="-1" aria-hidden="true">
+            <p class="help" id="h-nohouse" hidden>青安<b>最核心</b>的條件。以三人「全國財產稅總歸戶財產查詢清單」均查無建物為準；名下有房就不能申請</p>
+          </div>
+          <div id="qa3Fields" class="qgrid">
+            <div class="qf">
+              <div class="lbl-row"><label for="age">申貸時年齡</label>
+                <button type="button" class="q" data-help aria-expanded="false" aria-controls="h-age" aria-label="說明：申貸時年齡">?</button></div>
+              <p class="help" id="h-age" hidden>青安3.0 須<b>未滿 50 歲</b>，且「年齡 + 貸款年限 ≤ 80」</p>
+              <div class="inp"><input type="number" id="age" value="35" min="18" max="99" step="1" inputmode="numeric"><span class="u">歲</span></div>
+            </div>
+            <div class="qf">
+              <div class="lbl-row"><label for="income">本人年所得</label>
+                <button type="button" class="q" data-help aria-expanded="false" aria-controls="h-inc" aria-label="說明：本人年所得總額">?</button></div>
+              <p class="help" id="h-inc" hidden>本人年所得總額。青安3.0 排富門檻 200 萬。採<b>借款人本人</b>所得，不是家戶合計（雙薪各 190 萬仍可）</p>
+              <div class="inp"><input type="number" id="income" value="80" min="0" step="10" inputmode="decimal"><span class="u">萬</span></div>
+            </div>
+            <div class="qf full">
+              <div class="lbl-row">婚育狀況<span class="opt-note">（可複選）</span>
+                <button type="button" class="q" data-help aria-expanded="false" aria-controls="h-fam" aria-label="說明：婚育狀況">?</button></div>
+              <p class="help" id="h-fam" hidden>決定青安3.0 的額度上限；同時符合者<b>取較高者</b></p>
+              <div class="toggles">
+                <label class="toggle" data-for="famNewlywed"><input type="checkbox" id="famNewlywed"><span class="tk" aria-hidden="true"><svg class="ico"><use href="#i-check"/></svg></span>新婚 2 年內 → <b>1,200</b> 萬</label>
+                <label class="toggle" data-for="famChild"><input type="checkbox" id="famChild"><span class="tk" aria-hidden="true"><svg class="ico"><use href="#i-check"/></svg></span>育有未成年子女 → <b>1,500</b> 萬</label>
+              </div>
+            </div>
+            <div class="qf full">
+              <div class="lbl-row"><label for="city">房屋所在縣市</label>
+                <button type="button" class="q" data-help aria-expanded="false" aria-controls="h-city" aria-label="說明：房屋所在縣市">?</button></div>
+              <p class="help" id="h-city" hidden>青安3.0 的房屋總價上限分三級，以<b>鑑價或買賣總價較高者</b>認定</p>
+              <div class="inp"><select id="city">
+                <option value="other" selected>台中市（及其他縣市）</option>
+                <option value="taipei">台北市</option>
+                <option value="newtaipei">新北市／新竹縣市</option>
+              </select></div>
+            </div>
+          </div>
+          <div class="qrow">
+            <div class="auto-row">
+              <span class="qtext" style="flex:0 0 auto;">房屋總價<span class="auto-tag">自動判斷</span></span>
+              <span class="auto-v" id="priceAuto">─</span>
+            </div>
+          </div>
+          <div class="elig-verdict" id="eligVerdict" role="status"></div>
+          <div class="elig-list" id="eligList"></div>
+        </div>
+
+        <aside class="policy" aria-labelledby="polh">
+          <h3 id="polh">📢 青安3.0 重點</h3>
+          <ul>
+            <li><strong>青安3.0</strong> 自 <strong>2026/08/01</strong> 上路（受理至 2029/07/31）。三道門檻：<strong>申貸未滿 50 歲</strong>、<strong>本人年所得 200 萬以內</strong>、<strong>房屋總價上限（台中 2,000 萬）</strong>；婚育另有加碼額度（新婚 1,200 萬／育有未成年子女 1,500 萬）。</li>
+            <li>青安的 1.775% 是<strong>機動利率</strong>、且<strong>只全額補貼前 3 年</strong>，第 4 年起補貼每年減半碼、<strong>第 7 年起回到約 2.275%</strong>。此「3+3」設計依財政部 2026/07 定案。</li>
+          </ul>
+          <p class="src">📌 資料來源：財政部國庫署「貸款原則(青安3.0)」（<a href="https://www.nta.gov.tw/singlehtml/108" target="_blank" rel="noopener">nta.gov.tw/singlehtml/108</a>）、「問答集(青安3.0)」（<a href="https://www.nta.gov.tw/singlehtml/109" target="_blank" rel="noopener">nta.gov.tw/singlehtml/109</a>），2026/07/28 公布。實際以財政部公告與承辦銀行核定為準。｜查證日：2026-10-02</p>
+        </aside>
       </div>
-    </div>
-    <div class="field">
-      <label>房屋核定契價
-        <span class="hint">又叫「房屋評定現值」，政府用來課房屋稅的價格，跟成交價無關。房屋稅單可查（用於契稅、登記規費、印花稅）</span>
-      </label>
-      <div class="field-inline">
-        <input type="number" id="houseValue" value="" min="0" step="1" placeholder="例 80">
-        <span class="unit">萬</span>
+    </section>
+
+    <!-- ---------- ③ 看結果 ---------- -->
+    <section class="step" id="s3" aria-labelledby="s3h">
+      <div class="step-h">
+        <span class="step-no" aria-hidden="true">03</span>
+        <div><h2 id="s3h">看結果</h2><p>重點在<span class="on-d">右邊</span><span class="on-m">畫面最下方</span>的「試算結果」，這裡是每一筆怎麼算出來的。</p></div>
       </div>
-    </div>
-    <div class="field">
-      <label>土地公告現值總額
-        <span class="hint">選填。土地謄本可查，用於<b>印花稅</b>。未填則以申報地價代入（印花稅會低估）</span>
-      </label>
-      <div class="field-inline">
-        <input type="number" id="landCurrent" value="" min="0" step="1" placeholder="選填">
-        <span class="unit">萬</span>
-      </div>
-    </div>
-    <label class="checkbox-row">
-      <input type="checkbox" id="useEstimate">
-      <span class="ckbox-text">
-        我不知道精確值，使用保守估算
-        <small>土地申報地價 ≈ 成交價 × 20%、房屋契價 ≈ 成交價 × 8%（實務常見比例，<b>誤差可能很大</b>，僅供抓感覺）</small>
-      </span>
-    </label>
+
+      <!-- 自備款拆解（畫面上看得到這塊時，手機底部結果列自動收起） -->
+      <article class="block cash-hero" id="cashHero">
+        <h3>成交時要準備的現金（自備款）</h3>
+        <p class="lead">很多人以為「自備款 = 總價 − 貸款」，其實還要加上一整包<strong>不能貸的稅費</strong>。這裡把兩塊都算給你看。</p>
+        <div class="cash-steps" id="cashSteps"></div>
+        <div class="cash-total">
+          <span class="k">成交時實際要掏出的現金
+            <small id="cashTotalSub">頭期款 + 一次性稅費雜支</small>
+          </span>
+          <span class="v" id="cashTotal">─<small id="cashTotalPct">─</small></span>
+        </div>
+        <div class="callouts" id="cashAlert"></div>
+        <div class="note"><svg class="ico" aria-hidden="true"><use href="#i-bulb"/></svg>
+          <p><strong>這還沒算裝潢、家具家電、搬家費。</strong>中古屋若要整理，建議另外抓一筆緩衝金，不要把現金全部押在成交上。</p></div>
+        <div class="cta-row">
+          <button type="button" class="cta primary js-share"><svg class="ico" aria-hidden="true"><use href="#i-share"/></svg>把這份試算傳給家人</button>
+          <a class="cta ghost pz js-line" hidden target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg><span class="lt">LINE 詢問</span></a>
+        </div>
+        <p class="share-note">連結只帶房價與貸款條件<span class="nw">（不含年齡、所得、婚育）</span>，請只傳給信任的人</p>
+      </article>
+
+      <!-- 一次性費用 -->
+      <article class="block" id="fees">
+        <h3>一次性費用明細</h3>
+        <p class="lead">這張表列出買方常見的 15 項費用，分成四類。</p>
+        <div class="table-scroll">
+          <table class="fee-table">
+            <thead>
+              <tr>
+                <th style="width:30%;">費用項目</th>
+                <th style="width:48%;">計算方式</th>
+                <th class="n" style="width:22%;">金額</th>
+              </tr>
+            </thead>
+            <tbody id="feeTableBody"></tbody>
+          </table>
+        </div>
+        <details class="plain">
+          <summary>哪些費用賣方付？哪些沒算在表內？<svg class="ico" aria-hidden="true"><use href="#i-chev"/></svg></summary>
+          <div class="pbody">
+            <p>ℹ️ <strong>以下費用由賣方負擔，買方不用出</strong>：土地增值稅、賣方的仲介服務費、賣方的簽約費、實價登錄的另一半、履約保證費的另一半、原貸款抵押權塗銷登記（2,000 元）、代申報房地合一稅（3,000 元，如有）。</p>
+            <p>另外，<strong>代為申請自用住宅用地地價稅（把地價稅從 1% 降到 0.2%）為售後服務、不另收費</strong> —— 過戶後記得辦，這筆每年都省。</p>
+            <p>另外，<strong>交屋當天還要跟賣方結算</strong>當年度已預繳的地價稅、房屋稅、管理費、水電瓦斯（依內政部《成屋買賣定型化契約應記載及不得記載事項》第九點，以交屋日為準按日數比例分算），金額依個案與交屋時點而定，通常數千至數萬元，本表未計入。</p>
+          </div>
+        </details>
+        <div class="note"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg>
+          <div><p><strong>這些稅費原則上要用現金支付、不能併入房貸。</strong><button type="button" class="why" data-help aria-expanded="false" aria-controls="w-cbc">為什麼<svg class="ico" aria-hidden="true"><use href="#i-chev"/></svg></button></p>
+          <div class="more" id="w-cbc" hidden><p>依央行規定，第 1 戶（首購）在貸款存續期間可辦理增貸；但<strong>第 2 戶以上、高價住宅、公司法人不得再以修繕、周轉金等名目額外增加貸款金額</strong>。實際能否加貸請洽貸款銀行。</p>
+          <p class="src">資料來源：中央銀行「中央銀行對金融機構辦理不動產抵押貸款業務規定」問與答（<a href="https://www.cbc.gov.tw/tw/lp-1055-1.html" target="_blank" rel="noopener">cbc.gov.tw</a>），2026/03/20 生效版</p></div></div></div>
+      </article>
+
+      <!-- 每月房貸 -->
+      <article class="block" id="monthly">
+        <h3>每月房貸月付金</h3>
+        <p class="lead">一般房貸和青安3.0，每個月各要繳多少。</p>
+        <div class="compare-grid">
+          <div class="compare-col">
+            <h3>一般房貸 <span class="tag">市場利率</span></h3>
+            <div id="generalDetail"></div>
+          </div>
+          <div class="compare-col qa" id="qaCol">
+            <h3 id="qaColTitle">青安3.0 <span class="tag">前 3 年補貼</span></h3>
+            <div id="qaDetail"></div>
+          </div>
+        </div>
+        <div class="callouts" id="graceAlert"></div>
+        <button type="button" class="print-btn" id="printBtn"><svg class="ico" aria-hidden="true"><use href="#i-print"/></svg>列印 / 存成 PDF</button>
+      </article>
+    </section>
   </div>
 
-  <div class="card">
-    <h2><span class="step">5</span>房貸方案設定</h2>
-    <div class="sec-title" style="margin-top:0;">一般房貸（對照組）</div>
-    <div class="field">
-      <label>利率
-        <span class="hint">五大行庫新承做購屋貸款平均 2.322%（2026/05 期，央行 2026-06-18 公布）</span>
-      </label>
-      <div class="field-inline">
-        <input type="number" id="rateGeneral" value="2.322" min="0" step="0.005">
-        <span class="unit">%</span>
-      </div>
-    </div>
-    <div class="field">
-      <label>年限</label>
-      <div class="field-inline">
-        <input type="number" id="yearsGeneral" value="30" min="1" max="40" step="1">
-        <span class="unit">年</span>
-      </div>
-    </div>
-    <div class="field">
-      <label>寬限期</label>
-      <div class="field-inline">
-        <input type="number" id="graceGeneral" value="0" min="0" max="5" step="1">
-        <span class="unit">年</span>
-      </div>
-    </div>
+  <!-- ================= 右欄：試算結果（手機為底部抽屜） ================= -->
+  <aside class="col-side" id="result" aria-labelledby="rsTitle">
+    <div class="result">
+      <div class="rs-body">
+        <div class="sheet-bar">
+          <p class="sb-ttl"><b id="rsTitleM">試算結果</b><span class="rs-stamp" id="pStamp2"></span></p>
+          <button type="button" class="sheet-x" id="sheetClose" aria-label="關閉試算結果"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button>
+        </div>
+        <h2 class="sr" id="rsTitle">試算結果</h2>
+        <p class="rs-label rs-first"><span>成交時要準備的現金</span><span class="rs-stamp" id="pStamp">僅供參考</span></p>
+        <div class="hero-num"><span id="pCash">─</span><span class="u">萬</span><span class="from" id="pFrom" hidden>起</span></div>
+        <p class="rs-sub" id="pCashSub"></p>
+        <div class="stack" id="pStack" role="img" aria-label=""></div>
+        <div class="legend" id="pLegend"></div>
+        <p class="rs-warn" id="pWarn" hidden><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><span><span id="pWarnTxt">未含契稅等 3 項，</span><span class="nw">實際會再高一些。</span><a href="#advTax" class="js-open-tax">填稅基 →</a></span></p>
 
-    <div class="sec-title qa" id="qaSecTitle">青安3.0</div>
-    <div class="field">
-      <label>基準利率
-        <span class="hint">青安利率的計算基礎，跟著郵政 2 年期定儲機動利率走，自 2024/03/27 起為 1.72%（央行 2026 年至今未升降息）</span>
-      </label>
-      <div class="field-inline">
-        <input type="number" id="baseRate" value="1.72" min="0" step="0.005">
-        <span class="unit">%</span>
-      </div>
-    </div>
-    <div class="field">
-      <label>優惠後利率
-        <span class="hint" id="qaRateHint">基準 1.72% + 加碼 0.555% − 補貼 0.5% = 1.775%</span>
-      </label>
-      <div class="field-inline">
-        <input type="number" id="rateQA" value="1.775" min="0" step="0.005" readonly>
-        <span class="unit">%</span>
-      </div>
-    </div>
-    <div class="field">
-      <label>年限</label>
-      <div class="field-inline">
-        <input type="number" id="yearsQA" value="40" min="1" max="40" step="1">
-        <span class="unit">年</span>
-      </div>
-    </div>
-    <div class="field">
-      <label>寬限期
-        <span class="hint">期內只繳利息、不還本金</span>
-      </label>
-      <div class="field-inline">
-        <input type="number" id="graceQA" value="5" min="0" max="5" step="1">
-        <span class="unit">年</span>
-      </div>
-    </div>
-    <div class="note-box" id="qaNote"></div>
-  </div>
-</div>
-
-<!-- 自備款主結果 -->
-<div class="cash-hero" id="cashHero">
-  <h2>💰 成交時要準備的現金（自備款）</h2>
-  <div class="lead">很多人以為「自備款 = 總價 − 貸款」，其實還要加上一整包<strong>不能貸的稅費</strong>。這裡把兩塊都算給你看。</div>
-  <div class="cash-steps" id="cashSteps"></div>
-  <div class="cash-total">
-    <span class="k">成交時實際要掏出的現金
-      <small id="cashTotalSub">頭期款 + 一次性稅費雜支</small>
-    </span>
-    <span class="v" id="cashTotal">─
-      <small id="cashTotalPct">─</small>
-    </span>
-  </div>
-  <div class="alert-line" id="cashAlert"></div>
-  <div class="info-line">
-    💡 <strong>這還沒算裝潢、家具家電、搬家費。</strong>中古屋若要整理，建議另外抓一筆緩衝金，不要把現金全部押在成交上。
-  </div>
-</div>
-
-<!-- 一次性費用 -->
-<div class="result-card">
-  <h2><span class="step">6</span>一次性費用明細</h2>
-  <div class="table-scroll">
-    <table class="fee-table">
-      <thead>
-        <tr>
-          <th style="width:34%;">費用項目</th>
-          <th style="width:44%;">計算方式</th>
-          <th style="width:22%;text-align:right;">金額</th>
-        </tr>
-      </thead>
-      <tbody id="feeTableBody"></tbody>
-    </table>
-  </div>
-  <div class="info-line" style="background:#F3F1EC;border-left-color:var(--text-soft);color:var(--text-soft);">
-    ℹ️ <strong>以下費用由賣方負擔，買方不用出</strong>：土地增值稅、賣方的仲介服務費、賣方的簽約費、實價登錄的另一半、履約保證費的另一半、原貸款抵押權塗銷登記（2,000 元）、代申報房地合一稅（3,000 元，如有）。<br>
-    另外，<strong>代為申請自用住宅用地地價稅（把地價稅從 1% 降到 0.2%）為售後服務、不另收費</strong> —— 過戶後記得辦，這筆每年都省。<br>
-    另外，<strong>交屋當天還要跟賣方結算</strong>當年度已預繳的地價稅、房屋稅、管理費、水電瓦斯（依內政部《成屋買賣定型化契約應記載及不得記載事項》第九點，以交屋日為準按日數比例分算），金額依個案與交屋時點而定，通常數千至數萬元，本表未計入。
-  </div>
-  <div class="info-line">
-    📌 <strong>這些稅費原則上要用現金支付、不能併入房貸。</strong>依央行規定，第 1 戶（首購）在貸款存續期間可辦理增貸；但<strong>第 2 戶以上、高價住宅、公司法人不得再以修繕、周轉金等名目額外增加貸款金額</strong>。實際能否加貸請洽貸款銀行。
-    <span style="display:block;margin-top:6px;font-size:12.5px;">資料來源：中央銀行「中央銀行對金融機構辦理不動產抵押貸款業務規定」問與答（<a href="https://www.cbc.gov.tw/tw/lp-1055-1.html" target="_blank" rel="noopener">cbc.gov.tw</a>），2026/03/20 生效版</span>
-  </div>
-</div>
-
-<!-- 每月房貸 -->
-<div class="result-card">
-  <h2><span class="step">7</span>每月房貸月付金</h2>
-  <div class="compare-grid">
-    <div class="compare-col">
-      <h3>一般房貸 <span class="tag">市場利率</span></h3>
-      <div id="generalDetail"></div>
-    </div>
-    <div class="compare-col qa" id="qaCol">
-      <h3 id="qaColTitle">青安3.0 <span class="tag">前 3 年補貼</span></h3>
-      <div id="qaDetail"></div>
-    </div>
-  </div>
-  <div class="alert-line" id="graceAlert"></div>
-</div>
-
-<button class="print-btn" onclick="window.print()">📄 列印 / 存成 PDF</button>
-
-<footer>
-  <div class="legal">
-    <strong>法定揭露與免責聲明</strong><br>
-    1. 本工具依下列法規與資料建構：契稅條例、印花稅法、土地法第 76 條及《土地登記規費及其罰鍰計收補充規定》、《不動產仲介經紀業報酬計收標準規定》、《成屋買賣定型化契約應記載及不得記載事項》、中央銀行對金融機構辦理不動產抵押貸款業務規定、財政部國庫署青年安心成家購屋優惠貸款貸款原則。<br>
-    2. <strong>核貸成數以銀行鑑價與買賣成交價「較低者」為基準計算</strong>（央行規定第三點、第四點）。銀行鑑價結果因個案而異，本工具的鑑價比例為使用者自行假設，非任何預測。<br>
-    3. 各項稅費以稅捐機關核定為準；<strong>契稅係按房屋評定標準價格（契價）課徵，非按成交價</strong>。<strong>地政士（代書）各項費用依本店合作地政士事務所現行收費標準列示，該標準不含地政、稅務單位之規費</strong>（規費已於本表另行分列，未重複計算）；實際收費視土地筆數、建物棟數增減，事務所得視實際需要修訂，若另有約定從其約定。銀行火險地震險（每年續保）、開辦費、履約保證費依個案調整，金額為市場常見區間。<br>
-    4. 仲介服務費依《不動產仲介經紀業報酬計收標準規定》，向買賣<strong>雙方收取之總額合計不得超過成交價 6%</strong>，該 6% 為收費上限而非固定收費比率，<strong>實際比例由雙方議定</strong>；本表預設買方 2% 為市場慣例，非強制。<br>
-    5. <strong>青安3.0 自 2026/08/01 上路、受理至 2029/07/31</strong>，本工具之 3.0 參數依財政部國庫署 2026/07/28 公布之「貸款原則(青安3.0)」與「問答集(青安3.0)」整理：房屋總價以<strong>鑑價或買賣總價二者取孰高</strong>認定；112/8/1 以後曾獲貸本項貸款者<strong>不得再申辦</strong>。實際以財政部公告與承辦銀行核定為準。<br>
-    6. 青安貸款利率為<strong>機動利率</strong>，隨郵政 2 年期定儲利率調整。據媒體報導，青安3.0 規劃<strong>央行升息時不再加碼補貼</strong>（升息風險由借款人承擔）；財政部公布之貸款原則與問答集<strong>未明定此點</strong>，以財政部公告為準。本試算以現行基準利率靜態計算，未預測未來利率變動。<br>
-    7. 本試算結果<strong>不構成任何具體財務、稅務或法律建議，亦非銀行核貸承諾</strong>。買方應於簽約前洽詢代書、稅務人員、貸款銀行確認實際金額。<br>
-    8. <strong>隱私</strong>：本工具所有計算<strong>皆在您的裝置上完成</strong>，您輸入的年齡、所得、家庭狀況等資料<strong>不會被傳送或儲存到任何伺服器</strong>，本店也不會收到。關閉頁面即消失。<br>
-    <span class="pz" id="pzProvider">9. 本表由一品不動產．有巢氏房屋台中世界之心加盟店 陳景泰 提供，僅作為買方初步評估參考。<br></span>
-    <span style="display:block;margin-top:8px;font-size:12.5px;">資料來源：財政部國庫署 <a href="https://www.nta.gov.tw/singlehtml/108" target="_blank" rel="noopener">nta.gov.tw/singlehtml/108</a>、<a href="https://www.nta.gov.tw/singlehtml/109" target="_blank" rel="noopener">nta.gov.tw/singlehtml/109</a>（青安3.0 條文查證日 2026-10-02）｜中央銀行 <a href="https://www.cbc.gov.tw" target="_blank" rel="noopener">cbc.gov.tw</a>｜內政部《成屋買賣定型化契約應記載及不得記載事項》<a href="https://glrs.moi.gov.tw/LawContent.aspx?id=GL000442" target="_blank" rel="noopener">glrs.moi.gov.tw</a>｜資料日期：2026-07-16</span>
-  </div>
-  <div class="pz" id="pzCard">
-    <div class="agent-card">
-      <div class="ac-head">
-        <span class="av" aria-hidden="true">景泰</span>
-        <div class="ac-id">
-          <div class="ac-name">陳景泰<span class="nick">Teddy</span></div>
-          <div class="ac-brand">一品不動產．有巢氏房屋台中世界之心加盟店</div>
+        <div class="rs-sec">
+          <p class="rs-label"><span class="rs-l">每月約繳<button type="button" class="q q-s" data-help aria-expanded="false" aria-controls="h-chart" aria-label="說明：月付圖怎麼看">?</button></span><small id="pMonthCap"></small></p>
+          <p class="rs-blocked" id="pBlocked" hidden>不符合青安3.0資格，以下用一般房貸計算</p>
+          <div class="pair" id="pPair"></div>
+          <p class="help" id="h-chart" hidden>長條是每個月要繳的錢（單位：萬）。淺綠＝寬限期，只繳利息；深綠＝開始還本金。紅色虛線是同樣金額用一般房貸的月付，方便對照。長條下方是那一年的利率。</p>
+          <div id="pChart"></div>
+          <p class="jump" id="pJump" hidden></p>
         </div>
       </div>
-      <div class="ac-actions">
-        <a class="ac-btn primary" href="tel:0920118756">📞 0920-118-756</a>
-        <a class="ac-btn" href="https://line.me/ti/p/~sky811117">💬 LINE：sky811117</a>
-        <a class="ac-btn" href="https://instagram.com/nov__817">📷 IG：@nov__817</a>
+      <div class="rs-foot">
+        <div class="cta-row vert">
+          <button type="button" class="cta primary js-share"><svg class="ico" aria-hidden="true"><use href="#i-share"/></svg><span><span class="lg-only">把這份試算</span>傳給家人</span></button>
+          <a class="cta ghost pz js-line" hidden target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg><span class="lt">LINE 詢問</span></a>
+        </div>
+        <p class="share-note">連結只帶房價與貸款條件<span class="nw">（不含年齡、所得、婚育）</span>，請只傳給信任的人</p>
       </div>
-      <div class="ac-cert">不動產經紀人：黃永隆（113彰縣字第324號）<br>不動產營業員：陳景泰（114登字第488296號）</div>
     </div>
+  </aside>
+</div>
+</main>
+
+<!-- ===== 頁尾：名片、法定揭露、同仁設定 ===== -->
+<footer class="foot">
+  <div class="foot-in">
+    <div class="pz" id="pzCard">
+      <div class="agent-card">
+        <div class="ac-head">
+          <span class="av" aria-hidden="true">景泰</span>
+          <div class="ac-id">
+            <div class="ac-name">陳景泰<span class="nick">Teddy</span></div>
+            <div class="ac-brand"><span class="nw">一品不動產．</span><wbr><span class="nw">有巢氏房屋</span><wbr><span class="nw">台中世界之心加盟店</span></div>
+          </div>
+        </div>
+        <div class="ac-actions">
+          <a class="ac-btn primary" href="tel:0920118756"><svg class="ico" aria-hidden="true"><use href="#i-phone"/></svg>0920-118-756</a>
+          <a class="ac-btn" href="https://line.me/ti/p/~sky811117" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg>LINE：sky811117</a>
+          <a class="ac-btn" href="https://instagram.com/nov__817" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-ig"/></svg>IG：@nov__817</a>
+        </div>
+        <div class="ac-cert"><span>不動產經紀人：黃永隆（113彰縣字第324號）</span><span>不動產營業員：陳景泰（114登字第488296號）</span></div>
+      </div>
+    </div>
+
+    <section class="legal" aria-labelledby="legalh">
+      <h2 id="legalh">法定揭露與免責聲明</h2>
+      <ol>
+        <li><span class="ln">1.</span>本工具依下列法規與資料建構：契稅條例、印花稅法、土地法第 76 條及《土地登記規費及其罰鍰計收補充規定》、《不動產仲介經紀業報酬計收標準規定》、《成屋買賣定型化契約應記載及不得記載事項》、中央銀行對金融機構辦理不動產抵押貸款業務規定、財政部國庫署青年安心成家購屋優惠貸款貸款原則。</li>
+        <li><span class="ln">2.</span><strong>核貸成數以銀行鑑價與買賣成交價「較低者」為基準計算</strong>（央行規定第三點、第四點）。銀行鑑價結果因個案而異，本工具的鑑價比例為使用者自行假設，非任何預測。</li>
+        <li><span class="ln">3.</span>各項稅費以稅捐機關核定為準；<strong>契稅係按房屋評定標準價格（契價）課徵，非按成交價</strong>。<strong>地政士（代書）各項費用依本店合作地政士事務所現行收費標準列示，該標準不含地政、稅務單位之規費</strong>（規費已於本表另行分列，未重複計算）；實際收費視土地筆數、建物棟數增減，事務所得視實際需要修訂，若另有約定從其約定。銀行火險地震險（每年續保）、開辦費、履約保證費依個案調整，金額為市場常見區間。</li>
+        <li><span class="ln">4.</span>仲介服務費依《不動產仲介經紀業報酬計收標準規定》，向買賣<strong>雙方收取之總額合計不得超過成交價 6%</strong>，該 6% 為收費上限而非固定收費比率，<strong>實際比例由雙方議定</strong>；本表預設買方 2% 為市場慣例，非強制。</li>
+        <li><span class="ln">5.</span><strong>青安3.0 自 2026/08/01 上路、受理至 2029/07/31</strong>，本工具之 3.0 參數依財政部國庫署 2026/07/28 公布之「貸款原則(青安3.0)」與「問答集(青安3.0)」整理：房屋總價以<strong>鑑價或買賣總價二者取孰高</strong>認定；112/8/1 以後曾獲貸本項貸款者<strong>不得再申辦</strong>。實際以財政部公告與承辦銀行核定為準。</li>
+        <li><span class="ln">6.</span>青安貸款利率為<strong>機動利率</strong>，隨郵政 2 年期定儲利率調整。據媒體報導，青安3.0 規劃<strong>央行升息時不再加碼補貼</strong>（升息風險由借款人承擔）；財政部公布之貸款原則與問答集<strong>未明定此點</strong>，以財政部公告為準。本試算以現行基準利率靜態計算，未預測未來利率變動。</li>
+        <li><span class="ln">7.</span>本試算結果<strong>不構成任何具體財務、稅務或法律建議，亦非銀行核貸承諾</strong>。買方應於簽約前洽詢代書、稅務人員、貸款銀行確認實際金額。</li>
+        <li><span class="ln">8.</span><strong>隱私</strong>：本工具所有計算<strong>皆在您的裝置上完成</strong>，您輸入的年齡、所得、家庭狀況等資料<strong>不會被傳送或儲存到任何伺服器</strong>，本店也不會收到。您填的數字只會記在這台裝置的瀏覽器裡，方便下次打開；按「清除我填的數字」即可刪除。</li>
+        <li class="pz" id="pzProvider"><span class="ln">9.</span>本表由一品不動產．有巢氏房屋台中世界之心加盟店 陳景泰 提供，僅作為買方初步評估參考。</li>
+      </ol>
+      <p class="src">資料來源：財政部國庫署 <a href="https://www.nta.gov.tw/singlehtml/108" target="_blank" rel="noopener">nta.gov.tw/singlehtml/108</a>、<a href="https://www.nta.gov.tw/singlehtml/109" target="_blank" rel="noopener">nta.gov.tw/singlehtml/109</a>（青安3.0 條文查證日 2026-10-02）｜中央銀行 <a href="https://www.cbc.gov.tw" target="_blank" rel="noopener">cbc.gov.tw</a>｜內政部《成屋買賣定型化契約應記載及不得記載事項》<a href="https://glrs.moi.gov.tw/LawContent.aspx?id=GL000442" target="_blank" rel="noopener">glrs.moi.gov.tw</a>｜資料日期：2026-07-16</p>
+    </section>
+
+    <div class="wl-entry"><button type="button" id="wlOpen"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg>同仁設定</button></div>
   </div>
-  <div class="wl-entry"><button type="button" id="wlOpen">🔒 同仁設定</button></div>
 </footer>
 
-</div>
+<!-- 手機：底部常駐結果列（點開看明細） -->
+<button type="button" class="dock" id="dock" aria-controls="result" aria-expanded="false">
+  <span class="dk"><small>要準備的現金</small><b><span id="dCash">─</span><i id="dCashU">萬</i></b></span>
+  <span class="dk-sep" aria-hidden="true"></span>
+  <span class="dk m"><small>每月約繳</small><b><span id="dMonth">─</span><i>萬</i></b></span>
+  <span class="dk-more" aria-hidden="true"><svg class="ico"><use href="#i-up"/></svg>明細</span>
+  <span class="sr">要準備的現金 <span id="jumpVal">─</span>，點開看試算明細</span>
+</button>
+<div class="scrim" id="scrim"></div>
 
 <!-- ===== 白牌設定：密碼視窗 ===== -->
 <dialog class="wl-dlg wl-lock" id="wlLock" aria-labelledby="wlLockTitle">
@@ -1083,7 +1583,7 @@
         <h3>填你的名片</h3>
         <div class="wl-locked">
           <span class="lk-ic" aria-hidden="true">🔒</span>
-          <span class="lk-tx"><small>店名與經紀人固定，不能修改</small><b>一品不動產．有巢氏房屋台中世界之心加盟店</b><span>不動產經紀人：黃永隆（113彰縣字第324號）</span></span>
+          <span class="lk-tx"><small>店名與經紀人固定，不能修改</small><b><span class="nw">一品不動產．</span><wbr><span class="nw">有巢氏房屋</span><wbr><span class="nw">台中世界之心加盟店</span></b><span>不動產經紀人：黃永隆（113彰縣字第324號）</span></span>
         </div>
         <div class="wl-group">你的聯絡方式</div>
         <div class="wl-grid2">
@@ -1228,6 +1728,45 @@ function simulate(principal, rateOfYear, years, graceYears) {
   return { totalInterest, totalPaid: principal + totalInterest, yearly, graceM };
 }
 
+/* ===== 提醒框：同一段文字，拆成「重點一句」＋可展開的「為什麼」（文字一字不改） ===== */
+const CALLOUT_KIND = [['⚠️', 'warn', 'i-alert'], ['❌', 'warn', 'i-alert'], ['💡', 'info', 'i-bulb'],
+  ['📌', 'info', 'i-info'], ['✏️', 'info', 'i-info'], ['📅', 'info', 'i-info']];
+const openWhy = new Set();   // 使用者展開過的「為什麼」，重新計算時保持展開
+function plainText(html) { return html.replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, ' ').trim(); }
+function hashKey(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+function calloutHTML(html, group) {
+  let kind = 'info', icon = 'i-info', body = html.trim();
+  for (const [em, k, ic] of CALLOUT_KIND) {
+    if (body.startsWith(em)) { kind = k; icon = ic; body = body.slice(em.length).trim(); break; }
+  }
+  /* 警告類一律全文顯示，不摺疊（半句警告會被讀成中性說明）。
+     其他提醒：切在第一個「。」之後（不切在標籤裡），前半段至少 11 個字；沒有「。」就不切 */
+  let head = body, rest = '';
+  if (kind !== 'warn') {
+    const re = /。/g;
+    let m;
+    while ((m = re.exec(body))) {
+      const cut = m.index + m[0].length;
+      const h = body.slice(0, cut);
+      const opens = (h.match(/<(?:strong|b)>/g) || []).length, closes = (h.match(/<\/(?:strong|b)>/g) || []).length;
+      if (opens === closes && plainText(h).length >= 11) { head = h; rest = body.slice(cut); break; }
+    }
+  }
+  const svg = `<svg class="ico" aria-hidden="true"><use href="#${icon}"/></svg>`;
+  if (plainText(rest).length <= 36) {
+    return `<div class="note ${kind}">${svg}<div><p>${body}</p></div></div>`;
+  }
+  const key = 'why-' + group + '-' + hashKey(plainText(head).replace(/[\d,.]/g, ''));
+  const open = openWhy.has(key);
+  return `<div class="note ${kind}">${svg}<div><p>${head}<button type="button" class="why" data-help data-key="${key}" aria-expanded="${open}" aria-controls="${key}">看說明<svg class="ico" aria-hidden="true"><use href="#i-chev"/></svg></button></p>`
+    + `<div class="more" id="${key}"${open ? '' : ' hidden'}>${rest}</div></div></div>`;
+}
+function callouts(list, group) { return list.map((h) => calloutHTML(h, group)).join(''); }
+
 /* ===== 制度切換 ===== */
 function syncPlanUI() {
   document.querySelectorAll('.plan-opt').forEach(el => {
@@ -1243,9 +1782,9 @@ function syncPlanUI() {
 
   const note = $('planNote');
   if (plan === 'qa3') {
-    note.innerHTML = `📅 三道門檻請到第 3 步「資格檢核」確認。<strong>細則以財政部正式公告為準。</strong>`;
+    note.innerHTML = callouts([`📅 三道門檻請到第 3 步「資格檢核」確認。<strong>細則以財政部正式公告為準。</strong>`], 'plan');
   } else {
-    note.innerHTML = `一般房貸不受青安資格限制，但無政府利息補貼。`;
+    note.innerHTML = callouts([`一般房貸不受青安資格限制，但無政府利息補貼。`], 'plan');
   }
 }
 
@@ -1311,15 +1850,15 @@ function checkEligibility(priceWan) {
 function renderEligibility(elig) {
   const ic = { pass: '✅', fail: '❌', note: '💡' };
   $('eligList').innerHTML = elig.items.map(i =>
-    `<div class="elig-item ${i.st}"><span class="ic">${ic[i.st]}</span><span>${i.txt}</span></div>`
+    `<div class="elig-item ${i.st}"><span class="ic" aria-hidden="true">${ic[i.st]}</span><span>${i.txt}</span></div>`
   ).join('');
   const v = $('eligVerdict');
   if (elig.pass) {
     v.className = 'elig-verdict ok';
-    v.innerHTML = `✅ 初步符合青安3.0，額度上限 ${elig.cap.toLocaleString('zh-TW')} 萬<br><span style="font-size:13.5px;font-weight:400;">仍須經銀行審核（收入、信用、鑑價）。依財政部青安3.0定案方案（2026/07）。</span>`;
+    v.innerHTML = `<span class="vic" aria-hidden="true">✅</span> 初步符合青安3.0，額度上限 ${elig.cap.toLocaleString('zh-TW')} 萬<br><span class="vsub">仍須經銀行審核（收入、信用、鑑價）。依財政部青安3.0定案方案（2026/07）。</span>`;
   } else {
     v.className = 'elig-verdict no';
-    v.innerHTML = `❌ 不符合青安3.0條件<br><span style="font-size:13.5px;font-weight:400;">可改選上方「只算一般房貸」試算。</span>`;
+    v.innerHTML = `<span class="vic" aria-hidden="true">❌</span> 不符合青安3.0條件<br><span class="vsub">可改選上方「只算一般房貸」試算。</span>`;
   }
 }
 
@@ -1399,7 +1938,7 @@ function render() {
   if (manual) {
     notes.push(`✏️ 核貸金額已<b>手動指定為 ${wan(loanAmount)} 萬</b>（試算依此金額）。自動試算值為 ${wan(suggested)} 萬 — 改動上方任一條件即可回復自動計算。`);
   } else {
-    notes.push(`核貸基準 = min(鑑價 ${wan(apprValue)} 萬, 成交價 ${wan(price)} 萬) = <b>${wan(base)} 萬</b>；× ${loanRatio}% = <b>${wan(bankMax)} 萬</b>`);
+    notes.push(`銀行用「鑑價」和「成交價」比較低的那個來算：<span class="nw">${wan(base)} 萬 × ${loanRatio}% = 貸 <b>${wan(bankMax)} 萬</b></span>`);
   }
   if (qaBlocked) {
     notes.push(`❌ 目前不符青安3.0資格（見第 3 步檢核），全額以<b>一般房貸</b>條件計算。`);
@@ -1409,9 +1948,9 @@ function render() {
     if (qaPart >= qaMaxByRatio - 1 && loanRatio > QA_MAX_RATIO) why.push('青安成數上限 8 成');
     notes.push(`💡 <b>青安 ${wan(qaPart)} 萬</b>（受${why.join('＋') || '青安上限'}）<b> + 一般房貸 ${wan(extraPart)} 萬</b> 搭配承作 —— 依財政部規定「超過最高額度部分，則適用<b>承辦銀行之其他貸款方案</b>」，也就是跟同一家銀行再辦一筆一般房貸。<b>不是貸不到，頭期款不會因此變多</b>，只是超出的那段沒有補貼、利率較高。詳細做法見下方「每月房貸月付金」的說明。`);
   }
-  $('loanNote').innerHTML = notes.join('<br>');
+  $('loanNote').innerHTML = callouts(notes, 'loan');
 
-  $('qaNote').innerHTML = `💡 青安3.0 的 1.775% 是<b>機動利率、只全額補貼前 3 年</b>，第 4 年起補貼每年減半碼，<b>第 7 年起回到約 ${(baseRate + QA_SPREAD).toFixed(3)}%</b>（官方例示：1,000 萬 6 年共省 22.5 萬利息，與本表模型一致）。另據媒體報導財政部已定調<b>央行升息時不再加碼補貼</b>，升息由借款人自行承擔。<br><span style="font-size:12.5px;">（分年利率依財政部「青安貸款3.0方案」懶人包，2026/07 定案）</span>`;
+  $('qaNote').innerHTML = callouts([`💡 青安3.0 的 1.775% 是<b>機動利率、只全額補貼前 3 年</b>，第 4 年起補貼每年減半碼，<b>第 7 年起回到約 ${(baseRate + QA_SPREAD).toFixed(3)}%</b>（官方例示：1,000 萬 6 年共省 22.5 萬利息，與本表模型一致）。另據媒體報導財政部已定調<b>央行升息時不再加碼補貼</b>，升息由借款人自行承擔。<br><span class="fine-s">（分年利率依財政部「青安貸款3.0方案」懶人包，2026/07 定案）</span>`], 'qa');
 
   /* --- 一次性費用 --- */
   const landWan = +$('landValue').value || 0;
@@ -1425,43 +1964,55 @@ function render() {
   const noBase = landWan <= 0 || houseWan <= 0;
 
   const fees = [
-    { name: '簽約費', formula: '地政士簽約費，買賣雙方<b>各 1,000 元</b>', amount: 1000 },
-    { name: '產權移轉登記', formula: '一筆土地 + 一棟建物 14,000 元<br><span style="font-size:12px;">（土地每增一筆 +1,000；建物每增一棟 +2,000。純土地買賣為 10,000 元）</span>', amount: 14000 },
-    { name: '實價登錄', formula: '地政士代為申報登錄成交資訊（總額 2,000 元，買賣雙方各半）', amount: 1000 },
-    { name: '抵押設定登記', formula: '有貸款才需要。一筆土地 + 一棟建物 5,000 元<br><span style="font-size:12px;">（土地建物每增一筆或一棟加收 1/4）</span>', amount: loanAmount > 0 ? 5000 : 0 },
-    { name: '申請分區使用證明', formula: '查明土地使用分區用途', amount: 1000 },
-    { name: '謄本費', formula: '土地 + 建物謄本工本費（估算）', amount: 200 },
-    { name: '書狀費', formula: '每張 80 元 × 2 張（建物 + 土地）', amount: 160 },
-    { name: '契稅', formula: noHouseBase
+    { group: '代書與登記', name: '簽約費', formula: '地政士簽約費，買賣雙方<b>各 1,000 元</b>', amount: 1000 },
+    { group: '代書與登記', name: '產權移轉登記', formula: '一筆土地 + 一棟建物 14,000 元<br><span class="f-sub">（土地每增一筆 +1,000；建物每增一棟 +2,000。純土地買賣為 10,000 元）</span>', amount: 14000 },
+    { group: '代書與登記', name: '實價登錄', formula: '地政士代為申報登錄成交資訊（總額 2,000 元，買賣雙方各半）', amount: 1000 },
+    { group: '代書與登記', name: '抵押設定登記', formula: '有貸款才需要。一筆土地 + 一棟建物 5,000 元<br><span class="f-sub">（土地建物每增一筆或一棟加收 1/4）</span>', amount: loanAmount > 0 ? 5000 : 0 },
+    { group: '代書與登記', name: '申請分區使用證明', formula: '查明土地使用分區用途', amount: 1000 },
+    { group: '代書與登記', name: '謄本費', formula: '土地 + 建物謄本工本費（估算）', amount: 200 },
+    { group: '代書與登記', name: '書狀費', formula: '每張 80 元 × 2 張（建物 + 土地）', amount: 160 },
+    { group: '稅與規費', name: '契稅', formula: noHouseBase
         ? '<span style="color:var(--warn);">↑ 請先填「房屋核定契價」才能算（契價 × 6%）</span>'
         : '房屋核定契價 × 6%（<b>按評定契價，非成交價</b>；土地免徵）',
       amount: house * 0.06, blank: noHouseBase },
-    { name: '買賣登記規費', formula: noBase
+    { group: '稅與規費', name: '買賣登記規費', formula: noBase
         ? '<span style="color:var(--warn);">↑ 需填土地申報地價 + 房屋契價</span>'
         : '(土地申報地價 + 房屋契價) × 0.1%',
       amount: (land + house) * 0.001, blank: noBase },
-    { name: '設定登記規費', formula: '擔保債權總額 × 0.1%<br><span style="font-size:12px;">（銀行設定的最高限額<b>常見為貸款金額 1.2 倍</b>，本表以此估算；實際倍數依銀行核定）</span>', amount: loanAmount * 1.2 * 0.001 },
-    { name: '印花稅', formula: noBase
+    { group: '稅與規費', name: '設定登記規費', formula: '擔保債權總額 × 0.1%<br><span class="f-sub">（銀行設定的最高限額<b>常見為貸款金額 1.2 倍</b>，本表以此估算；實際倍數依銀行核定）</span>', amount: loanAmount * 1.2 * 0.001 },
+    { group: '稅與規費', name: '印花稅', formula: noBase
         ? '<span style="color:var(--warn);">↑ 需填土地公告現值（或申報地價）+ 房屋契價</span>'
         : `(土地公告現值 + 房屋契價) × 0.1%${stampNote}`,
       amount: (landCur + house) * 0.001, blank: noBase },
-    { name: '火險地震險（首年）', formula: '住宅火險 + 基本地震險首年保費，<b>貸款期間每年續保</b>，依建物造價與銀行指定保單調整', amount: loanAmount > 0 ? 4000 : 0 },
-    { name: '銀行開辦費', formula: '行情 3,000~8,000，僅收一次', amount: loanAmount > 0 ? 5000 : 0 },
-    { name: '履約保證費', formula: '成交價 × 萬分之 3（總費率萬分之 6，買賣雙方各半）', amount: price * 0.0003 },
-    { name: '仲介服務費', formula: '成交價 × 2%（買方慣例 1~2%；法規為買賣<b>雙方合計</b>上限 6%）', amount: price * 0.02 }
+    { group: '銀行與保險', name: '火險地震險（首年）', formula: '住宅火險 + 基本地震險首年保費，<b>貸款期間每年續保</b>，依建物造價與銀行指定保單調整', amount: loanAmount > 0 ? 4000 : 0 },
+    { group: '銀行與保險', name: '銀行開辦費', formula: '行情 3,000~8,000，僅收一次', amount: loanAmount > 0 ? 5000 : 0 },
+    { group: '交易服務', name: '履約保證費', formula: '成交價 × 萬分之 3（總費率萬分之 6，買賣雙方各半）', amount: price * 0.0003 },
+    { group: '交易服務', name: '仲介服務費', formula: '成交價 × 2%（買方慣例 1~2%；法規為買賣<b>雙方合計</b>上限 6%）', amount: price * 0.02 }
   ];
 
   const feeTotal = fees.reduce((s, f) => s + f.amount, 0);
 
-  $('feeTableBody').innerHTML = fees.map(f => `
+  /* 分組標題列：項數＋小計（小計與合計同一算法） */
+  let feeHTML = '';
+  fees.forEach((f, i) => {
+    if (i === 0 || fees[i - 1].group !== f.group) {
+      const list = fees.filter(x => x.group === f.group);
+      const sub = list.reduce((s, x) => s + x.amount, 0);
+      const nBlank = list.filter(x => x.blank).length;
+      /* 有「未計」項目時不印小計：上面的 sub 會含到畫面上標「未計」那幾列的金額（合計沿用原版算法，不動） */
+      feeHTML += `
+    <tr class="fee-g"><td colspan="3"><span class="gh"><span class="g-n">${f.group}<span class="g-c">・${list.length} 項</span></span><span class="g-s">${nBlank ? `小計 ─<small>另 ${nBlank} 項未計</small>` : `小計 ${fmt(sub)} 元`}</span></span></td></tr>`;
+    }
+    feeHTML += `
     <tr>
       <td>${f.name}</td>
       <td><span class="formula">${f.formula}</span></td>
-      <td class="num">${f.blank ? '<span style="color:var(--text-soft);font-weight:400;">未計</span>' : fmt(f.amount) + ' 元'}</td>
-    </tr>
-  `).join('') + `
+      <td class="num">${f.blank ? '<span class="na">未計</span>' + (fees.findIndex(x => x.blank) === i ? '<a href="#advTax" class="js-open-tax tax-go">填稅基 →</a>' : '') : fmt(f.amount) + ' 元'}</td>
+    </tr>`;
+  });
+  $('feeTableBody').innerHTML = feeHTML + `
     <tr class="total">
-      <td colspan="2">一次性費用合計${noBase ? '<span style="font-size:13px;font-weight:400;color:var(--warn);">（未含上列「未計」項目）</span>' : ''}</td>
+      <td colspan="2">一次性費用合計${noBase ? '<span class="tot-note">（未含上列「未計」項目）</span>' : ''}</td>
       <td class="num">${fmt(feeTotal)} 元</td>
     </tr>`;
 
@@ -1505,7 +2056,9 @@ function render() {
   } else {
     alerts.push(`💡 <strong>把鑑價滑桿往左拉</strong>，看看銀行鑑價低於成交價時要多準備多少現金 — 這是買方最常踩的坑。核貸成數是乘在「鑑價與成交價較低者」上，不是乘在成交價上。`);
   }
-  $('cashAlert').innerHTML = alerts.join('<br><br>');
+  let cashHTML = callouts(alerts, 'cash');
+  if (noBase) cashHTML = cashHTML.replace('</p></div></div>', ' <a href="#advTax" class="js-open-tax tax-go">填稅基 →</a></p></div></div>');   // 畫面用：直接跳到稅基欄位
+  $('cashAlert').innerHTML = cashHTML;
 
   /* --- 月付金 --- */
   const rGen = num('rateGeneral', 0, 20, 2.322);
@@ -1517,13 +2070,15 @@ function render() {
   const gen = simulate(loanAmount, flatRate(rGen), yGen, gGen);
   $('generalDetail').innerHTML = renderLoan(gen, loanAmount, `${rGen}%`, yGen, gGen, false);
 
+  let qaSim = null, exSim = null;   // 給右側結果面板用（不影響計算）
   if (plan !== 'none') {
     if (qaBlocked) {
-      $('qaDetail').innerHTML = `<div style="padding:18px 0;color:var(--text-soft);font-size:15px;text-align:center;line-height:1.7;">不符合青安3.0資格<br><span style="font-size:13.5px;">請見上方資格檢核；左欄的一般房貸試算仍然有效</span></div>`;
+      $('qaDetail').innerHTML = `<div class="blocked-msg">不符合青安3.0資格<br><span class="fine-s">請見上方資格檢核；左欄的一般房貸試算仍然有效</span></div>`;
     } else {
       const rateFn = (y) => qa3RateOfYear(y, baseRate);   // 3+3 階梯（財政部定案）
       const qa = simulate(qaPart, rateFn, yQA, gQA);
       const ex = extraPart > 0 ? simulate(extraPart, flatRate(rGen), yGen, gGen) : null;
+      qaSim = qa; exSim = ex;
       const rateLabel = `${qaRate}% 起（階梯）`;
       let html = renderLoanSplit(qa, ex, qaPart, extraPart, rateLabel, rGen, yQA, gQA, yGen, gGen, true);
       html += renderStepTable(qa, baseRate);
@@ -1545,14 +2100,23 @@ function render() {
   if (plan !== 'none') {
     gAlerts.push(`📌 青安為<strong>機動利率</strong>，上表以現行基準利率 ${baseRate}% 靜態試算，未預測未來央行升降息。據媒體報導，青安3.0 升息時政府不再加碼補貼，升息風險由借款人承擔。`);
   }
-  $('graceAlert').innerHTML = gAlerts.join('<br><br>');
+  $('graceAlert').innerHTML = callouts(gAlerts, 'grace');
   $('graceAlert').style.display = gAlerts.length ? '' : 'none';
+
+  /* --- 畫面呈現（右側結果面板、手機底部列、摘要）：只讀取上面算好的數字 --- */
+  updatePanel({
+    priceWan, price, apprRatio, apprValue, loanRatio, base, bankMax, suggested, manual, loanAmount,
+    landWan, houseWan, noBase, feeTotal, downPay, gapExtra, cashTotal,
+    blankFees: fees.filter(f => f.blank).map(f => f.name),
+    plan, elig, qaBlocked, useQA, qaPart, extraPart, qaRate, baseRate,
+    rGen, yGen, gGen, yQA, gQA, gen, qa: qaSim, ex: exSim
+  });
 }
 
 /* 青安 + 一般房貸搭配的合併月付金
    青安額度／8成上限只影響「哪一段用什麼利率」，不影響總核貸金額 */
 function renderLoanSplit(qa, ex, qaPart, extraPart, qaRateLabel, rGen, yQA, gQA, yGen, gGen, isStep) {
-  if (!qa.yearly.length) return `<div style="padding:18px 0;color:var(--text-soft);font-size:15px;text-align:center;">請輸入有效的貸款年限</div>`;
+  if (!qa.yearly.length) return `<div class="blocked-msg">請輸入有效的貸款年限</div>`;
   const total = qaPart + extraPart;
   const maxYears = Math.max(yQA, ex ? yGen : 0);
 
@@ -1593,17 +2157,17 @@ function renderLoanSplit(qa, ex, qaPart, extraPart, qaRateLabel, rGen, yQA, gQA,
     /* 3+3 階梯下，寬限期第 4 年起利率已開始爬，寬限期內月付不是固定值 → 標「第 1 年」並導向下方分年表 */
     payHTML = `
       <div class="pay-row big">
-        <span class="lbl">寬限期第 1 年（前 ${gQA} 年只繳息${isStep && gQA > 3 ? '，第 4 年起利率爬升、逐年見下表' : ''}）</span>
+        <span class="lbl">寬限期第 1 年<small>（前 ${gQA} 年只繳息${isStep && gQA > 3 ? '，第 4 年起利率爬升、逐年見下表' : ''}）</small></span>
         <span class="val">${fmt(firstPay.pay)} 元/月</span>
       </div>
       <div class="pay-row big">
-        <span class="lbl">第 ${gQA + 1} 年起（開始還本金）</span>
+        <span class="lbl">第 ${gQA + 1} 年起<small>（開始還本金）</small></span>
         <span class="val">${fmt(afterGrace ? afterGrace.pay : 0)} 元/月</span>
       </div>`;
   } else {
     payHTML = `
       <div class="pay-row big">
-        <span class="lbl">每月月付${isStep ? '（第 1 年）' : ''}</span>
+        <span class="lbl">每月月付${isStep ? '<small>（第 1 年）</small>' : ''}</span>
         <span class="val">${fmt(firstPay.pay)} 元/月</span>
       </div>`;
   }
@@ -1612,11 +2176,11 @@ function renderLoanSplit(qa, ex, qaPart, extraPart, qaRateLabel, rGen, yQA, gQA,
   // 補貼退場後（第 7 年）— 必須取第 7 年的合併月付，不能取最後一年（那時一般房貸可能已繳清）
   const y7 = merged[6];
   if (isStep && y7 && Math.abs(y7.pay - cmp) > 1) {
-    rows2.push(`<div class="pay-row"><span class="lbl">補貼退場後（第 7 年起）</span><span class="val">${fmt(y7.pay)} 元/月</span></div>`);
+    rows2.push(`<div class="pay-row"><span class="lbl">補貼退場後<small>（第 7 年起）</small></span><span class="val">${fmt(y7.pay)} 元/月</span></div>`);
   }
   // 一般房貸先繳清後，月付下降
   if (ex && yGen < yQA && merged[yGen]) {
-    rows2.push(`<div class="pay-row"><span class="lbl">第 ${yGen + 1} 年起<br><span style="font-size:12px;">一般房貸已繳清，只剩青安</span></span><span class="val">${fmt(merged[yGen].pay)} 元/月</span></div>`);
+    rows2.push(`<div class="pay-row"><span class="lbl">第 ${yGen + 1} 年起<small>一般房貸已繳清，只剩青安</small></span><span class="val">${fmt(merged[yGen].pay)} 元/月</span></div>`);
   }
   const stepRow = rows2.join('');
 
@@ -1637,11 +2201,11 @@ function renderLoanSplit(qa, ex, qaPart, extraPart, qaRateLabel, rGen, yQA, gQA,
       <span class="val">${fmt(total + totalInterest)} 元</span>
     </div>
     ${extraPart > 0 ? `
-    <div class="info-line" style="margin-top:10px;font-size:13px;">
+    <div class="info-line sm">
       上列月付金為<b>青安 + 一般房貸兩筆合計</b>。青安 ${yQA} 年、一般房貸 ${yGen} 年${yGen < yQA ? `，第 ${yGen + 1} 年起只剩青安要繳` : ''}。
     </div>
     <details class="topup-detail">
-      <summary>💡 超過青安額度的 ${wan(extraPart)} 萬要怎麼辦？（點開）</summary>
+      <summary><span class="emo" aria-hidden="true">💡 </span>超過青安額度的 ${wan(extraPart)} 萬要怎麼辦？（點開）</summary>
       <div class="topup-body">
         <p><b>跟承作青安的同一家銀行，再辦一筆該行的一般房貸補足。</b>財政部明文規定：「本項貸款最高額度為1,000萬元（新婚家庭為1,200萬元、育兒家庭為1,500萬元），借款金額如逾上開最高貸款額度，在最高額度之內，適用本項貸款，<b>超過最高額度部分，則適用承辦銀行之其他貸款方案</b>」。所以超過額度<b>不是貸不到</b>，只是超出的那段沒有政府補貼、利率照該行一般房貸走。</p>
         <p><b>這不是二胎。</b>二胎是房貸辦完之後、再找別家銀行設第二順位的週轉型貸款，利率高一個級距。這裡講的是<b>買房當下、同一家銀行、同一間房子、一次送件</b>，只是把貸款拆成兩個帳戶、兩段利率。實務上一起送審、一次設定抵押權，不用跑兩趟。</p>
@@ -1655,7 +2219,7 @@ function renderLoanSplit(qa, ex, qaPart, extraPart, qaRateLabel, rGen, yQA, gQA,
 }
 
 function renderLoan(calc, principal, rateLabel, years, grace, isStep) {
-  if (!calc.yearly.length) return `<div style="padding:18px 0;color:var(--text-soft);font-size:15px;text-align:center;">請輸入有效的貸款年限</div>`;
+  if (!calc.yearly.length) return `<div class="blocked-msg">請輸入有效的貸款年限</div>`;
   const hasGrace = grace > 0;
   const afterGrace = calc.yearly.find(y => !y.inGrace);
   const firstPay = calc.yearly[0];
@@ -1665,22 +2229,22 @@ function renderLoan(calc, principal, rateLabel, years, grace, isStep) {
   if (hasGrace) {
     payHTML = `
       <div class="pay-row big">
-        <span class="lbl">前 ${grace} 年（寬限期）</span>
+        <span class="lbl">前 ${grace} 年<small>（寬限期）</small></span>
         <span class="val">${fmt(firstPay.pay)} 元/月</span>
       </div>
       <div class="pay-row big">
-        <span class="lbl">第 ${grace + 1} 年起（開始還本金）</span>
+        <span class="lbl">第 ${grace + 1} 年起<small>（開始還本金）</small></span>
         <span class="val">${fmt(afterGrace ? afterGrace.pay : 0)} 元/月</span>
       </div>`;
   } else {
     payHTML = `
       <div class="pay-row big">
-        <span class="lbl">每月月付${isStep ? '（第 1 年）' : ''}</span>
+        <span class="lbl">每月月付${isStep ? '<small>（第 1 年）</small>' : ''}</span>
         <span class="val">${fmt(firstPay.pay)} 元/月</span>
       </div>`;
   }
   const stepRow = (isStep && lastPay && Math.abs(lastPay.pay - (afterGrace ? afterGrace.pay : firstPay.pay)) > 1)
-    ? `<div class="pay-row"><span class="lbl">補貼退場後（第 7 年起）</span><span class="val">${fmt(lastPay.pay)} 元/月</span></div>` : '';
+    ? `<div class="pay-row"><span class="lbl">補貼退場後<small>（第 7 年起）</small></span><span class="val">${fmt(lastPay.pay)} 元/月</span></div>` : '';
 
   return `
     <div class="pay-row">
@@ -1707,23 +2271,272 @@ function renderLoan(calc, principal, rateLabel, years, grace, isStep) {
 function renderStepTable(calc, baseRate) {
   const rows = calc.yearly.slice(0, 9).map(y => `
     <tr>
-      <td>第 ${y.year} 年${y.inGrace ? '<span style="font-size:12px;color:#6B6259;">（寬限期）</span>' : ''}</td>
+      <td>第 ${y.year} 年${y.inGrace ? '<span class="g-tag">（寬限期）</span>' : ''}</td>
       <td class="n">${y.rate.toFixed(3)}%</td>
       <td class="n">${fmt(y.pay)} 元</td>
     </tr>`).join('');
   return `
     <details class="step-detail">
-      <summary>📊 展開：青安「3+3」分年利率與月付金變化</summary>
+      <summary><span class="emo" aria-hidden="true">📊 </span>展開：青安「3+3」分年利率與月付金變化</summary>
       <table class="step-table">
         <thead><tr><th>年度</th><th style="text-align:right;">利率</th><th style="text-align:right;">月付金</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <div style="font-size:12.5px;color:#6B6259;margin-top:8px;line-height:1.6;">
+      <div class="fine-s" style="margin-top:8px;">
         補貼結構：政府 ${SUB_GOV}%（1.5 碼）+ 銀行 ${SUB_BANK}%（0.5 碼）＝ ${SUB_GOV + SUB_BANK}%，前 3 年全額；滿 3 年之次日起每年減少半碼，<b>第 7 年起回復牌告 ${(baseRate + QA_SPREAD).toFixed(3)}%</b>。
         （<b>1 碼 = 0.25%</b>，半碼 = 0.125%，是銀行業講利率的習慣單位）<br>
         <b>📌 依財政部「青安貸款3.0方案」懶人包（2026/07 定案）；官方例示 1,000 萬 6 年共省 22.5 萬利息，與本表分年模型吻合。</b>
       </div>
     </details>`;
+}
+
+/* =====================================================================
+   畫面呈現層：右側結果面板／手機抽屜／底部列／各區摘要
+   全部只讀 render() 算好的數字，不參與任何計算
+   ===================================================================== */
+const MQ_M = window.matchMedia('(max-width: 1023px)');
+let lastSummary = null;
+const m2 = (n) => (n / 10000).toFixed(2);              // 月付：元 → 萬（兩位小數）
+const zh = (n) => Number(n).toLocaleString('zh-TW');
+function setText(id, t) { const e = $(id); if (e) e.textContent = t; }
+function svgIcon(id) { return `<svg class="ico" aria-hidden="true"><use href="#${id}"/></svg>`; }
+function yearSpan(a, b, open, tight) {
+  const sp = tight ? '' : ' ';
+  if (open) return `第${sp}${a}${sp}年起`;
+  return a === b ? `第${sp}${a}${sp}年` : `第${sp}${a}–${b}${sp}年`;
+}
+function trimRate(r) { return parseFloat(r.toFixed(3)) + '%'; }
+
+/* 青安＋一般合併後的逐年月付（與 renderLoanSplit 同一合併方式） */
+function mergeYearly(qa, ex, yQA, yGen) {
+  const maxYears = Math.max(yQA, ex ? yGen : 0);
+  const out = [];
+  for (let y = 0; y < maxYears; y++) {
+    const a = qa.yearly[y], b = ex ? ex.yearly[y] : null;
+    out.push({ year: y + 1, pay: (a ? a.pay : 0) + (b ? b.pay : 0), inGrace: a ? a.inGrace : false, rate: a ? a.rate : (b ? b.rate : 0) });
+  }
+  return out;
+}
+/* 從第 1 年起，月付相同的年數 */
+function sameRun(list) {
+  let n = 1;
+  while (n < list.length && Math.abs(list[n].pay - list[0].pay) < 1 && list[n].inGrace === list[0].inGrace) n++;
+  return n;
+}
+
+let chartInfo = { ref: false, rates: false, both: false };
+function buildChart(merged, ref, graceLbl, rateLbl) {
+  const H = Math.min(merged.length, 8);
+  const groups = [];
+  for (let i = 0; i < H; i++) {
+    const m = merged[i], g = groups[groups.length - 1];
+    if (g && Math.abs(g.pay - m.pay) < 1 && g.inGrace === m.inGrace && Math.abs(g.rate - m.rate) < 1e-9) g.to = m.year;
+    else groups.push({ from: m.year, to: m.year, pay: m.pay, inGrace: m.inGrace, rate: m.rate });
+  }
+  chartInfo = { ref: false, rates: false, both: false };
+  if (groups.length < 2) return '';
+  const last = groups[groups.length - 1];
+  /* 「第 N 年起」只在之後每一年都同一個數字時才用（一般房貸先繳清時，後面還會再降） */
+  const lastOpen = merged.length > H && merged.slice(H).every(m => Math.abs(m.pay - last.pay) < 1 && m.inGrace === last.inGrace);
+
+  const P = MQ_M.matches ? 108 : (window.innerHeight < 820 ? 72 : 88);   // 圖高（px）
+  const LH = 20;                          // 數值標籤高
+  const usable = P - LH - 4;
+  const vals = groups.map(g => g.pay);
+  const maxV = Math.max(...vals, ref || 0) || 1;
+  const hOf = (v) => Math.max(4, v / maxV * usable);
+  const refY = ref ? ref / maxV * usable : null;
+  const weight = (g) => { const n = g.to - g.from + 1; return n === 1 ? 1 : (n === 2 ? 1.25 : 1.5); };
+
+  const cols = groups.map((g) => {
+    const bh = hOf(g.pay);
+    let lb = bh + 2, inside = false;
+    if (refY !== null && lb < refY + 3 && lb + LH > refY - 3) {
+      if (bh >= LH + 8) { lb = bh - LH - 3; inside = true; }
+      else lb = refY + 4;
+    }
+    return `<div class="tl-col${g.inGrace ? '' : ' pay'}" style="flex:${weight(g)} 1 0"><span class="tl-bar" style="height:${bh.toFixed(1)}px"></span><span class="tl-v${inside ? ' in' : ''}" style="bottom:${lb.toFixed(1)}px">${m2(g.pay)}</span></div>`;
+  }).join('');
+  const gut = ref ? '<i></i>' : '';
+  const refHTML = ref
+    ? `<div class="tl-ref" style="bottom:${refY.toFixed(1)}px"></div>` : '';
+  const refLbl = ref
+    ? `<div class="tl-gut"><span class="tl-reflbl" style="bottom:${Math.min(P - 38, Math.max(0, refY - 18)).toFixed(1)}px">一般房貸<br>${m2(ref)} 萬</span></div>` : '';
+
+  const lbl = (g, i) => yearSpan(g.from, g.to, i === groups.length - 1 && lastOpen, true);
+  const xs = groups.map((g, i) => `<span style="flex:${weight(g)} 1 0" data-s="${lbl(g, i).replace('第', '')}">${lbl(g, i)}</span>`).join('');
+  const sameRate = groups.every(g => Math.abs(g.rate - groups[0].rate) < 1e-9);
+  /* 利率列：有右側欄時數字不帶 %，右側欄標「利率%」，窄欄也不會擠在一起 */
+  const rts = sameRate ? '' : groups.map(g => `<span style="flex:${weight(g)} 1 0">${ref ? trimRate(g.rate).replace('%', '') : trimRate(g.rate)}</span>`).join('');
+  const gW = groups.filter(g => g.inGrace).reduce((s, g) => s + weight(g), 0);
+  const pW = groups.filter(g => !g.inGrace).reduce((s, g) => s + weight(g), 0);
+  const gShare = gW / (gW + pW);
+  const br = (gW > 0 && pW > 0)
+    ? `<div class="tl-br" aria-hidden="true"><div><span class="g" style="flex:${gW} 1 0">${gShare < .34 ? '寬限期' : graceLbl}</span><span class="p" style="flex:${pW} 1 0">開始還本金</span></div>${gut}</div>` : '';
+  chartInfo = { ref: !!ref, rates: !!rts, both: gW > 0 && pW > 0 };
+  const aria = groups.map((g, i) => `${lbl(g, i)}每月約 ${m2(g.pay)} 萬${g.inGrace ? '（只繳利息）' : ''}`).join('，')
+    + (ref ? `；一般房貸每月約 ${m2(ref)} 萬` : '');
+
+  return `<div class="tl" role="img" aria-label="${aria}">
+    <div class="tl-row"><div class="tl-plot" style="height:${P}px">${refHTML}${cols}</div>${refLbl}</div>
+    <div class="tl-x" aria-hidden="true"><div>${xs}</div>${gut}</div>
+    ${rts ? `<div class="tl-rt" aria-hidden="true"><div>${rts}</div>${ref ? `<i class="rt-u">${rateLbl || '利率'}%</i>` : ''}</div>` : ''}
+    ${br}
+  </div>`;
+}
+
+/* 年份標籤放不下（窄螢幕、欄數多）時改用短標籤：「第4年」→「4年」 */
+function fitChartLabels() {
+  const over = (list, pad) => list.some(sp => {
+    const r = document.createRange(); r.selectNodeContents(sp);
+    return r.getBoundingClientRect().width > sp.getBoundingClientRect().width - pad + 0.5;
+  });
+  const spans = Array.from(document.querySelectorAll('#pChart .tl-x span'));
+  if (over(spans, 0)) spans.forEach(sp => { sp.textContent = sp.dataset.s; });
+  /* 很窄的螢幕：利率擠在一起時改顯示到小數第 2 位（2.025 → 2.03），完整數字在下方分年表 */
+  const rts = Array.from(document.querySelectorAll('#pChart .tl-rt > div span'));
+  if (over(rts, 0)) rts.forEach(sp => { const v = parseFloat(sp.textContent); if (isFinite(v)) sp.textContent = sp.textContent.replace(/[\d.]+/, String(Math.round(v * 100 + 1e-6) / 100)); });
+}
+let fitTimer = 0;
+window.addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => { if (lastSummary) updatePanel(lastSummary); }, 150); });
+
+function updatePanel(s) {
+  lastSummary = s;
+  const showQA = s.plan !== 'none' && !s.qaBlocked && !!s.qa;
+
+  /* --- ① 快選、成數、摘要 --- */
+  document.querySelectorAll('.chip[data-price]').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.price === s.priceWan)));
+  document.querySelectorAll('.seg [data-ratio]').forEach(b => {
+    const r = +b.dataset.ratio;
+    b.setAttribute('aria-pressed', String(s.loanRatio === r));
+    b.querySelector('.sg-s').textContent = `貸 ${wan(s.base * r / 100)} 萬`;
+  });
+  setText('miniLoan', wan(s.loanAmount));
+  setText('miniDown', wan(s.downPay));
+  setText('sumLoan', `鑑價 ${s.apprRatio}%・核貸 ${wan(s.loanAmount)} 萬（${s.manual ? '手動指定' : '自動計算'}）`);
+  const blanks = s.blankFees || [];
+  const blankTxt = `${blanks.join('、')}\u00a0${blanks.length}\u00a0項`;
+  setText('sumTax', !s.noBase
+    ? `${$('useEstimate').checked ? '保守估算・' : ''}申報地價 ${zh(s.landWan)} 萬・契價 ${zh(s.houseWan)} 萬`
+    : (s.landWan > 0 ? `已填申報地價，還差房屋契價（${blankTxt}未計）`
+      : (s.houseWan > 0 ? `已填契價，還差申報地價（${blankTxt}未計）` : '還沒填，契稅等 3 項先不算')));
+  $('sumRate').innerHTML = s.plan === 'none'
+    ? `一般房貸 ${s.rGen}%・${s.yGen} 年・寬限 ${s.gGen} 年`
+    : `<span class="nw">青安 ${s.qaRate}% 起・${s.yQA} 年・寬限 ${s.gQA} 年</span><span class="sep" aria-hidden="true">｜</span><span class="nw">一般 ${s.rGen}%・${s.yGen} 年・寬限 ${s.gGen} 年</span>`;
+
+  /* --- ② 是／否、婚育、總價自動判斷 --- */
+  const nh = $('noHouse').checked;
+  document.querySelectorAll('.yn [data-yn]').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.yn === '1') === nh)));
+  document.querySelectorAll('.toggle[data-for]').forEach(l => l.classList.toggle('on', $(l.dataset.for).checked));
+  if (s.elig) {
+    const ok = s.priceWan <= s.elig.priceCap;
+    const pa = $('priceAuto');
+    pa.className = 'auto-v ' + (ok ? 'ok' : 'no');
+    pa.textContent = `${CITY_NAME[s.elig.city]}上限 ${zh(s.elig.priceCap)} 萬，本案 ${zh(s.priceWan)} 萬，${ok ? '符合' : '已超過'}`;
+  }
+
+  /* --- 結果面板：要準備的現金 --- */
+  const d = new Date();
+  const stamp = `僅供參考・試算日 ${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+  ['pStamp', 'pStamp2'].forEach(id => { const e = $(id); if (e) e.innerHTML = svgIcon('i-seal') + stamp; });
+  setText('printStamp', stamp);
+  /* 下方明細的總額也標「起」（與面板、底部列一致；原文字不動，另外插一顆標籤） */
+  const ctv = $('cashTotal');
+  if (ctv && s.noBase && !ctv.querySelector('.from')) {
+    const f = document.createElement('span'); f.className = 'from'; f.textContent = '起';
+    ctv.insertBefore(f, $('cashTotalPct'));
+  }
+  setText('pCash', wan(s.cashTotal));
+  $('pFrom').hidden = !s.noBase;
+  setText('pCashSub', s.price > 0
+    ? `約 ${fmt(s.cashTotal)} 元・佔總價 ${(s.cashTotal / s.price * 100).toFixed(1)}%`
+    : `約 ${fmt(s.cashTotal)} 元`);
+  const tot = s.downPay + s.feeTotal;
+  const pd = tot > 0 ? s.downPay / tot * 100 : 0, pf = tot > 0 ? s.feeTotal / tot * 100 : 0;
+  let st = '';
+  if (s.downPay > 0) st += `<span class="s1" style="flex:${pd.toFixed(3)} 1 0">${pd >= 24 ? `頭期款 ${Math.round(pd)}%` : (pd >= 9 ? Math.round(pd) + '%' : '')}</span>`;
+  if (s.feeTotal > 0) st += `<span class="s2" style="flex:${pf.toFixed(3)} 1 0">${pf >= 9 ? Math.round(pf) + '%' : ''}</span>`;
+  if (s.noBase) st += `<span class="s3" style="flex:5 1 0">?</span>`;
+  $('pStack').innerHTML = st;
+  $('pStack').setAttribute('aria-label', `頭期款 ${wan(s.downPay)} 萬，佔 ${Math.round(pd)}%；稅費雜支 ${wan(s.feeTotal)} 萬，佔 ${Math.round(pf)}%${s.noBase ? `；另有${blanks.join('、')}還沒算` : ''}`);
+  $('pLegend').innerHTML =
+    `<div class="it"><span class="dot d1"></span>頭期款<span class="v">${wan(s.downPay)}<small>萬</small></span></div>`
+    + `<div class="it"><span class="dot d2"></span><span>稅費雜支<span class="nw">（代書、仲介、規費…）</span></span><span class="v">${wan(s.feeTotal)}<small>萬</small></span></div>`;
+  $('pWarnTxt').textContent = `未含${blankTxt}，`;
+  $('pWarn').hidden = !s.noBase;
+
+  /* --- 結果面板：每月約繳 --- */
+  let merged, graceEnd, pairHTML, monthTxt, cap, refPay = null;
+  const arrow = `<svg class="ico arr" aria-hidden="true"><use href="#i-arrow"/></svg>`;
+  const paren = (t) => `<span class="nw">${t}</span>`;
+  const fig = (v, capTxt, later) => `<div${later ? ' class="later"' : ''}><span class="fig">${m2(v)}<span class="u">萬</span></span><span class="cap">${capTxt}</span></div>`;
+  if (showQA) {
+    merged = mergeYearly(s.qa, s.ex, s.yQA, s.yGen);
+    graceEnd = s.gQA;
+    const split = s.extraPart > 0;
+    const n = sameRun(merged);
+    const a = merged[0];
+    const b = merged[6] || merged[merged.length - 1];
+    const capA = yearSpan(1, n, false) + (a.inGrace ? paren(split ? '（青安只繳利息）' : '（只繳利息）') : '');
+    let capB = yearSpan(b.year, b.year, false);
+    if (merged[6]) {
+      /* 補貼結束後的月付維持到哪一年：一般房貸較短時，繳清那年起會再降 */
+      let e = 6;
+      while (e + 1 < merged.length && Math.abs(merged[e + 1].pay - b.pay) < 1) e++;
+      capB = (e === merged.length - 1 ? '第 7 年起' : yearSpan(7, e + 1, false)) + paren('（補貼結束）');
+      if (e < merged.length - 1) capB += `<span class="cap-next">第 ${e + 2} 年起 ${m2(merged[e + 1].pay)} 萬</span>`;
+    }
+    pairHTML = fig(a.pay, capA) + arrow + fig(b.pay, capB, true);
+    monthTxt = `${m2(a.pay)}→${m2(b.pay)}`;
+    cap = `青安3.0・${s.yQA} 年・寬限 ${s.gQA} 年${split ? `＋一般 ${wan(s.extraPart)} 萬` : ''}`;
+    const gy = s.gen.yearly;
+    if (gy.length) { const ag = gy.find(y => !y.inGrace); refPay = (ag || gy[0]).pay; }
+  } else {
+    merged = s.gen.yearly.map(y => ({ year: y.year, pay: y.pay, inGrace: y.inGrace, rate: y.rate }));
+    graceEnd = s.gGen;
+    if (!merged.length) { pairHTML = ''; monthTxt = '─'; }
+    else if (s.gGen > 0 && merged[s.gGen]) {
+      const a = merged[0], b = merged[s.gGen];
+      pairHTML = fig(a.pay, `${yearSpan(1, s.gGen, false)}${paren('（只繳利息）')}`) + arrow + fig(b.pay, `第 ${s.gGen + 1} 年起${paren('（開始還本金）')}`, true);
+      monthTxt = `${m2(a.pay)}→${m2(b.pay)}`;
+    } else {
+      const n = sameRun(merged);
+      pairHTML = fig(merged[0].pay, yearSpan(1, n, false) + '，每月');
+      monthTxt = m2(merged[0].pay);
+    }
+    cap = `一般房貸・${s.yGen} 年・寬限 ${s.gGen} 年`;
+  }
+  $('pPair').innerHTML = pairHTML;
+  setText('pMonthCap', cap);
+  $('pBlocked').hidden = !(s.plan === 'qa3' && s.qaBlocked);
+  const splitChart = showQA && s.extraPart > 0;
+  chartInfo = { ref: false, rates: false, both: false };
+  const chartHTML = merged.length ? buildChart(merged, showQA ? refPay : null, splitChart ? '青安寬限期' : '寬限期・只繳利息', splitChart ? '青安利率' : '利率') : '';
+  $('pChart').innerHTML = chartHTML;
+  fitChartLabels();
+  /* 「?」說明只講圖上真的有的東西；沒有圖就不放「?」 */
+  const qb = document.querySelector('[aria-controls="h-chart"]'), hc = $('h-chart');
+  if (qb && hc) {
+    qb.hidden = !chartHTML;
+    if (!chartHTML) { qb.setAttribute('aria-expanded', 'false'); hc.hidden = true; }
+    hc.textContent = '長條是每個月要繳的錢（單位：萬）。'
+      + (chartInfo.both ? (splitChart ? '淺綠＝青安寬限期（青安那筆只繳利息）；深綠＝開始還本金。' : '淺綠＝寬限期，只繳利息；深綠＝開始還本金。') : '')
+      + (chartInfo.ref ? '紅色虛線是同樣金額用一般房貸的月付，方便對照。' : '')
+      + (chartInfo.rates ? (splitChart ? '長條下方是那一年的青安利率（一般房貸那筆固定 ' + s.rGen + '%）。' : '長條下方是那一年的利率。') : '');
+  }
+  const pj = $('pJump');
+  if (graceEnd > 0 && merged[graceEnd] && merged[graceEnd - 1]) {
+    pj.innerHTML = `${svgIcon('i-alert')}<span>第 ${graceEnd + 1} 年起還本金：每月 <b class="nw">${m2(merged[graceEnd - 1].pay)} → ${m2(merged[graceEnd].pay)} 萬</b></span>`;
+    pj.hidden = false;
+  } else {
+    pj.hidden = true;
+  }
+
+  /* --- 手機底部列 --- */
+  setText('dCash', wan(s.cashTotal));
+  setText('dCashU', s.noBase ? '萬起' : '萬');
+  setText('dMonth', monthTxt);
+  s.monthTxt = monthTxt;
 }
 
 /* ===== 事件綁定 ===== */
@@ -1743,6 +2556,7 @@ INPUTS.forEach(id => {
     if (RESET_LOAN.includes(id)) isUserEditingLoan = false;   // 條件改變時重新自動帶入核貸金額
     if (id === 'useEstimate' || (id === 'price' && $('useEstimate').checked)) applyEstimate();
     render();
+    scheduleSave();
   });
 });
 
@@ -1752,12 +2566,324 @@ document.querySelectorAll('input[name="plan"]').forEach(r => {
     isUserEditingLoan = false;
     syncPlanUI();
     render();
+    scheduleSave();
   });
 });
+
+/* =====================================================================
+   記住上次填的數字（只存在這台裝置）＋「傳給家人」連結（#c=）
+   ===================================================================== */
+const INPUT_KEY = 'bf2.inputs.v1';
+const istore = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+/* 每個欄位的型別與合理範圍：n 數字、o 可留空的數字、b 勾選、s 選項 */
+const FIELD_RULES = {
+  price: ['n', 0, 1000000], apprRatio: ['n', 85, 100], loanRatio: ['n', 0, 100], loanAmount: ['n', 0, 1000000],
+  landValue: ['o', 0, 1000000], houseValue: ['o', 0, 1000000], landCurrent: ['o', 0, 1000000],
+  rateGeneral: ['n', 0, 20], yearsGeneral: ['n', 1, 40], graceGeneral: ['n', 0, 5],
+  baseRate: ['n', 0, 20], yearsQA: ['n', 1, 40], graceQA: ['n', 0, 5],
+  age: ['n', 0, 120], income: ['n', 0, 100000],
+  useEstimate: ['b'], famNewlywed: ['b'], famChild: ['b'], noHouse: ['b'],
+  city: ['s', ['other', 'taipei', 'newtaipei']]
+};
+function defaultOf(el) {
+  if (el.type === 'checkbox') return el.defaultChecked;
+  if (el.tagName === 'SELECT') { const o = Array.from(el.options).find(x => x.defaultSelected) || el.options[0]; return o ? o.value : ''; }
+  return el.defaultValue;
+}
+function currentOf(el) { return el.type === 'checkbox' ? el.checked : el.value; }
+/* 只記跟預設不同的欄位，連結比較短 */
+function snapshot() {
+  const o = {};
+  Object.keys(FIELD_RULES).forEach(id => {
+    if (id === 'loanAmount') return;   // 核貸金額平常是自動算的，只有手動指定時才記（見下方 lm）
+    const el = $(id);
+    const v = currentOf(el);
+    if (v !== defaultOf(el)) o[id] = v;
+  });
+  if (plan !== 'qa3') o.plan = plan;
+  if (isUserEditingLoan) { o.lm = 1; o.loanAmount = $('loanAmount').value; }
+  return o;
+}
+function applySnapshot(o) {
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return false;
+  let any = false;
+  Object.keys(FIELD_RULES).forEach(id => {
+    if (!Object.prototype.hasOwnProperty.call(o, id)) return;
+    const rule = FIELD_RULES[id], el = $(id), v = o[id];
+    if (rule[0] === 'b') {
+      if (typeof v === 'boolean' || v === 0 || v === 1) { el.checked = !!v; any = true; }
+    } else if (rule[0] === 's') {
+      if (typeof v === 'string' && rule[1].includes(v)) { el.value = v; any = true; }
+    } else {
+      /* 可留空的欄位（含成交總價：清空時試算就是 0，重開也要是空的，不能變回 1,000 萬） */
+      if ((rule[0] === 'o' || id === 'price') && (v === '' || v === null)) { el.value = ''; any = true; return; }
+      if ((typeof v !== 'number' && typeof v !== 'string') || String(v).length > 12) return;
+      const n = Number(v);
+      if (String(v).trim() === '' || !isFinite(n)) return;
+      el.value = String(Math.min(rule[2], Math.max(rule[1], n)));
+      any = true;
+    }
+  });
+  if (o.plan === 'qa3' || o.plan === 'none') { plan = o.plan; any = true; }
+  if (o.lm && Object.prototype.hasOwnProperty.call(o, 'loanAmount')) isUserEditingLoan = true;
+  return any;
+}
+function b64e(str) {
+  let bin = '';
+  new TextEncoder().encode(str).forEach((b) => { bin += String.fromCharCode(b); });
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function b64d(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  return new TextDecoder().decode(Uint8Array.from(atob(s), (c) => c.charCodeAt(0)));
+}
+let saveTimer = 0;
+function saveNow() { clearTimeout(saveTimer); saveTimer = 0; istore.set(INPUT_KEY, JSON.stringify(snapshot())); }
+function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 400); }
+window.addEventListener('pagehide', () => { if (saveTimer) saveNow(); });
+
+/* 「傳給家人」的連結不帶個人資料（年齡、所得、名下有無房、婚育）：
+   打開的人用自己這台裝置記住的個人資料，房子與貸款條件用連結裡的 */
+const PERSONAL = ['age', 'income', 'noHouse', 'famNewlywed', 'famChild'];
+const isObj = (o) => !!o && typeof o === 'object' && !Array.isArray(o);
+function pageToast(msg) {
+  const t = $('wlToast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+/* 載入：網址 #c= 優先（家人傳來的試算），否則用這台裝置記住的數字 */
+(function restoreInputs() {
+  let own = null;
+  try { own = JSON.parse(istore.get(INPUT_KEY) || 'null'); } catch (e) {}
+  let fromLink = false;
+  const m = location.hash.match(/^#c=([A-Za-z0-9_-]{1,3000})$/);
+  if (m) {
+    let link = null;
+    try { link = JSON.parse(b64d(m[1])); } catch (e) {}
+    try { history.replaceState(history.state, '', location.href.split('#')[0]); } catch (e) {}
+    if (isObj(link)) {   // 讀得懂的連結才算數；被截斷、亂改的連結當作沒有，退回這台裝置記住的數字
+      const o = {};
+      if (isObj(own)) PERSONAL.forEach(k => { if (Object.prototype.hasOwnProperty.call(own, k)) o[k] = own[k]; });
+      Object.keys(link).forEach(k => { if (!PERSONAL.includes(k)) o[k] = link[k]; });
+      applySnapshot(o);
+      fromLink = true;
+      saveNow();
+      setTimeout(() => pageToast('已帶入家人傳來的房價與貸款條件'), 400);
+    }
+  }
+  if (!fromLink) {
+    try { applySnapshot(own); } catch (e) {}
+  }
+  if ($('useEstimate').checked) applyEstimate();
+})();
 
 document.querySelector(`input[name="plan"][value="${plan}"]`).checked = true;   // 防瀏覽器重整時還原成舊選項
 syncPlanUI();
 render();
+
+/* 清除我填的數字：全部回預設，並刪除這台裝置的紀錄 */
+$('resetInputs').addEventListener('click', () => {
+  Object.keys(FIELD_RULES).forEach(id => {
+    const el = $(id);
+    if (el.type === 'checkbox') el.checked = el.defaultChecked; else el.value = defaultOf(el);
+  });
+  plan = 'qa3';
+  document.querySelector('input[name="plan"][value="qa3"]').checked = true;
+  isUserEditingLoan = false;
+  applyEstimate();
+  syncPlanUI();
+  render();
+  clearTimeout(saveTimer); saveTimer = 0;
+  istore.del(INPUT_KEY);
+  const msg = $('resetMsg');
+  msg.textContent = '已清除';
+  setTimeout(() => { msg.textContent = ''; }, 2400);
+});
+
+/* ===== 介面互動 ===== */
+const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
+document.querySelectorAll('.chip[data-price]').forEach(b => b.addEventListener('click', () => {
+  $('price').value = b.dataset.price; fire($('price'), 'input');
+}));
+document.querySelectorAll('.seg [data-ratio]').forEach(b => b.addEventListener('click', () => {
+  $('loanRatio').value = b.dataset.ratio; fire($('loanRatio'), 'input');
+}));
+document.querySelectorAll('.yn [data-yn]').forEach(b => b.addEventListener('click', () => {
+  const v = b.dataset.yn === '1';
+  if ($('noHouse').checked !== v) { $('noHouse').checked = v; fire($('noHouse'), 'change'); }
+}));
+
+/* 「?」與「為什麼」：開合說明（提醒框每次重算都會重畫，展開狀態另外記住） */
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-help]');
+  if (!b) return;
+  const t = document.getElementById(b.getAttribute('aria-controls'));
+  if (!t) return;
+  const open = b.getAttribute('aria-expanded') !== 'true';
+  b.setAttribute('aria-expanded', String(open));
+  t.hidden = !open;
+  if (b.dataset.key) { if (open) openWhy.add(b.dataset.key); else openWhy.delete(b.dataset.key); }
+});
+
+/* 手機底部抽屜 */
+const sideEl = $('result'), dockEl = $('dock'), scrimEl = $('scrim');
+let sheetReturn = null;
+function sheetOpen() { return document.body.classList.contains('sheet-open'); }
+function openSheet() {
+  if (!MQ_M.matches) return;
+  sheetReturn = document.activeElement;
+  document.body.classList.add('sheet-open');
+  document.documentElement.classList.add('sheet-lock');
+  dockEl.setAttribute('aria-expanded', 'true');
+  sideEl.setAttribute('role', 'dialog');
+  sideEl.setAttribute('aria-modal', 'true');
+  sideEl.querySelector('.rs-body').scrollTop = 0;
+  setTimeout(() => { $('sheetClose').focus({ preventScroll: true }); }, 60);
+}
+function closeSheet(restoreFocus) {
+  if (!sheetOpen()) return;
+  document.body.classList.remove('sheet-open');
+  document.documentElement.classList.remove('sheet-lock');
+  dockEl.setAttribute('aria-expanded', 'false');
+  sideEl.removeAttribute('role');
+  sideEl.removeAttribute('aria-modal');
+  if (restoreFocus !== false) {
+    const t = (sheetReturn && document.contains(sheetReturn) && sheetReturn !== document.body) ? sheetReturn : dockEl;
+    try { t.focus({ preventScroll: true }); } catch (e) {}
+  }
+}
+dockEl.addEventListener('click', openSheet);
+scrimEl.addEventListener('click', () => closeSheet());
+$('sheetClose').addEventListener('click', () => closeSheet());
+document.addEventListener('keydown', (e) => {
+  if (!sheetOpen()) return;
+  if (e.key === 'Escape') { e.preventDefault(); closeSheet(); return; }
+  if (e.key === 'Tab') {   // 焦點留在抽屜裡
+    const f = Array.from(sideEl.querySelectorAll('a[href], button:not([disabled])')).filter(x => !x.hidden && x.offsetParent !== null);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    else if (!sideEl.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+  }
+});
+/* 面板內容超出可見高度時，底部淡出提示「往下還有」；桌機面板高度跟著黏住的位置走（沒黏住時不超出畫面，黏住後用滿） */
+const rsBody = sideEl.querySelector('.rs-body');
+let fitRaf = 0;
+function fitPanel() {
+  fitRaf = 0;
+  if (!MQ_M.matches) {
+    const top = Math.max(16, sideEl.getBoundingClientRect().top);
+    sideEl.style.setProperty('--rs-max', Math.max(320, window.innerHeight - top - 16) + 'px');
+  } else {
+    sideEl.style.removeProperty('--rs-max');
+  }
+  rsBody.classList.toggle('has-more', rsBody.scrollHeight - rsBody.scrollTop - rsBody.clientHeight > 6);
+}
+const queueFit = () => { if (!fitRaf) fitRaf = requestAnimationFrame(fitPanel); };
+window.addEventListener('scroll', queueFit, { passive: true });
+window.addEventListener('resize', queueFit);
+rsBody.addEventListener('scroll', queueFit, { passive: true });
+if ('ResizeObserver' in window) new ResizeObserver(queueFit).observe(rsBody);
+if ('MutationObserver' in window) new MutationObserver(queueFit).observe(rsBody, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['hidden'] });
+queueFit();
+const onMQ = () => { if (!MQ_M.matches) closeSheet(false); if (lastSummary) updatePanel(lastSummary); queueFit(); };
+if (MQ_M.addEventListener) MQ_M.addEventListener('change', onMQ); else if (MQ_M.addListener) MQ_M.addListener(onMQ);
+
+/* 「填稅基 →」：關抽屜、打開稅基摺疊區並捲過去 */
+document.addEventListener('click', (e) => {   // 費用表、提醒框的連結是重算時才產生，用委派
+  const a = e.target.closest('.js-open-tax');
+  if (!a) return;
+  e.preventDefault();
+  closeSheet(false);
+  const d = $('advTax');
+  d.open = true;
+  setTimeout(() => {
+    d.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const sm = d.querySelector('summary');
+    try { sm.focus({ preventScroll: true }); } catch (err) {}
+  }, 80);
+});
+
+/* 三步驟進度：依捲動位置標示目前步驟；手機上看得到自備款明細時，底部列自動收起 */
+if ('IntersectionObserver' in window) {
+  const steps = Array.from(document.querySelectorAll('.ps'));
+  const ids = ['s1', 's2', 's3'];
+  const mark = (cur) => {
+    const idx = ids.indexOf(cur);
+    steps.forEach((s, i) => {
+      s.classList.toggle('is-current', i === idx);
+      s.classList.toggle('is-done', i < idx);
+      if (i === idx) s.setAttribute('aria-current', 'step'); else s.removeAttribute('aria-current');
+    });
+  };
+  const io = new IntersectionObserver((ents) => {
+    ents.forEach((en) => { if (en.isIntersecting) mark(en.target.id); });
+  }, { rootMargin: '-35% 0px -60% 0px' });
+  ids.forEach((id) => io.observe($(id)));
+  const io2 = new IntersectionObserver((ents) => {
+    ents.forEach((en) => document.body.classList.toggle('dock-off', en.isIntersecting));
+  }, { threshold: 0.12 });
+  io2.observe($('cashHero'));
+}
+
+/* 把這份試算傳給家人：系統分享；不支援時開 LINE 分享 */
+function shareLink() {
+  const o = snapshot();
+  PERSONAL.forEach(k => { delete o[k]; });   // 個人資料不放進連結（法定揭露第 8 點）
+  return location.href.split('#')[0] + '#c=' + b64e(JSON.stringify(o));
+}
+document.querySelectorAll('.js-share').forEach(btn => btn.addEventListener('click', () => {
+  const s = lastSummary;
+  const url = shareLink();
+  const planTxt = (s && s.plan !== 'none' && !s.qaBlocked) ? '青安3.0' : '一般房貸';
+  const text = s
+    ? `買房自備款試算：總價 ${zh(s.priceWan)} 萬，成交時約要準備 ${wan(s.cashTotal)} 萬${s.noBase ? '起' : ''}的現金，每月約繳 ${(s.monthTxt || '─').replace('→', ' → ')} 萬（${planTxt}）。（試算僅供參考）`
+    : '買房自備款試算';
+  if (navigator.share) {
+    navigator.share({ title: '買房自備款試算', text, url }).catch(() => {});
+    return;
+  }
+  location.href = 'https://line.me/R/share?text=' + encodeURIComponent(text + ' ' + url);
+}));
+
+/* 「LINE 問○○○」：跟著白牌設定走（空白版或沒有 LINE 就藏起來，分享鈕自動變滿版） */
+function syncLineCtas() {
+  let p = null;
+  try { p = typeof window.__wlProfile === 'function' ? window.__wlProfile() : null; } catch (e) {}
+  const href = (p && p.mode !== 'blank' && p.lineHref) || '';
+  /* 按鈕不寫職稱（營業員不是「經紀人」），有姓名就帶姓名 */
+  const name = (p && p.name) || '';
+  document.querySelectorAll('.js-line').forEach(a => {
+    const lt = a.querySelector('.lt');
+    if (lt) {   // 「LINE 問陳景泰」：姓名不拆行，太窄時只在「LINE」後面換行
+      const nm = document.createElement('span');
+      nm.className = 'nw';
+      nm.textContent = name ? `問${name}` : '詢問';
+      lt.replaceChildren(document.createTextNode('LINE '), nm);
+    }
+    if (href) { a.href = href; a.hidden = false; }
+    else { a.hidden = true; a.removeAttribute('href'); }
+  });
+  document.querySelectorAll('.cta-row').forEach(r => r.classList.toggle('solo', !href));
+}
+window.addEventListener('wl:change', syncLineCtas);
+
+/* 列印：先把摺起來的說明全部打開，印完還原 */
+const printOpened = [];
+window.addEventListener('beforeprint', () => {
+  document.querySelectorAll('#s3 details:not([open]), #result details:not([open]), #advRate:not([open])').forEach(d => { d.open = true; printOpened.push(d); });
+});
+window.addEventListener('afterprint', () => { while (printOpened.length) printOpened.pop().open = false; });
+$('printBtn').addEventListener('click', () => window.print());
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -1918,8 +3044,20 @@ if ('serviceWorker' in navigator) {
     if (text != null) e.textContent = text;
     return e;
   }
-  function anchor(cls, href, text) {
-    const a = el('a', cls, text);
+  function icon(id) {   // 細線圖示（頁面頂端的 svg sprite）
+    const NS = 'http://www.w3.org/2000/svg';
+    const s = document.createElementNS(NS, 'svg');
+    s.setAttribute('class', 'ico');
+    s.setAttribute('aria-hidden', 'true');
+    const u = document.createElementNS(NS, 'use');
+    u.setAttribute('href', '#' + id);
+    s.append(u);
+    return s;
+  }
+  function anchor(cls, href, text, ic) {
+    const a = el('a', cls);
+    if (ic) a.append(icon(ic));
+    a.append(document.createTextNode(text));
     a.href = href;
     if (/^https:/.test(href)) { a.target = '_blank'; a.rel = 'noopener'; }
     return a;
@@ -1949,6 +3087,13 @@ if ('serviceWorker' in navigator) {
       .replace(/^(?:https?:\/\/)?(?:www\.)?instagram\.com\//i, '').replace(/^@/, '').replace(/[/?#].*$/, '');
     return /^[A-Za-z0-9._]{1,30}$/.test(h) ? { href: 'https://instagram.com/' + h, label: 'IG：@' + h } : null;
   }
+  /* 店名分段、只在段落之間換行（避免「世界之／心加盟店」被拆開） */
+  function brandNode(cls, brand) {
+    const d = el('div', cls);
+    const segs = brand === LOCKED.brand ? ['一品不動產．', '有巢氏房屋', '台中世界之心加盟店'] : [brand];
+    segs.forEach((t, i) => { if (i) d.append(document.createElement('wbr')); d.append(el('span', 'nw', t)); });
+    return d;
+  }
   function certLines(p) {
     const out = [];
     if (p.brokerName) out.push('不動產經紀人：' + p.brokerName + (p.brokerNo ? '（' + p.brokerNo + '）' : ''));
@@ -1967,7 +3112,7 @@ if ('serviceWorker' in navigator) {
     who.append(el('small', null, '試算有疑問，歡迎直接問我'));
     chip.append(av, who);
     const tel = telHref(p.phone);
-    if (tel) chip.append(anchor('call', tel, '📞 ' + p.phone));
+    if (tel) chip.append(anchor('call', tel, p.phone, 'i-phone'));
     return chip;
   }
   function buildCard(p) {
@@ -1985,26 +3130,34 @@ if ('serviceWorker' in navigator) {
         if (p.nick) n.append(el('span', 'nick', p.nick));
         id.append(n);
       }
-      if (p.brand) id.append(el('div', p.name ? 'ac-brand' : 'ac-name', p.brand));   // 空白版沒有人名，店名升為標題
+      if (p.brand) id.append(brandNode(p.name ? 'ac-brand' : 'ac-name', p.brand));   // 空白版沒有人名，店名升為標題
       head.append(id);
       card.append(head);
     }
     const acts = el('div', 'ac-actions');
     const tel = telHref(p.phone);
-    if (tel) acts.append(anchor('ac-btn primary', tel, '📞 ' + p.phone));
+    if (tel) acts.append(anchor('ac-btn primary', tel, p.phone, 'i-phone'));
     const ln = lineLink(p.line);
-    if (ln) acts.append(anchor('ac-btn', ln.href, '💬 ' + ln.label));
+    if (ln) acts.append(anchor('ac-btn', ln.href, ln.label, 'i-chat'));
     const ig = igLink(p.ig);
-    if (ig) acts.append(anchor('ac-btn', ig.href, '📷 ' + ig.label));
+    if (ig) acts.append(anchor('ac-btn', ig.href, ig.label, 'i-ig'));
     if (acts.childNodes.length) card.append(acts);
+    else card.classList.add('no-act');
     const cert = certLines(p);
     if (cert.length) {
       const c = el('div', 'ac-cert');
-      cert.forEach((t, i) => { if (i) c.append(el('br')); c.append(document.createTextNode(t)); });
+      cert.forEach((t) => { c.append(el('span', null, t)); });
       card.append(c);
     }
     return card.childNodes.length ? card : null;
   }
+
+  /* 給試算區用：目前實際顯示的名片（含整理好的 LINE 連結） */
+  window.__wlProfile = function () {
+    const p = effective();
+    const ln = lineLink(p.line);
+    return Object.assign({}, p, { mode: state.mode, lineHref: ln ? ln.href : '', lineLabel: ln ? ln.label : '' });
+  };
 
   /* --- 把目前版本套到整頁 --- */
   function setPart(host, node) {
@@ -2020,17 +3173,19 @@ if ('serviceWorker' in navigator) {
     ask.replaceChildren();
     if (p.name || telHref(p.phone)) {
       ask.append(el('strong', null, '不用自己找，開口跟我要就好'));
-      if (telHref(p.phone)) ask.append(document.createTextNode('（' + p.phone + '）'));
+      if (telHref(p.phone)) ask.append(el('span', 'nw', '（' + p.phone + '）'));
     } else {
       ask.append(el('strong', null, '不用自己找，請承辦仲介或屋主提供即可'));
     }
 
     const prov = byId('pzProvider');
     prov.replaceChildren(
-      document.createTextNode('9. 本表由' + [p.brand, p.name].filter(Boolean).join(' ') + ' 提供，僅作為買方初步評估參考。'),
-      el('br'));
+      el('span', 'ln', '9.'),
+      document.createTextNode('本表由' + [p.brand, p.name].filter(Boolean).join(' ') + ' 提供，僅作為買方初步評估參考。'));
 
-    byId('wlOpen').textContent = isUnlocked() ? '✏️ 名片設定' : '🔒 同仁設定';
+    const unl = isUnlocked();
+    byId('wlOpen').replaceChildren(icon(unl ? 'i-pen' : 'i-lock'), document.createTextNode(unl ? '名片設定' : '同仁設定'));
+    try { window.dispatchEvent(new CustomEvent('wl:change', { detail: window.__wlProfile() })); } catch (e) {}
   }
 
   /* --- 對話框 --- */

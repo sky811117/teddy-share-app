@@ -1,4 +1,4 @@
-const CACHE_NAME = 'buyer-fee-v8-whitelabel';
+const CACHE_NAME = 'buyer-fee-v9-redesign';
 const ASSETS = [
   './',
   './index.html',
