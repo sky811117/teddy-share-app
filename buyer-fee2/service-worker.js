@@ -1,11 +1,12 @@
-const CACHE_NAME = 'buyer-fee-v7-2nd-home-70';
+const CACHE_NAME = 'buyer-fee-v8-whitelabel';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
-  './apple-touch-icon.png'
+  './apple-touch-icon.png',
+  './logo-bkb.png'
 ];
 
 self.addEventListener('install', (event) => {

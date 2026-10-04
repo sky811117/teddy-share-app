@@ -20,6 +20,27 @@
 <meta property="og:description" content="要準備多少現金、每月繳多少（含青安3.0 對照）">
 <meta property="og:image" content="icon-512.png">
 <meta property="og:type" content="website">
+<script>
+/* 白牌：第一次畫面出來前先把名片區藏起來，等下方程式套用完才顯示，
+   避免同事的客戶先閃到官方版（景泰）的姓名電話 */
+(function () {
+  try {
+    var pending = new URLSearchParams(location.search).has('wl');
+    if (!pending) {
+      try {
+        var s = JSON.parse(localStorage.getItem('bf2.wl.v1') || 'null');
+        pending = !!(s && s.mode && s.mode !== 'official');
+      } catch (e) {}
+    }
+    if (pending) {
+      document.documentElement.setAttribute('data-wl-pending', '');
+      /* 白牌頁拿掉 PWA 設定：「加到主畫面」才會記住目前網址（含 ?wl=），不會打開變回官方版 */
+      var mf = document.querySelector('link[rel="manifest"]');
+      if (mf) mf.parentNode.removeChild(mf);
+    }
+  } catch (e) {}
+})();
+</script>
 <style>
   :root {
     --bg: #FAF7F2;
@@ -48,10 +69,72 @@
     -webkit-font-smoothing: antialiased;
   }
   .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 80px; }
-  header { text-align: center; padding: 28px 0 18px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+  header { text-align: center; padding: 20px 0 24px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+  header .hero-logo { display: block; height: 52px; width: auto; margin: 0 auto 14px; }
   header .brand { font-size: 15px; color: var(--wood-deep); letter-spacing: 2px; margin-bottom: 8px; }
   header h1 { font-size: 32px; margin: 6px 0 8px; color: var(--text); font-weight: 700; letter-spacing: 1px; }
-  header .sub { color: var(--text-soft); font-size: 17px; }
+  header .sub { color: var(--text-soft); font-size: 17px; text-wrap: balance; }
+  @media (max-width: 480px) {
+    header .hero-logo { height: 44px; }
+    header .brand { letter-spacing: 1px; }
+    header h1 { font-size: 28px; }
+  }
+
+  /* 名片區（官方版／白牌共用）：還在套用白牌設定時先藏起來，防閃到別人的資料 */
+  html[data-wl-pending] .pz { visibility: hidden; }
+  [hidden] { display: none !important; }
+  .av {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--wood) 0%, var(--wood-deep) 100%);
+    color: #fff; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; letter-spacing: .5px; line-height: 1;
+  }
+  .hero-chip { margin-top: 16px; }
+  .agent-chip {
+    display: inline-flex; align-items: center; gap: 12px; max-width: 100%;
+    padding: 7px 7px 7px 8px; text-align: left;
+    background: var(--card); border: 1px solid var(--line); border-radius: 999px;
+    box-shadow: 0 2px 12px rgba(139, 111, 75, 0.09);
+  }
+  .agent-chip .who { min-width: 0; line-height: 1.35; padding-right: 2px; }
+  .agent-chip .who b { font-size: 16.5px; color: var(--text); }
+  .agent-chip .who .nick { font-size: 13.5px; color: var(--text-soft); margin-left: 5px; }
+  .agent-chip .who small { display: block; font-size: 12.5px; color: var(--text-soft); }
+  .agent-chip .call {
+    flex-shrink: 0; background: var(--ok); color: #fff; text-decoration: none;
+    padding: 9px 15px; border-radius: 999px; font-size: 15px; font-weight: 600; white-space: nowrap;
+  }
+  .agent-chip .call:hover { background: #3E5F39; }
+  @media (max-width: 400px) {
+    .agent-chip { border-radius: 18px; flex-wrap: wrap; justify-content: center; padding: 10px 12px; }
+    .agent-chip .call { flex-basis: 100%; text-align: center; }
+  }
+
+  .agent-card {
+    max-width: 540px; margin: 0 auto; text-align: left;
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 20px 20px 16px; box-shadow: 0 2px 14px rgba(139, 111, 75, 0.07);
+  }
+  .agent-card .ac-head { display: flex; align-items: center; gap: 14px; }
+  .agent-card .av { width: 54px; height: 54px; font-size: 18px; }
+  .agent-card .ac-name { font-size: 20px; font-weight: 700; color: var(--wood-deep); line-height: 1.35; }
+  .agent-card .ac-name .nick { font-size: 15px; font-weight: 500; color: var(--text-soft); margin-left: 6px; }
+  .agent-card .ac-brand { font-size: 14px; color: var(--text-soft); line-height: 1.55; margin-top: 2px; }
+  .agent-card .ac-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .agent-card .ac-btn {
+    flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-width: 0; max-width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line);
+    background: #FDFCF7; color: var(--wood-deep); text-decoration: none; font-size: 15px; font-weight: 600;
+    text-align: center; overflow-wrap: anywhere;   /* 帳號太長時換行，不撐破手機版面 */
+  }
+  .agent-card .ac-btn:hover { border-color: var(--wood); background: #FFF8EC; }
+  .agent-card .ac-btn.primary { flex-basis: 100%; background: var(--ok); border-color: var(--ok); color: #fff; font-size: 16.5px; }
+  .agent-card .ac-btn.primary:hover { background: #3E5F39; }
+  .agent-card .ac-cert {
+    margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--line);
+    font-size: 13px; color: var(--text-soft); line-height: 1.75;
+  }
+  .agent-card > :first-child { margin-top: 0; padding-top: 0; border-top: none; }
 
   /* 政策快訊 */
   .policy-alert {
@@ -368,11 +451,190 @@
   }
   footer .legal strong { color: var(--wood-deep); }
   footer .legal a { color: var(--wood-deep); }
-  footer .contact { font-size: 15px; color: var(--text); line-height: 1.8; }
-  footer .contact .agent-name { font-size: 19px; font-weight: 700; color: var(--wood-deep); display: block; margin-bottom: 4px; }
-  footer .contact a { color: var(--wood-deep); text-decoration: none; }
-  footer .contact a:hover { text-decoration: underline; }
-  footer .cert { font-size: 13px; color: var(--text-soft); margin-top: 8px; }
+
+  /* ===== 白牌設定（頁尾入口 → 密碼 → 設定面板）===== */
+  .wl-entry { text-align: center; margin-top: 30px; }
+  .wl-entry button {
+    font: inherit; font-size: 14px; color: var(--text-soft); cursor: pointer;
+    background: none; border: 1px dashed #D9CCB4; border-radius: 999px; padding: 8px 18px;
+  }
+  .wl-entry button:hover { color: var(--wood-deep); border-color: var(--wood); background: #FFF8EC; }
+
+  html.wl-noscroll { overflow: hidden; }
+  .wl-dlg {
+    border: none; padding: 0; color: var(--text); background: var(--card);
+    box-shadow: 0 24px 64px rgba(58, 53, 48, 0.28); font-family: inherit;
+  }
+  .wl-dlg::backdrop { background: rgba(58, 53, 48, 0.48); }
+  .wl-dlg:not([open]) { display: none; }
+  /* 不支援 <dialog> 的舊瀏覽器：退回固定定位 */
+  .wl-dlg.wl-fallback[open] { position: fixed; z-index: 1000; inset: 0; margin: auto; }
+
+  .wl-btn {
+    font: inherit; font-size: 16px; font-weight: 600; padding: 12px 16px; border-radius: 10px;
+    cursor: pointer; border: 1px solid var(--line); background: #FDFCF7; color: var(--text);
+  }
+  .wl-btn:hover { border-color: var(--wood); }
+  .wl-btn.primary { background: var(--wood); border-color: var(--wood); color: #fff; }
+  .wl-btn.primary:hover { background: var(--wood-deep); border-color: var(--wood-deep); }
+  .wl-btn:disabled { opacity: .55; cursor: default; }
+
+  /* 密碼視窗 */
+  .wl-lock { width: min(400px, calc(100vw - 32px)); max-width: calc(100vw - 32px); border-radius: 20px; }
+  .wl-lock form { padding: 28px 24px 22px; text-align: center; }
+  .wl-lock-ic {
+    width: 62px; height: 62px; margin: 0 auto 12px; border-radius: 50%;
+    background: var(--card-tint); border: 2px solid var(--wood);
+    display: flex; align-items: center; justify-content: center; font-size: 26px;
+  }
+  .wl-lock h2 { margin: 0 0 6px; font-size: 22px; color: var(--wood-deep); }
+  .wl-lock-desc { margin: 0 0 18px; font-size: 15px; color: var(--text-soft); line-height: 1.65; text-wrap: balance; }
+  .wl-pin { position: relative; }
+  .wl-pin input {
+    width: 100%; padding: 14px 52px; border: 2px solid var(--line); border-radius: 12px;
+    background: #FDFCF7; color: var(--text); text-align: center;
+    font-family: 'Inter', 'Noto Sans TC', sans-serif; font-size: 24px; letter-spacing: 6px;
+  }
+  .wl-pin input:focus { outline: none; border-color: var(--wood); background: #FFFEF8; box-shadow: 0 0 0 4px rgba(200, 165, 116, 0.2); }
+  .wl-pin input::placeholder { font-size: 16px; letter-spacing: 1px; color: #B5AA99; }
+  .wl-eye {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    width: 42px; height: 42px; border: none; border-radius: 8px; background: none;
+    font-size: 19px; cursor: pointer; opacity: .7;
+  }
+  .wl-eye:hover { opacity: 1; background: var(--card-tint); }
+  .wl-err { min-height: 26px; margin-top: 8px; font-size: 14.5px; color: var(--warn); line-height: 1.5; }
+  .wl-shake { animation: wlShake .38s; }
+  @keyframes wlShake {
+    0%, 100% { transform: translateX(0); } 20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); }
+  }
+  .wl-lock-btns { display: grid; grid-template-columns: 1fr 1.5fr; gap: 10px; margin-top: 6px; }
+
+  /* 設定面板：桌機右側抽屜、手機底部滑出 */
+  .wl-panel {
+    width: min(480px, 100vw); max-width: 100vw;
+    height: 100vh; height: 100dvh; max-height: 100vh; max-height: 100dvh;
+    margin: 0 0 0 auto; border-radius: 20px 0 0 20px;
+  }
+  .wl-panel[open] { animation: wlSlideL .28s ease-out; }
+  @keyframes wlSlideL { from { transform: translateX(48px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @keyframes wlSlideU { from { transform: translateY(48px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .wl-panel-in { display: flex; flex-direction: column; height: 100%; }
+  .wl-ph {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    padding: 20px 22px 14px; border-bottom: 1px solid var(--line);
+    background: linear-gradient(135deg, #F5EFE3 0%, #FDFCF7 100%);
+  }
+  .wl-ph h2 { margin: 0; font-size: 21px; color: var(--wood-deep); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .wl-ph p { margin: 4px 0 0; font-size: 14px; color: var(--text-soft); line-height: 1.55; text-wrap: balance; }
+  .wl-badge {
+    font-size: 12px; font-weight: 600; color: var(--ok); background: var(--ok-bg);
+    border: 1px solid #C7DBC2; border-radius: 999px; padding: 2px 10px;
+  }
+  .wl-x {
+    width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; cursor: pointer;
+    border: 1px solid var(--line); background: #fff; color: var(--text-soft); font-size: 16px;
+  }
+  .wl-x:hover { border-color: var(--wood); color: var(--wood-deep); }
+  .wl-body { flex: 1; overflow-y: auto; padding: 4px 22px 18px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  /* 段落編號用 CSS 計數器：被隱藏的段落不計數，編號自動接續 */
+  .wl-body { counter-reset: wlsec; }
+  .wl-body section { padding: 16px 0; border-bottom: 1px dashed var(--line); counter-increment: wlsec; }
+  .wl-body section:last-child { border-bottom: none; }
+  .wl-body h3 {
+    margin: 0 0 10px; font-size: 16.5px; color: var(--text);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .wl-body h3::before {
+    content: counter(wlsec); width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%;
+    background: var(--wood); color: #fff; font-size: 13px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .wl-modes { display: grid; gap: 8px; }
+  .wl-mode {
+    position: relative; display: flex; align-items: center; gap: 12px; cursor: pointer;
+    padding: 12px 14px; border: 2px solid var(--line); border-radius: 12px; background: #FDFCF7;
+    transition: border-color .15s, background .15s;
+  }
+  .wl-mode:hover { border-color: var(--wood); }
+  .wl-mode input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+  .wl-mode:focus-within { box-shadow: 0 0 0 3px rgba(200, 165, 116, 0.35); }
+  .wl-mode .m-ic {
+    width: 42px; height: 42px; flex-shrink: 0; border-radius: 11px; font-size: 20px;
+    display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid var(--line);
+  }
+  .wl-mode .m-tx { flex: 1; min-width: 0; }
+  .wl-mode b { display: block; font-size: 16px; }
+  .wl-mode small { display: block; font-size: 13.5px; color: var(--text-soft); margin-top: 1px; line-height: 1.45; }
+  .wl-mode .m-ck {
+    width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; border: 2px solid var(--line);
+    display: flex; align-items: center; justify-content: center; font-size: 13px; color: transparent;
+  }
+  .wl-mode.sel { border-color: var(--wood); background: #FFF8EC; }
+  .wl-mode.sel .m-ic { background: var(--card-tint); border-color: var(--wood); }
+  .wl-mode.sel .m-ck { background: var(--wood); border-color: var(--wood); color: #fff; }
+  .wl-group { font-size: 13px; font-weight: 700; color: var(--wood-deep); letter-spacing: 1px; margin: 14px 0 8px; }
+  .wl-group:first-of-type { margin-top: 2px; }
+  .wl-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  .wl-grid2.cert { grid-template-columns: 1fr 1.5fr; }
+  .wl-f { display: block; margin-bottom: 10px; }
+  .wl-f > span { display: block; font-size: 14px; color: var(--text-soft); margin-bottom: 4px; }
+  .wl-f input {
+    width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px;
+    background: #FDFCF7; color: var(--text); font-family: inherit; font-size: 16px;
+  }
+  .wl-f input:focus { outline: none; border-color: var(--wood); background: #FFFEF8; box-shadow: 0 0 0 3px rgba(200, 165, 116, 0.18); }
+  .wl-locked {
+    display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; margin-bottom: 4px;
+    background: #F2EEE6; border: 1px dashed #D9CCB4; border-radius: 10px;
+  }
+  .wl-locked .lk-ic { font-size: 16px; line-height: 1.5; flex-shrink: 0; }
+  .wl-locked .lk-tx { min-width: 0; font-size: 13.5px; color: var(--text-soft); line-height: 1.6; }
+  .wl-locked .lk-tx small { display: block; font-size: 12.5px; color: var(--wood-deep); font-weight: 600; }
+  .wl-locked .lk-tx b { display: block; font-size: 15px; color: var(--text); }
+  .wl-warn {
+    font-size: 13.5px; color: #8A4A30; background: var(--warn-bg); border-radius: 8px;
+    padding: 8px 12px; margin: 2px 0 10px; line-height: 1.6; white-space: pre-line;
+  }
+  .wl-preview { background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+  .wl-preview .agent-card { box-shadow: none; }
+  .wl-preview-empty { color: var(--text-soft); font-size: 14px; line-height: 1.65; margin: 0 2px 10px; }
+  .wl-note { margin: 0 0 10px; font-size: 14px; color: var(--text-soft); line-height: 1.65; }
+  .wl-linkbox { display: flex; gap: 8px; }
+  .wl-linkbox input {
+    flex: 1; min-width: 0; padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px;
+    background: #F2EEE6; color: var(--text-soft); font-family: 'Inter', monospace; font-size: 14px;
+  }
+  .wl-linkbox .wl-btn { padding: 10px 16px; font-size: 15px; white-space: nowrap; }
+  .wl-share { width: 100%; margin-top: 8px; }
+  .wl-fine { margin: 10px 0 0; font-size: 12.5px; color: var(--text-soft); line-height: 1.6; }
+  .wl-pf {
+    display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px; background: #fff;
+    padding: 12px 22px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line);
+  }
+  @media (max-width: 640px) {
+    .wl-panel {
+      width: 100vw; height: auto; max-height: 92vh; max-height: 92dvh;
+      margin: auto 0 0; border-radius: 20px 20px 0 0;
+    }
+    .wl-panel[open] { animation-name: wlSlideU; }
+    .wl-ph, .wl-body, .wl-pf { padding-left: 16px; padding-right: 16px; }
+  }
+  @media (max-width: 360px) { .wl-grid2, .wl-grid2.cert { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { .wl-panel[open], .wl-shake { animation: none; } }
+
+  .wl-toast {
+    position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); z-index: 2000;
+    transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
+    background: var(--text); color: #fff; border-radius: 999px; padding: 10px 20px;
+    font-size: 15px; max-width: calc(100vw - 32px); text-align: center;
+    transition: opacity .2s, transform .2s;
+  }
+  .wl-toast.show { opacity: 1; transform: translate(-50%, 0); }
+  /* 面板開著時提示放進面板裡、浮在底部按鈕上方 */
+  .wl-panel .wl-toast { position: absolute; bottom: calc(84px + env(safe-area-inset-bottom)); width: max-content; max-width: calc(100% - 32px); }
+  @media print { .wl-entry, .wl-dlg, .wl-toast { display: none !important; } }
 
   .print-btn {
     background: var(--wood); color: white; border: none; padding: 12px 28px;
@@ -392,9 +654,17 @@
 <div class="wrap">
 
 <header>
+  <img class="hero-logo" src="logo-bkb.png" alt="房仲大看板 BigKanBan" width="411" height="144">
   <div class="brand">一品不動產．有巢氏房屋台中世界之心加盟店</div>
   <h1>買房自備款試算</h1>
   <div class="sub">看清楚成交時要準備多少現金．每個月要繳多少</div>
+  <div class="hero-chip pz" id="pzChip">
+    <div class="agent-chip">
+      <span class="av" aria-hidden="true">景泰</span>
+      <span class="who"><b>陳景泰</b><span class="nick">Teddy</span><small>試算有疑問，歡迎直接問我</small></span>
+      <a class="call" href="tel:0920118756">📞 0920-118-756</a>
+    </div>
+  </div>
 </header>
 
 <!-- 政策快訊 -->
@@ -551,7 +821,7 @@
     <h2><span class="step">4</span>稅基資料</h2>
     <div class="note-box" style="margin-top:0;margin-bottom:8px;">
       💡 契稅、印花稅、登記規費<strong>不是按成交價計算</strong>，而是按<strong>政府評定的價格</strong>（通常遠低於市價）。<br>
-      這些數字在<strong>土地謄本</strong>與<strong>房屋稅單</strong>上，一般在屋主或仲介手上 —— <strong>不用自己找，開口跟我要就好</strong>（0920-118-756）。想先抓個大概，就勾下面的「保守估算」。
+      這些數字在<strong>土地謄本</strong>與<strong>房屋稅單</strong>上，一般在屋主或仲介手上 —— <span class="pz" id="pzAsk"><strong>不用自己找，開口跟我要就好</strong>（0920-118-756）</span>。想先抓個大概，就勾下面的「保守估算」。
     </div>
     <div class="field">
       <label>土地申報地價總額
@@ -729,23 +999,143 @@
     6. 青安貸款利率為<strong>機動利率</strong>，隨郵政 2 年期定儲利率調整。據媒體報導，青安3.0 規劃<strong>央行升息時不再加碼補貼</strong>（升息風險由借款人承擔）；財政部公布之貸款原則與問答集<strong>未明定此點</strong>，以財政部公告為準。本試算以現行基準利率靜態計算，未預測未來利率變動。<br>
     7. 本試算結果<strong>不構成任何具體財務、稅務或法律建議，亦非銀行核貸承諾</strong>。買方應於簽約前洽詢代書、稅務人員、貸款銀行確認實際金額。<br>
     8. <strong>隱私</strong>：本工具所有計算<strong>皆在您的裝置上完成</strong>，您輸入的年齡、所得、家庭狀況等資料<strong>不會被傳送或儲存到任何伺服器</strong>，本店也不會收到。關閉頁面即消失。<br>
-    9. 本表由一品不動產．有巢氏房屋台中世界之心加盟店 陳景泰 提供，僅作為買方初步評估參考。<br>
+    <span class="pz" id="pzProvider">9. 本表由一品不動產．有巢氏房屋台中世界之心加盟店 陳景泰 提供，僅作為買方初步評估參考。<br></span>
     <span style="display:block;margin-top:8px;font-size:12.5px;">資料來源：財政部國庫署 <a href="https://www.nta.gov.tw/singlehtml/108" target="_blank" rel="noopener">nta.gov.tw/singlehtml/108</a>、<a href="https://www.nta.gov.tw/singlehtml/109" target="_blank" rel="noopener">nta.gov.tw/singlehtml/109</a>（青安3.0 條文查證日 2026-10-02）｜中央銀行 <a href="https://www.cbc.gov.tw" target="_blank" rel="noopener">cbc.gov.tw</a>｜內政部《成屋買賣定型化契約應記載及不得記載事項》<a href="https://glrs.moi.gov.tw/LawContent.aspx?id=GL000442" target="_blank" rel="noopener">glrs.moi.gov.tw</a>｜資料日期：2026-07-16</span>
   </div>
-  <div class="contact">
-    <span class="agent-name">陳景泰（Teddy）</span>
-    一品不動產．有巢氏房屋台中世界之心加盟店<br>
-    📞 <a href="tel:0920118756">0920-118-756</a>
-    💬 LINE：<a href="https://line.me/ti/p/~sky811117">sky811117</a>
-    📷 IG：<a href="https://instagram.com/nov__817">@nov__817</a>
-    <div class="cert">
-      不動產經紀人：黃永隆（113彰縣字第324號）<br>
-      不動產營業員：陳景泰（114登字第488296號）
+  <div class="pz" id="pzCard">
+    <div class="agent-card">
+      <div class="ac-head">
+        <span class="av" aria-hidden="true">景泰</span>
+        <div class="ac-id">
+          <div class="ac-name">陳景泰<span class="nick">Teddy</span></div>
+          <div class="ac-brand">一品不動產．有巢氏房屋台中世界之心加盟店</div>
+        </div>
+      </div>
+      <div class="ac-actions">
+        <a class="ac-btn primary" href="tel:0920118756">📞 0920-118-756</a>
+        <a class="ac-btn" href="https://line.me/ti/p/~sky811117">💬 LINE：sky811117</a>
+        <a class="ac-btn" href="https://instagram.com/nov__817">📷 IG：@nov__817</a>
+      </div>
+      <div class="ac-cert">不動產經紀人：黃永隆（113彰縣字第324號）<br>不動產營業員：陳景泰（114登字第488296號）</div>
     </div>
   </div>
+  <div class="wl-entry"><button type="button" id="wlOpen">🔒 同仁設定</button></div>
 </footer>
 
 </div>
+
+<!-- ===== 白牌設定：密碼視窗 ===== -->
+<dialog class="wl-dlg wl-lock" id="wlLock" aria-labelledby="wlLockTitle">
+  <form id="wlLockForm" autocomplete="off" novalidate>
+    <div class="wl-lock-ic" aria-hidden="true">🔒</div>
+    <h2 id="wlLockTitle">同仁設定</h2>
+    <p class="wl-lock-desc">同仁專用：輸入密碼後，可以把這頁換成<b>你自己的名片</b>，或改成<b>不掛名的空白版</b>，再傳給客戶。</p>
+    <div class="wl-pin" id="wlPin">
+      <input type="password" id="wlPw" inputmode="numeric" maxlength="32" autocomplete="off"
+             autocapitalize="off" spellcheck="false" placeholder="輸入密碼" aria-label="密碼" aria-describedby="wlErr">
+      <button type="button" class="wl-eye" id="wlEye" aria-label="顯示密碼" aria-pressed="false">👁</button>
+    </div>
+    <div class="wl-err" id="wlErr" role="alert"></div>
+    <div class="wl-lock-btns">
+      <button type="button" class="wl-btn" data-wl-close>取消</button>
+      <button type="submit" class="wl-btn primary" id="wlUnlock">解鎖</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ===== 白牌設定：設定面板 ===== -->
+<dialog class="wl-dlg wl-panel" id="wlPanel" aria-labelledby="wlPanelTitle">
+  <div class="wl-panel-in">
+    <div class="wl-ph">
+      <div>
+        <h2 id="wlPanelTitle">名片設定 <span class="wl-badge">已解鎖</span></h2>
+        <p>改完整頁馬上更新。要給客戶看，請用最下面的「傳給客戶的連結」。</p>
+      </div>
+      <button type="button" class="wl-x" data-wl-close aria-label="關閉">✕</button>
+    </div>
+
+    <div class="wl-body">
+      <section>
+        <h3>這頁要顯示哪個版本？</h3>
+        <div class="wl-modes" role="radiogroup" aria-label="顯示版本">
+          <label class="wl-mode" data-mode="official">
+            <input type="radio" name="wlMode" value="official">
+            <span class="m-ic" aria-hidden="true">⭐</span>
+            <span class="m-tx"><b>官方版</b><small>陳景泰的名片（預設）</small></span>
+            <span class="m-ck" aria-hidden="true">✓</span>
+          </label>
+          <label class="wl-mode" data-mode="custom">
+            <input type="radio" name="wlMode" value="custom">
+            <span class="m-ic" aria-hidden="true">🪪</span>
+            <span class="m-tx"><b>白牌・我的名片</b><small>換成你的姓名、電話、營業員證號（店名固定）</small></span>
+            <span class="m-ck" aria-hidden="true">✓</span>
+          </label>
+          <label class="wl-mode" data-mode="blank">
+            <input type="radio" name="wlMode" value="blank">
+            <span class="m-ic" aria-hidden="true">📄</span>
+            <span class="m-tx"><b>白牌・空白版</b><small>不掛個人姓名與聯絡方式，只留店名與試算工具</small></span>
+            <span class="m-ck" aria-hidden="true">✓</span>
+          </label>
+        </div>
+      </section>
+
+      <section id="wlFormSec">
+        <h3>填你的名片</h3>
+        <div class="wl-locked">
+          <span class="lk-ic" aria-hidden="true">🔒</span>
+          <span class="lk-tx"><small>店名與經紀人固定，不能修改</small><b>一品不動產．有巢氏房屋台中世界之心加盟店</b><span>不動產經紀人：黃永隆（113彰縣字第324號）</span></span>
+        </div>
+        <div class="wl-group">你的聯絡方式</div>
+        <div class="wl-grid2">
+          <label class="wl-f"><span>姓名</span>
+            <input type="text" id="wl_name" maxlength="12" autocomplete="name" placeholder="例：王小明"></label>
+          <label class="wl-f"><span>英文名（選填）</span>
+            <input type="text" id="wl_nick" maxlength="16" autocomplete="off" placeholder="例：Ming"></label>
+        </div>
+        <label class="wl-f"><span>手機</span>
+          <input type="tel" id="wl_phone" maxlength="20" inputmode="tel" autocomplete="tel" placeholder="例：0912-345-678"></label>
+        <div class="wl-grid2">
+          <label class="wl-f"><span>LINE ID</span>
+            <input type="text" id="wl_line" maxlength="60" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ID 或 line.me 連結"></label>
+          <label class="wl-f"><span>IG 帳號</span>
+            <input type="text" id="wl_ig" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="例：my_house_tw"></label>
+        </div>
+        <div class="wl-warn" id="wlContactWarn" hidden></div>
+        <div class="wl-group">營業員證號（給客戶看，建議填寫）</div>
+        <div class="wl-grid2 cert">
+          <label class="wl-f"><span>營業員姓名</span>
+            <input type="text" id="wl_agentName" maxlength="12" autocomplete="off" placeholder="同上可不填"></label>
+          <label class="wl-f"><span>營業員證號</span>
+            <input type="text" id="wl_agentNo" maxlength="30" autocomplete="off" placeholder="例：○○○登字第○○○○○○號"></label>
+        </div>
+        <div class="wl-warn" id="wlCertWarn" hidden></div>
+      </section>
+
+      <section>
+        <h3>客戶會看到的名片</h3>
+        <div class="wl-preview" id="wlPreview"></div>
+      </section>
+
+      <section>
+        <h3>傳給客戶的連結</h3>
+        <p class="wl-note">這台裝置已經<b>自動記住</b>你的設定。要傳給客戶，請用下面這條連結 —— 客戶打開就是你設定的版本，<b>不需要密碼</b>。</p>
+        <div class="wl-linkbox">
+          <input type="text" id="wlLink" readonly aria-label="客戶連結">
+          <button type="button" class="wl-btn primary" id="wlCopy">複製</button>
+        </div>
+        <button type="button" class="wl-btn wl-share" id="wlShare" hidden>📤 用 LINE／其他 App 分享</button>
+        <p class="wl-fine">連結裡會帶著你填的名片資料（姓名、電話、證號），請只傳給要給的客戶。店名、經紀人和房仲大看板 LOGO 各版本都會保留。</p>
+      </section>
+    </div>
+
+    <div class="wl-pf">
+      <button type="button" class="wl-btn" id="wlRelock">🔒 鎖上</button>
+      <button type="button" class="wl-btn primary" data-wl-close>完成</button>
+    </div>
+  </div>
+</dialog>
+
+<div class="wl-toast" id="wlToast" role="status" aria-live="polite"></div>
 
 <script>
 'use strict';
@@ -1376,6 +1766,512 @@ if ('serviceWorker' in navigator) {
       .catch(e => console.warn('SW failed:', e));
   });
 }
+</script>
+
+<script>
+/* ===== 白牌設定 =====
+   三種版本：官方版（景泰）／白牌・我的名片／白牌・空白版。店名、經紀人、房仲大看板 LOGO 各版都保留。
+   - 密碼只存 PBKDF2 雜湊。這是「防客人亂改」的軟鎖：懂程式的人看原始碼仍可繞過，頁面本身沒有機密資料
+   - 套用順序：網址 ?wl= ＞ 這台裝置 localStorage ＞ 官方版
+   - 使用者填的字一律走 textContent／DOM 屬性，不拼 innerHTML */
+(function () {
+  'use strict';
+  const root = document.documentElement;
+  const byId = (id) => document.getElementById(id);
+
+  const STORE_KEY = 'bf2.wl.v1';
+  const UNLOCK_KEY = 'bf2.wl.unlocked';
+  const PW_SALT = 'teddy-buyer-fee2|whitelabel|v1';
+  const PW_ITER = 150000;
+  const PW_HASH = '073196d1fbc306278da08cff94e91ee68969b1d4b0f8714ffa146442773a74c6';
+  const MAX_FAILS = 5, COOLDOWN_MS = 30000;
+
+  /* 店名與經紀人綁死（景泰 2026-10-04：「一品不動產那邊要綁死 不能改」），
+     三種版本都顯示；白牌只換營業員個人資料。網址與本機設定都讀不到這三欄，改不動 */
+  const LOCKED = {
+    brand: '一品不動產．有巢氏房屋台中世界之心加盟店',
+    brokerName: '黃永隆', brokerNo: '113彰縣字第324號'
+  };
+  const OFFICIAL = Object.assign({
+    name: '陳景泰', nick: 'Teddy', phone: '0920-118-756', line: 'sky811117', ig: 'nov__817',
+    agentName: '陳景泰', agentNo: '114登字第488296號'
+  }, LOCKED);
+  /* 可填欄位 [欄位, 網址短鍵, 字數上限] —— 上限要跟面板 input 的 maxlength 一致 */
+  const FIELDS = [
+    ['name', 'n', 12], ['nick', 'k', 16], ['phone', 'p', 20], ['line', 'l', 60], ['ig', 'i', 40],
+    ['agentName', 'an', 12], ['agentNo', 'ao', 30]
+  ];
+  const MODES = ['official', 'custom', 'blank'];
+
+  /* 去掉控制字元與看不見的格式字元（零寬空白、方向控制），避免「顯示的電話」跟「實際撥出的號碼」不一樣 */
+  const clean = (v, max) => String(v == null ? '' : v).replace(/[\p{Cc}\p{Cf}]/gu, '').trim().slice(0, max);
+  const norm = (v) => String(v || '').normalize('NFKC').replace(/\s/g, '');
+  /* 電話一律存半形（手機輸入法常打出全形「０９１２－…」） */
+  const cleanField = (k, v, max) => clean(k === 'phone' ? String(v == null ? '' : v).normalize('NFKC') : v, max);
+  function emptyProfile() {
+    const p = {};
+    FIELDS.forEach(([k]) => { p[k] = ''; });
+    return p;
+  }
+  function sanitizeProfile(src, useShortKeys) {
+    const p = emptyProfile();
+    if (src && typeof src === 'object') {
+      FIELDS.forEach(([k, s, max]) => { p[k] = cleanField(k, src[useShortKeys ? s : k], max); });
+    }
+    return p;
+  }
+
+  /* 無痕模式／封鎖網站資料時 localStorage 可能直接丟錯，一律包起來 */
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+  };
+
+  /* --- 客戶連結：名片資料 → JSON → UTF-8 → base64url，放在 ?wl= --- */
+  function b64urlEncode(str) {
+    let bin = '';
+    new TextEncoder().encode(str).forEach((b) => { bin += String.fromCharCode(b); });
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function b64urlDecode(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    return new TextDecoder().decode(Uint8Array.from(atob(s), (c) => c.charCodeAt(0)));
+  }
+  /* 有人拿景泰的姓名／證號配別人的電話做連結 → 一律改顯示真正的官方版 */
+  function guard(st) {
+    const p = st.p;
+    if (st.mode === 'custom' && (norm(p.name).includes(OFFICIAL.name) ||
+        norm(p.agentName).includes(OFFICIAL.name) || norm(p.agentNo) === OFFICIAL.agentNo)) {
+      return { mode: 'official', p: emptyProfile() };
+    }
+    return st;
+  }
+  /* 網址沒有 ?wl= → null；有但讀不懂（被截斷、亂改）→ 退回空白版，絕不露出官方版 */
+  function readLink() {
+    const params = new URLSearchParams(location.search);
+    if (!params.has('wl')) return null;
+    const raw = params.get('wl') || '';
+    try {
+      if (raw.length <= 2000) {
+        const o = JSON.parse(b64urlDecode(raw));
+        if (o && o.m === 'c') return guard({ mode: 'custom', p: sanitizeProfile(o, true) });
+        if (o && o.m === 'b') return { mode: 'blank', p: emptyProfile() };
+      }
+    } catch (e) {}
+    return { mode: 'blank', p: emptyProfile() };
+  }
+  function readLocal() {
+    try {
+      const o = JSON.parse(store.get(STORE_KEY) || 'null');
+      if (o && MODES.includes(o.mode)) return guard({ mode: o.mode, p: sanitizeProfile(o.p, false) });
+    } catch (e) {}
+    return null;
+  }
+
+  /* --- 目前狀態（mode 切換時 p 保留，切回「我的名片」不用重填）--- */
+  let state = { mode: 'official', p: emptyProfile() };
+  let fromLink = false;   // 目前顯示的是「別人傳來的連結」，不是這台裝置自己的設定
+  let unlockedMem = false;
+
+  function buildLink() {
+    const base = location.href.split(/[?#]/)[0];
+    if (state.mode === 'official') return base;
+    const o = { m: state.mode === 'blank' ? 'b' : 'c' };
+    if (state.mode === 'custom') FIELDS.forEach(([k, s]) => { if (state.p[k]) o[s] = state.p[k]; });
+    return base + '?wl=' + b64urlEncode(JSON.stringify(o));
+  }
+  function loadState() {
+    const link = readLink();
+    if (link) { state = link; fromLink = true; return; }
+    state = readLocal() || state;
+  }
+  function saveState() {
+    store.set(STORE_KEY, JSON.stringify({ mode: state.mode, p: state.p }));
+    fromLink = false;
+  }
+  /* 網址列永遠跟著目前版本走：同事直接用瀏覽器／LINE 的「分享」轉傳，客戶看到的也是同事的版本。
+     打字時會一直觸發，延遲合併（Safari 30 秒內呼叫超過 100 次會丟錯） */
+  let syncTimer = 0;
+  function syncUrl(now) {
+    clearTimeout(syncTimer);
+    const run = () => {
+      try {
+        const target = buildLink() + location.hash;
+        if (target !== location.href) history.replaceState(history.state, '', target);
+      } catch (e) {}
+    };
+    if (now) run(); else syncTimer = setTimeout(run, 600);
+  }
+  /* 實際顯示的名片：店名＋經紀人一律用 LOCKED；空白版只剩這兩項 */
+  function effective() {
+    if (state.mode === 'official') return OFFICIAL;
+    return Object.assign({}, state.mode === 'custom' ? state.p : emptyProfile(), LOCKED);
+  }
+  const isUnlocked = () => unlockedMem || store.get(UNLOCK_KEY) === '1';
+
+  /* --- 名片元件 --- */
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function anchor(cls, href, text) {
+    const a = el('a', cls, text);
+    a.href = href;
+    if (/^https:/.test(href)) { a.target = '_blank'; a.rel = 'noopener'; }
+    return a;
+  }
+  function avatarText(name) {   // 中文名取最後兩個字（陳景泰→景泰），英文名取字首
+    const chars = Array.from(name);
+    if (/[㐀-鿿]/.test(chars[0] || '')) return chars.slice(-2).join('');
+    return (chars[0] || '').toUpperCase();
+  }
+  /* 聯絡按鈕：先把全形字轉半形（手機輸入法常打出全形數字） */
+  function telHref(v) {
+    const d = String(v || '').normalize('NFKC').replace(/[^\d+]/g, '');
+    return d.replace(/\D/g, '').length >= 6 ? 'tel:' + d : '';
+  }
+  function lineLink(v) {
+    v = String(v || '').normalize('NFKC').trim()
+      .replace(/^(?:https?:\/\/)?((?:line\.me|lin\.ee)\/)/i, 'https://$1');   // 沒打 https:// 也認得
+    if (!v) return null;
+    if (/^https:\/\/(line\.me|lin\.ee)\/\S+$/i.test(v)) return { href: v, label: 'LINE' };
+    if (/^@[a-z0-9._-]{3,20}$/i.test(v)) return { href: 'https://line.me/R/ti/p/@' + encodeURIComponent(v.slice(1)), label: 'LINE：' + v };
+    if (!/^~?[a-z0-9._-]{4,20}$/i.test(v)) return null;   // LINE ID 只會有英數與 . _ -（4–20 字）
+    const id = v.replace(/^~/, '');
+    return { href: 'https://line.me/ti/p/~' + encodeURIComponent(id), label: 'LINE：' + id };
+  }
+  function igLink(v) {
+    const h = String(v || '').normalize('NFKC').trim()
+      .replace(/^(?:https?:\/\/)?(?:www\.)?instagram\.com\//i, '').replace(/^@/, '').replace(/[/?#].*$/, '');
+    return /^[A-Za-z0-9._]{1,30}$/.test(h) ? { href: 'https://instagram.com/' + h, label: 'IG：@' + h } : null;
+  }
+  function certLines(p) {
+    const out = [];
+    if (p.brokerName) out.push('不動產經紀人：' + p.brokerName + (p.brokerNo ? '（' + p.brokerNo + '）' : ''));
+    const agent = p.agentName || p.name;
+    if (agent && (p.agentName || p.agentNo)) out.push('不動產營業員：' + agent + (p.agentNo ? '（' + p.agentNo + '）' : ''));
+    return out;
+  }
+  function buildChip(p) {
+    if (!p.name) return null;
+    const chip = el('div', 'agent-chip');
+    const av = el('span', 'av', avatarText(p.name));
+    av.setAttribute('aria-hidden', 'true');
+    const who = el('span', 'who');
+    who.append(el('b', null, p.name));
+    if (p.nick) who.append(el('span', 'nick', p.nick));
+    who.append(el('small', null, '試算有疑問，歡迎直接問我'));
+    chip.append(av, who);
+    const tel = telHref(p.phone);
+    if (tel) chip.append(anchor('call', tel, '📞 ' + p.phone));
+    return chip;
+  }
+  function buildCard(p) {
+    const card = el('div', 'agent-card');
+    if (p.name || p.brand) {
+      const head = el('div', 'ac-head');
+      if (p.name) {
+        const av = el('span', 'av', avatarText(p.name));
+        av.setAttribute('aria-hidden', 'true');
+        head.append(av);
+      }
+      const id = el('div', 'ac-id');
+      if (p.name) {
+        const n = el('div', 'ac-name', p.name);
+        if (p.nick) n.append(el('span', 'nick', p.nick));
+        id.append(n);
+      }
+      if (p.brand) id.append(el('div', p.name ? 'ac-brand' : 'ac-name', p.brand));   // 空白版沒有人名，店名升為標題
+      head.append(id);
+      card.append(head);
+    }
+    const acts = el('div', 'ac-actions');
+    const tel = telHref(p.phone);
+    if (tel) acts.append(anchor('ac-btn primary', tel, '📞 ' + p.phone));
+    const ln = lineLink(p.line);
+    if (ln) acts.append(anchor('ac-btn', ln.href, '💬 ' + ln.label));
+    const ig = igLink(p.ig);
+    if (ig) acts.append(anchor('ac-btn', ig.href, '📷 ' + ig.label));
+    if (acts.childNodes.length) card.append(acts);
+    const cert = certLines(p);
+    if (cert.length) {
+      const c = el('div', 'ac-cert');
+      cert.forEach((t, i) => { if (i) c.append(el('br')); c.append(document.createTextNode(t)); });
+      card.append(c);
+    }
+    return card.childNodes.length ? card : null;
+  }
+
+  /* --- 把目前版本套到整頁 --- */
+  function setPart(host, node) {
+    host.replaceChildren(...(node ? [node] : []));
+    host.hidden = !node;
+  }
+  function applyProfile() {
+    const p = effective();
+    setPart(byId('pzChip'), buildChip(p));
+    setPart(byId('pzCard'), buildCard(p));
+
+    const ask = byId('pzAsk');
+    ask.replaceChildren();
+    if (p.name || telHref(p.phone)) {
+      ask.append(el('strong', null, '不用自己找，開口跟我要就好'));
+      if (telHref(p.phone)) ask.append(document.createTextNode('（' + p.phone + '）'));
+    } else {
+      ask.append(el('strong', null, '不用自己找，請承辦仲介或屋主提供即可'));
+    }
+
+    const prov = byId('pzProvider');
+    prov.replaceChildren(
+      document.createTextNode('9. 本表由' + [p.brand, p.name].filter(Boolean).join(' ') + ' 提供，僅作為買方初步評估參考。'),
+      el('br'));
+
+    byId('wlOpen').textContent = isUnlocked() ? '✏️ 名片設定' : '🔒 同仁設定';
+  }
+
+  /* --- 對話框 --- */
+  function afterClose() {
+    if (!document.querySelector('dialog[open]')) root.classList.remove('wl-noscroll');
+  }
+  function openDlg(d) {
+    if (typeof d.showModal === 'function') { if (!d.open) d.showModal(); }
+    else { d.classList.add('wl-fallback'); d.setAttribute('open', ''); }
+    root.classList.add('wl-noscroll');
+  }
+  function closeDlg(d) {
+    if (!d) return;
+    if (typeof d.close === 'function') { if (d.open) d.close(); }
+    else { d.removeAttribute('open'); afterClose(); }
+  }
+  let toastTimer = 0;
+  function toast(msg) {
+    const t = byId('wlToast');
+    const host = document.querySelector('dialog[open]') || document.body;   // 開著視窗時要放進視窗裡才看得到
+    if (t.parentNode !== host) host.append(t);
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+  }
+
+  /* --- 密碼 --- */
+  let fails = 0, lockUntil = 0, cdTimer = 0;
+  async function checkPassword(pw) {
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(PW_SALT), iterations: PW_ITER }, key, 256);
+    const hex = Array.from(new Uint8Array(bits), (x) => x.toString(16).padStart(2, '0')).join('');
+    return hex === PW_HASH;
+  }
+  function showErr(msg, shake) {
+    byId('wlErr').textContent = msg;
+    if (shake) {
+      const pin = byId('wlPin');
+      pin.classList.remove('wl-shake');
+      void pin.offsetWidth;   // 重新觸發動畫
+      pin.classList.add('wl-shake');
+    }
+  }
+  function startCooldown() {
+    const btn = byId('wlUnlock');
+    clearInterval(cdTimer);
+    const tick = () => {
+      const s = Math.ceil((lockUntil - Date.now()) / 1000);
+      if (s <= 0) { clearInterval(cdTimer); btn.disabled = false; showErr(''); return; }
+      btn.disabled = true;
+      showErr(`錯太多次了，請 ${s} 秒後再試`);
+    };
+    tick();
+    cdTimer = setInterval(tick, 500);
+  }
+  function openLock() {
+    const i = byId('wlPw');
+    i.value = '';
+    i.type = 'password';
+    byId('wlEye').setAttribute('aria-pressed', 'false');
+    byId('wlEye').setAttribute('aria-label', '顯示密碼');
+    if (Date.now() < lockUntil) startCooldown(); else showErr('');
+    openDlg(byId('wlLock'));
+    setTimeout(() => i.focus(), 60);
+  }
+  async function onUnlockSubmit(e) {
+    e.preventDefault();
+    if (Date.now() < lockUntil) return;
+    const input = byId('wlPw');
+    const pw = input.value.trim();
+    if (!pw) { showErr('請先輸入密碼', true); input.focus(); return; }
+    if (!(window.crypto && crypto.subtle)) { showErr('這個瀏覽器不支援密碼驗證，請改用 Chrome 或 Safari 開啟'); return; }
+
+    const btn = byId('wlUnlock');
+    btn.disabled = true;
+    btn.textContent = '驗證中…';
+    let ok = false, broke = false;
+    try { ok = await checkPassword(pw); } catch (err) { broke = true; }
+    btn.textContent = '解鎖';
+    btn.disabled = false;
+
+    if (broke) { showErr('驗證出錯了，請重新整理頁面再試'); return; }
+    if (ok) {
+      fails = 0;
+      unlockedMem = true;
+      store.set(UNLOCK_KEY, '1');
+      input.value = '';
+      showErr('');
+      closeDlg(byId('wlLock'));
+      applyProfile();
+      openPanel();
+      toast('🔓 已解鎖');
+      return;
+    }
+    fails++;
+    input.select();
+    if (fails >= MAX_FAILS) {
+      fails = 0;
+      lockUntil = Date.now() + COOLDOWN_MS;
+      startCooldown();
+      showErr(byId('wlErr').textContent, true);
+    } else {
+      showErr(`密碼不對，再試一次（還可以試 ${MAX_FAILS - fails} 次）`, true);
+    }
+  }
+
+  /* --- 設定面板 --- */
+  function fillForm() {
+    FIELDS.forEach(([k]) => { const i = byId('wl_' + k); if (i) i.value = state.p[k]; });
+  }
+  function renderPanel() {
+    document.querySelectorAll('.wl-mode').forEach((label) => {
+      const on = label.dataset.mode === state.mode;
+      label.classList.toggle('sel', on);
+      label.querySelector('input').checked = on;
+    });
+    byId('wlFormSec').hidden = state.mode !== 'custom';
+
+    const p = state.p, custom = state.mode === 'custom';
+    const bad = [];
+    if (custom && p.line && !lineLink(p.line)) bad.push('LINE ID 看起來不對：要填 LINE 的「ID」（英文數字），不是顯示名稱；也可以直接貼加好友連結。');
+    if (custom && p.ig && !igLink(p.ig)) bad.push('IG 帳號只能有英文、數字、底線和點。');
+    const cw = byId('wlContactWarn');
+    cw.textContent = bad.map((t) => '⚠️ ' + t).join('\n');
+    cw.hidden = !bad.length;
+
+    const miss = [];
+    if (custom && (p.name || p.phone) && !p.agentNo) miss.push('營業員證號');
+    if (custom && p.agentNo && !p.agentName && !p.name) miss.push('營業員姓名');
+    const warn = byId('wlCertWarn');
+    warn.textContent = miss.length ? `⚠️ 還沒填${miss.join('、')}。要給客戶看的話，建議補上。` : '';
+    warn.hidden = !miss.length;
+
+    const pv = byId('wlPreview');
+    const note = state.mode === 'blank'
+      ? '空白版：不顯示任何人的姓名、電話、LINE、IG，只留店名與經紀人。'
+      : (state.mode === 'custom' && !p.name && !p.phone ? '還沒填你的資料，目前看起來跟空白版一樣。' : '');
+    pv.replaceChildren(...(note ? [el('div', 'wl-preview-empty', note)] : []), buildCard(effective()));
+
+    byId('wlLink').value = buildLink();
+  }
+  function commit() {
+    saveState();
+    applyProfile();
+    renderPanel();
+    syncUrl();
+  }
+  function openPanel() {
+    /* 正在看別人傳來的連結：面板一律改回編輯「這台裝置自己的名片」，免得一動就把自己存的蓋掉 */
+    if (fromLink) {
+      const local = readLocal();
+      fromLink = false;
+      if (local) {
+        state = local;
+        applyProfile();
+        syncUrl(true);
+        setTimeout(() => toast('已切回這台裝置自己的名片設定'), 300);
+      }
+    }
+    fillForm();
+    renderPanel();
+    openDlg(byId('wlPanel'));
+  }
+  async function copyLink() {
+    const url = buildLink();
+    const box = byId('wlLink');
+    box.value = url;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('✅ 已複製客戶連結，貼給客戶就可以了');
+      return;
+    } catch (e) {}
+    box.focus();
+    box.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    toast(ok ? '✅ 已複製客戶連結，貼給客戶就可以了' : '請長按上面的連結，手動複製');
+  }
+
+  function bind() {
+    byId('wlOpen').addEventListener('click', () => { if (isUnlocked()) openPanel(); else openLock(); });
+    byId('wlLockForm').addEventListener('submit', onUnlockSubmit);
+    byId('wlEye').addEventListener('click', () => {
+      const i = byId('wlPw'), show = i.type === 'password', eye = byId('wlEye');
+      i.type = show ? 'text' : 'password';
+      eye.setAttribute('aria-pressed', String(show));
+      eye.setAttribute('aria-label', show ? '隱藏密碼' : '顯示密碼');
+      i.focus();
+    });
+    document.querySelectorAll('[data-wl-close]').forEach((btn) => {
+      btn.addEventListener('click', () => closeDlg(btn.closest('dialog')));
+    });
+    ['wlLock', 'wlPanel'].forEach((id) => {
+      const d = byId(id);
+      let downOnBackdrop = false;
+      d.addEventListener('close', () => { afterClose(); if (id === 'wlPanel') syncUrl(true); });
+      d.addEventListener('pointerdown', (e) => { downOnBackdrop = e.target === d; });
+      d.addEventListener('click', (e) => { if (e.target === d && downOnBackdrop) closeDlg(d); });   // 點背景關閉
+    });
+    document.querySelectorAll('input[name="wlMode"]').forEach((r) => {
+      r.addEventListener('change', () => { if (r.checked) { state.mode = r.value; commit(); } });
+    });
+    FIELDS.forEach(([k, , max]) => {
+      const i = byId('wl_' + k);
+      if (i) i.addEventListener('input', () => { state.p[k] = cleanField(k, i.value, max); commit(); });
+    });
+    byId('wlCopy').addEventListener('click', copyLink);
+    if (navigator.share) {
+      const s = byId('wlShare');
+      s.hidden = false;
+      s.addEventListener('click', () => {
+        navigator.share({ title: '買房自備款試算', url: buildLink() }).catch(() => {});
+      });
+    }
+    byId('wlRelock').addEventListener('click', () => {
+      unlockedMem = false;
+      store.del(UNLOCK_KEY);
+      closeDlg(byId('wlPanel'));
+      applyProfile();
+      toast('🔒 已鎖上，名片設定仍保留在這台裝置');
+    });
+  }
+
+  try {
+    loadState();
+    applyProfile();
+    syncUrl(true);
+    bind();
+  } catch (e) {
+    console.warn('白牌設定初始化失敗：', e);
+    /* 套用白牌失敗時寧可把名片區整個藏起來，也不要讓同事的客戶看到官方版 */
+    if (state.mode !== 'official' || new URLSearchParams(location.search).has('wl')) {
+      document.querySelectorAll('.pz').forEach((n) => { n.hidden = true; });
+    }
+  } finally {
+    root.removeAttribute('data-wl-pending');
+  }
+})();
 </script>
 </body>
 </html>
