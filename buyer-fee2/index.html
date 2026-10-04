@@ -282,7 +282,6 @@ document.documentElement.classList.add('js');
   .appr-hint { margin-top: 2px; font-size: 15px; color: var(--ink-2); line-height: 1.6; }
   .appr-hint b { color: var(--forest); font-variant-numeric: tabular-nums; }
   .appr-hint.low b { color: var(--clay); }
-  .appr-hint .appr-cap { color: var(--clay); }
 
   .mini { display: grid; grid-template-columns: 1fr 1fr; margin: 22px 0 0; border-top: 1px solid var(--hair); }
   .mini > div { padding-top: 14px; }
@@ -1131,6 +1130,461 @@ document.documentElement.classList.add('js');
     .chip:active, .seg button:active, .yn button:active, .toggle:active, .plan-opt:active, .cta:active, .print-btn:active, .appr-clear:active, .dk-more:active { transform: none; }
   }
 
+  /* =====================================================================
+     電影感層（參考官網 teddy-house.tw 工具頁的 cinematic 系統，全部內嵌、不連外）
+     品牌界線：米色、淺木色、暖金；主色森林綠不動。只用暖色光，不用霓虹、快速閃爍。
+     效能界線：循環動畫只動 transform / opacity；畫面外、分頁在背景時暫停；
+              prefers-reduced-motion 時全部停在一張好看的靜態畫面；列印時全部不出現。
+     ===================================================================== */
+  :root {
+    --cine-ease-out: cubic-bezier(.16, 1, .3, 1);
+    --cine-ease-soft: cubic-bezier(.45, 0, .2, 1);
+    --cine-sky-1: #dbbf94;
+    --cine-sky-2: #e5cfac;
+    --cine-sky-3: #eee1cc;
+    --cine-sky-top: 16%;
+    --cine-sun-core: rgb(255 251 240 / 1);
+    --cine-sun: rgb(255 232 188 / .95);
+    --cine-sun-2: rgb(250 210 148 / .5);
+    --cine-ray: rgb(255 230 180 / 1);
+    --cine-ray-core: rgb(255 248 230 / 1);
+    --cine-band: rgb(110 72 30 / .08);
+    --cine-shade: rgb(128 88 44 / .16);
+    --cine-beam: rgb(255 240 210 / .5);
+    --cine-vignette: rgb(96 62 26 / .18);
+    --cine-glow: 201 168 106;            /* 暖金 rgb 三元組（跟 --gold 同色） */
+    --cine-glass: rgb(255 253 249 / .72);
+    --cine-glass-solid: rgb(255 253 249 / .9);
+    --cine-glass-edge-a: rgb(255 255 255 / .95);
+    --cine-glass-edge-b: rgb(201 168 106 / .5);
+    --cine-glass-shadow: 0 1px 0 rgb(255 255 255 / .85) inset, 0 22px 50px -22px rgb(92 62 28 / .42), 0 2px 8px rgb(92 62 28 / .06);
+  }
+
+  /* ---------- 1. 主視覺天空：體積光、太陽、光塵（畫布）、暗角；放在刊頭下方，整條滿版 ---------- */
+  /* 絕對定位、top 用「原本的位置」（緊接在刊頭後面），寬度跟著視窗、不會多出水平捲軸；z-index -1 墊在內容下面 */
+  .cine-sky {
+    position: absolute; left: 0; right: 0; z-index: -1; height: var(--sky-h, 980px);
+    overflow: hidden; pointer-events: none; contain: strict;
+    background:
+      linear-gradient(236deg, transparent 18%, var(--cine-beam) 34%, transparent 52%),
+      radial-gradient(120% 70% at 0% 70%, var(--cine-shade), transparent 60%),
+      linear-gradient(180deg, var(--paper) 0%, var(--cine-sky-1) var(--cine-sky-top), var(--cine-sky-2) 46%, var(--cine-sky-3) 70%, var(--paper) 100%);
+  }
+  @media (max-width: 1023px) { .cine-sky { height: var(--sky-h, 1100px); } }
+  .cs-par { position: absolute; top: -24px; right: -24px; bottom: -24px; left: -24px; }
+  /* 景深視差只在滑鼠裝置有（手機不動）：will-change 只在那裡加，手機不白白多開合成層 */
+  @media (hover: hover) and (pointer: fine) { .cs-par, .cine-house { will-change: transform; } .cs-ray > i { will-change: transform, opacity; } }
+  .cs-sun {
+    position: absolute; top: calc(var(--sun-y, 90px) - min(430px, 60vw)); left: calc(var(--sun-x, 56%) - min(430px, 60vw)); width: min(860px, 120vw); height: min(860px, 120vw); aspect-ratio: 1; border-radius: 50%;
+    background: radial-gradient(circle, var(--cine-sun-core) 0%, var(--cine-sun) 15%, var(--cine-sun-2) 37%, transparent 66%);
+    animation: cine-breathe 11s var(--cine-ease-soft) infinite alternate;
+  }
+  @media (max-width: 1023px) { .cs-sun { --sun-x: 88%; --sun-y: 40px; width: min(760px, 150vw); height: min(760px, 150vw); left: calc(var(--sun-x) - min(380px, 75vw)); top: calc(var(--sun-y) - min(380px, 75vw)); } }
+  /* 固定 px 尺寸：天空高度由程式量好之後才定，光束如果用百分比會跟著整組移動（慢網路下 CLS 0.1） */
+  .cs-rays {
+    position: absolute; top: -230px; right: 30%; width: 100%; height: 1650px;
+    transform-origin: 88% 0%; transform: rotate(32deg);
+  }
+  @media (max-width: 1023px) { .cs-rays { right: -6%; width: 120%; top: -185px; height: 1340px; } }
+  /* 光束整組用 screen 疊上去（米白底上 lighter 加不上去）；blend 要放在有 will-change 的那層 */
+  .cs-par--rays { mix-blend-mode: screen; }
+  .cs-ray {
+    --oo: calc(var(--o) * 1.5);
+    position: absolute; top: 0; height: 100%; left: var(--x); width: calc(var(--w) * 2.1); opacity: var(--oo);
+    transform-origin: 50% 0; transform: rotate(var(--r, 0deg));
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 12%, rgb(0 0 0 / .75) 48%, transparent 88%);
+    mask-image: linear-gradient(180deg, transparent 0%, #000 12%, rgb(0 0 0 / .75) 48%, transparent 88%);
+  }
+  .cs-ray > i {
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0; transform-origin: 50% 0;
+    background: linear-gradient(90deg, transparent 0%, rgb(255 230 180 / .18) 14%, rgb(255 230 180 / .62) 30%, var(--cine-ray-core) 50%, rgb(255 230 180 / .62) 70%, rgb(255 230 180 / .18) 86%, transparent 100%);
+    animation: cine-ray-sway 15s var(--cine-ease-soft) infinite alternate;
+  }
+  /* 觸控裝置：光束停在一個好看的角度，不擺動（每格省掉 12 條光束的重畫） */
+  @media (pointer: coarse) { .cs-ray > i { animation: none; transform: scaleX(1.12); opacity: .8; } }
+  .cs-ray--shade { --oo: 1; width: var(--w); }
+  .cs-ray--shade > i { background: linear-gradient(90deg, transparent, var(--cine-band) 50%, transparent); }
+  .cs-dust { position: absolute; top: 0; left: 0; width: 100%; height: var(--dust-h, 100%); display: block; }
+  .cs-grain {
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0; opacity: .06;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .32 0 0 0 0 .18 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 12%, #000 60%, transparent 92%);
+    mask-image: linear-gradient(180deg, transparent 0, #000 12%, #000 60%, transparent 92%);
+  }
+  .cs-vig {
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+    background: radial-gradient(ellipse 90% 110% at 62% 4%, transparent 42%, var(--cine-vignette) 100%);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 18%, #000 55%, transparent 90%);
+    mask-image: linear-gradient(180deg, transparent 0, #000 18%, #000 55%, transparent 90%);
+  }
+  /* 下緣：最後 180px 漸進回頁面底色，太陽、光束、暗角都淡出，不會被硬切出一條橫線 */
+  .cine-sky::before {
+    content: ""; position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; height: 180px;
+    background: linear-gradient(180deg, rgb(246 241 232 / 0) 0%, rgb(246 241 232 / .55) 45%, var(--paper) 100%);
+  }
+  /* 上緣接刊頭：頁面底色漸進到天空，不出現硬接縫 */
+  .cine-sky::after {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 64px;
+    background: linear-gradient(180deg, var(--paper) 0%, rgb(246 241 232 / .7) 40%, transparent 100%);
+  }
+  .cine-sky.is-paused .cs-sun, .cine-sky.is-paused .cs-ray > i, html.cine-off-hero .cine-house .ch-float { animation-play-state: paused; }
+
+  /* 天空上的字：用頁面底色做柔和字暈托出來（光束掃過時對比也過 AA） */
+  .hero { position: relative; }
+  .hero h1, .hero .sub, .overline, .progress .pl, .step-h h2, .step-h p {
+    text-shadow: 0 0 2px var(--paper), 0 0 10px var(--paper), 0 0 18px var(--paper);
+  }
+  .overline { color: #5E4426; }
+  #s1 .step-no { color: #8E6A3E; text-shadow: 0 0 2px var(--paper), 0 0 12px var(--paper); }
+  .hero .sub { color: #4C4339; }
+  .step-h p { color: #483F36; }
+  .progress { border-color: rgb(205 189 164 / .8); }
+  .progress .ps:not(.is-current) { color: #5B5146; }
+
+  /* ---------- 2. 主角：光線畫出的房子（放在沒有字的空地；位置由程式量好，量不到就不出現） ---------- */
+  .cine-house {
+    position: absolute; z-index: -1; top: 0; left: 0; width: 240px; height: 170px; pointer-events: none;
+    visibility: hidden;
+  }
+  .cine-house.is-placed { visibility: visible; }
+  .ch-float { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
+  .cine-house.is-drawn .ch-float { animation: cine-float 7s var(--cine-ease-soft) .2s infinite alternate; }
+  .ch-pool {
+    position: absolute; left: -18%; right: -18%; top: -6%; bottom: -16%; border-radius: 50%;
+    background: radial-gradient(closest-side, rgb(255 248 232 / .95) 0%, rgb(255 236 200 / .55) 45%, rgb(255 228 184 / 0) 100%);
+    opacity: 0; transition: opacity 1.4s ease .3s;
+  }
+  .cine-house.is-placed .ch-pool { opacity: 1; }
+  .ch-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: visible; }
+  .ch-glow > *, .ch-line > *, .ch-core > * { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+  .cine-house.is-drawn .ch-glow > *, .cine-house.is-drawn .ch-line > *, .cine-house.is-drawn .ch-core > * { stroke-dashoffset: 0; }
+  .ch-glow > * { stroke: rgb(184 124 50 / .6); stroke-width: 6; }
+  .ch-line > * { stroke: url(#chLine); stroke-width: 2.4; }
+  .ch-core > * { stroke: #FFFDF8; stroke-width: .9; opacity: .9; }
+  .ch-win > * { fill: url(#chWin); stroke: none; opacity: 0; }
+  .cine-house.is-drawing .ch-glow > *, .cine-house.is-drawing .ch-line > *, .cine-house.is-drawing .ch-core > * {
+    animation: cine-dash var(--dd, .9s) cubic-bezier(.55, .1, .25, 1) var(--dl, 0s) forwards;
+  }
+  .cine-house.is-drawn .ch-win > * { opacity: .95; transition: opacity 1.2s ease var(--wl, 0s); }
+  .cine-house.is-drawn .ch-win > .w2 { opacity: .7; }
+
+  /* ---------- 3. 標題光掃（移植官網 cine-glint：兩層反向位移，只動 transform） ---------- */
+  .cine-title-box { position: relative; display: inline-block; max-width: 100%; vertical-align: top; }
+  .cine-glint {
+    position: absolute; top: 0; left: 0; height: 100%; width: 14%; overflow: hidden; pointer-events: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 40%, #000 60%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 40%, #000 60%, transparent);
+    opacity: 0; transform: translateX(-100%);
+  }
+  .cine-glint__in { position: absolute; top: 0; left: 0; width: calc(100% / .14); }
+  .cine-glint__in::before {
+    content: attr(data-text); display: block; color: #A8681C;
+    text-shadow: 0 0 18px rgb(255 196 110 / .9), 0 0 4px rgb(255 196 110 / .9);
+  }
+  .hero h1 .cine-glint { animation: cine-glint-out 1.15s var(--cine-ease-soft) .5s backwards; }
+  .hero h1 .cine-glint__in { animation: cine-glint-in 1.15s var(--cine-ease-soft) .5s backwards; }
+  .cine-glint.is-go { animation: cine-glint-out 1.1s var(--cine-ease-soft) backwards; }
+  .cine-glint.is-go .cine-glint__in { animation: cine-glint-in 1.1s var(--cine-ease-soft) backwards; }
+
+  /* ---------- 4. 第 1 步：玻璃卡（桌機毛玻璃；觸控裝置半實心，光從後面透出來） ---------- */
+  #s1 .panel {
+    position: relative; background: var(--cine-glass-solid); border-color: rgb(255 255 255 / .7); box-shadow: var(--cine-glass-shadow);
+  }
+  #s1 .panel::before {
+    content: ""; position: absolute; top: -1px; right: -1px; bottom: -1px; left: -1px; border-radius: inherit; padding: 1px; pointer-events: none;
+    background: linear-gradient(155deg, var(--cine-glass-edge-a), transparent 34%, transparent 64%, var(--cine-glass-edge-b));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  }
+  .price-field { border-bottom-color: rgb(38 35 31 / .85); }
+  .chip:not([aria-pressed="true"]) { background: rgb(255 253 249 / .9); }
+
+  /* ---------- 5. 卡片：3D 傾斜＋邊框光掃＋邊緣發光（只在滑鼠裝置，程式加上 .cine-card） ---------- */
+  .cine-card { isolation: isolate; transition: transform .6s var(--cine-ease-out), box-shadow .45s ease, background-color .22s ease, border-color .22s ease, color .22s ease; }
+  .compare-col.cine-card, .cash-total.cine-card, .policy.cine-card { position: relative; }
+  .cine-cfx, .cine-cring, .cine-cspot { position: absolute; top: 0; right: 0; bottom: 0; left: 0; border-radius: inherit; pointer-events: none; }
+  .cine-cfx { z-index: -1; }
+  .cine-cring {
+    overflow: hidden; padding: 1.5px;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  }
+  .cine-csweep {
+    position: absolute; left: -75%; top: 50%; width: 250%; aspect-ratio: 1; margin-top: -125%;
+    background: conic-gradient(from 0deg, transparent 0 58%, rgb(var(--cine-glow) / .4) 68%, rgb(255 244 222 / .95) 74%, rgb(var(--cine-glow) / .6) 79%, transparent 88% 100%);
+    opacity: 0; transition: opacity .4s ease; animation: cine-spin 3.4s linear infinite; animation-play-state: paused;
+  }
+  .cine-cspot { overflow: hidden; }
+  .cine-cspot > i {
+    position: absolute; left: -170px; top: -170px; width: 340px; height: 340px; border-radius: 50%;
+    background: radial-gradient(circle, rgb(var(--cine-glow) / .2), transparent 64%); opacity: 0; transition: opacity .35s ease;
+  }
+  .cine-card.is-hover .cine-csweep { opacity: 1; animation-play-state: running; }
+  .cine-card.is-hover .cine-cspot > i { opacity: 1; }
+  .cine-card.is-hover { box-shadow: 0 0 0 1px rgb(var(--cine-glow) / .5), 0 20px 44px -16px rgb(var(--cine-glow) / .55), 0 0 34px -8px rgb(var(--cine-glow) / .35); }
+  /* 已選中的方案卡（鼠尾草綠底）：聚光燈用淡白光，不用金色（金色疊在綠底上會變成混濁的米黃綠） */
+  .plan-opt.sel .cine-cspot > i { background: radial-gradient(circle, rgb(255 255 255 / .34), rgb(255 255 255 / 0) 64%); }
+  .plan-opt.sel.cine-card.is-hover { box-shadow: inset 0 0 0 1px var(--forest), 0 0 0 1px rgb(var(--cine-glow) / .5), 0 20px 44px -16px rgb(var(--cine-glow) / .55); }
+
+  /* ---------- 6. 主要按鈕：定時光澤掃過（安靜的間隔）＋按下漣漪 ---------- */
+  .cta.primary, .print-btn.primary, .ac-btn.primary, .call, .dk-more { position: relative; overflow: hidden; isolation: isolate; }
+  .cta, .print-btn, .ac-btn, .call, .dock { -webkit-tap-highlight-color: transparent; }
+  .cta.primary::after, .print-btn.primary::after, .ac-btn.primary::after, .call::after {
+    content: ""; position: absolute; top: -10%; bottom: -10%; left: 0; width: 46%; z-index: 1; pointer-events: none;
+    background: linear-gradient(100deg, transparent, rgb(255 255 255 / .34) 50%, transparent);
+    transform: translateX(-170%) skewX(-18deg);
+    animation: cine-shine 9s var(--cine-ease-soft) 2.4s infinite;
+  }
+  .rs-foot .cta.primary::after { animation-delay: 3.2s; }
+  .print-btn.primary::after { animation-delay: 5s; }
+  .call::after { animation-delay: 6.5s; animation-duration: 11s; }
+  .cine-off::after, .cine-off .cine-csweep, .cine-off .vic::after, .cine-off .cine-jorb::after,
+  .cine-off .ac-btn.primary::after, .cine-off .call::after, .cine-off .cta.primary::after { animation-play-state: paused !important; }
+  /* 頁面閒置幾秒：整個電影感層停在一張靜態畫面（有人動滑鼠、捲動、打字就接著動） */
+  html.cine-still .cs-sun, html.cine-still .cs-ray > i, html.cine-still .cine-house .ch-float, html.cine-still .rs-aura > i,
+  html.cine-still .cine-jorb::after, html.cine-still .elig-verdict .vic::after, html.cine-still .cine-csweep,
+  html.cine-still .cta.primary::after, html.cine-still .print-btn.primary::after, html.cine-still .ac-btn.primary::after, html.cine-still .call::after { animation-play-state: paused !important; }
+  html.cine-still .cta.primary::after, html.cine-still .print-btn.primary::after, html.cine-still .ac-btn.primary::after, html.cine-still .call::after { opacity: 0; transition: opacity .3s ease; }
+  .cine-ripple {
+    position: absolute; z-index: 0; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle, rgb(255 255 255 / .42) 0%, rgb(255 255 255 / .2) 45%, rgb(255 255 255 / 0) 70%);
+  }
+  .ac-btn:not(.primary) .cine-ripple, .cta.ghost .cine-ripple { background: radial-gradient(circle, rgb(31 74 60 / .16) 0%, rgb(31 74 60 / 0) 70%); }
+
+  /* ---------- 7. 數字計數器（odometer）：每一位在自己的欄位裡捲；文字本身一律是最終值 ---------- */
+  .odo, #pCash, #dCash { font-variant-numeric: lining-nums tabular-nums; }
+  .od-c { position: relative; display: inline-block; -webkit-clip-path: inset(0 -.12em); clip-path: inset(0 -.12em); }
+  .od-s {
+    position: absolute; top: 0; left: -.1em; right: -.1em; text-align: center; visibility: hidden;
+  }
+  .od-c.is-roll .od-s { will-change: transform; }
+  .od-x .od-t::before { content: "0"; color: transparent; }   /* 只佔一位數字的寬度，不算進文字 */
+  .od-s::before { content: "0\A 1\A 2\A 3\A 4\A 5\A 6\A 7\A 8\A 9\A 0\A 1\A 2\A 3\A 4\A 5\A 6\A 7\A 8\A 9\A 0\A 1\A 2\A 3\A 4\A 5\A 6\A 7\A 8\A 9"; white-space: pre; display: block; }
+  .od-c.is-roll .od-t { color: transparent; }
+  .od-c.is-roll .od-s { visibility: visible; }
+  .od-c.is-roll { -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 24%, #000 76%, transparent 100%); mask-image: linear-gradient(180deg, transparent 0%, #000 24%, #000 76%, transparent 100%); }
+  .odo { display: inline; }
+
+  /* ---------- 8. 現金組成光環（頭期款／稅費雜支／未計）＋ 堆疊條光掃 ---------- */
+  .hero-num { padding-right: 92px; }
+  .rs-sub { padding-right: 92px; }
+  /* 很窄的手機（320）：光環縮小、只跟大數字同一行，下面那行「約 X 元・佔總價 Y%」不必讓位，保持一行 */
+  @media (max-width: 359px) {
+    .hero-num .cine-ring { width: 50px; height: 50px; top: -3px; }
+    .hero-num { padding-right: 58px; }
+    .rs-sub { padding-right: 0; }
+  }
+  .cine-ring {
+    position: absolute; top: -6px; right: 0; width: 82px; height: 82px; overflow: visible; pointer-events: none;
+    filter: drop-shadow(0 6px 12px rgb(92 62 28 / .14));
+  }
+  .cine-ring path, .cine-ring circle { fill: none; }
+  .cine-ring .rg-track { stroke: var(--tint); stroke-width: 9; }
+  .cine-ring .rg-s {
+    stroke-width: 9; stroke-dasharray: 0 100; stroke-dashoffset: 0;
+    transition: stroke-dasharray .9s var(--cine-ease-out), stroke-dashoffset .9s var(--cine-ease-out), opacity .4s ease;
+  }
+  .cine-ring .rg-1 { stroke: var(--forest); }
+  .cine-ring .rg-2 { stroke: var(--gold); }
+  .cine-ring .rg-3 { stroke: url(#cineHatch); }
+  .cine-ring .rg-3o { stroke: var(--clay); stroke-width: 1; stroke-dasharray: 2 2; opacity: 0; transition: opacity .4s ease; }
+  .cine-ring.has-un .rg-3o { opacity: .9; }
+  .cine-ring .rg-in { stroke: rgb(201 168 106 / .45); stroke-width: 1; }
+  .cine-ring .rg-house { fill: none; stroke: var(--wood); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .cine-ring .rg-dot { fill: rgb(255 248 232); stroke: none; filter: drop-shadow(0 0 3px rgb(201 168 106 / .9)); opacity: 0; transition: opacity .4s ease; }
+  .cine-ring.is-drawn .rg-dot { opacity: 1; }
+  .stack { position: relative; }
+  .stack::after {
+    content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 60%; pointer-events: none; z-index: 1;
+    background: linear-gradient(100deg, transparent 0%, rgb(255 255 255 / .5) 50%, transparent 100%);
+    transform: translateX(-120%); opacity: 0;
+  }
+  .stack.is-shim::after { animation: cine-sweep 1.15s var(--cine-ease-soft) .25s; }
+
+  /* ---------- 9. 月付分年圖：長條升起帶柔光、跳升那年的呼吸光點、對照虛線畫出來 ---------- */
+  .tl-bar { position: relative; }
+  .tl-col.pay .tl-bar { background: linear-gradient(180deg, #2E6553 0%, var(--forest) 70%); }
+  .tl-col:not(.pay) .tl-bar { background: linear-gradient(180deg, #DCE7DF 0%, var(--sage-2) 100%); }
+  .tl-bar::before {
+    content: ""; position: absolute; left: -5px; right: -5px; top: -8px; bottom: 30%; border-radius: 10px; pointer-events: none; z-index: -1;
+    background: radial-gradient(60% 55% at 50% 22%, rgb(var(--cine-glow) / .6), rgb(var(--cine-glow) / 0) 100%); opacity: 0;
+  }
+  .tl-bar::after { content: ""; position: absolute; left: 1px; right: 1px; top: 1px; height: 2px; border-radius: 2px; background: rgb(255 255 255 / .35); pointer-events: none; }
+  .tl-col:not(.pay) .tl-bar::after { background: rgb(255 255 255 / .7); }
+  #pChart.is-rise .tl-bar::before { animation: cine-barglow 1.5s ease-out var(--bd, 0s); }
+  .cine-jorb {
+    --c: #E0A23C; --c-hi: #FDE7B0; --c-lo: #9A5B12; --c-glow: rgb(224 162 60 / .6);
+    position: absolute; z-index: 3; left: -7px; width: 13px; height: 13px; margin-bottom: -6px; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle at 34% 30%, #fff 0 9%, var(--c-hi) 22%, var(--c) 58%, var(--c-lo) 100%);
+    box-shadow: 0 0 6px 1px var(--c-glow), 0 0 14px 3px var(--c-glow);
+  }
+  .cine-jorb::after {
+    content: ""; position: absolute; top: -45%; right: -45%; bottom: -45%; left: -45%; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle, var(--c-glow) 0%, transparent 68%);
+    opacity: 0;
+  }
+  .cine-jorb.is-pulse::after { animation: cine-orb-pulse 2.4s var(--cine-ease-soft) .9s 3; }   /* 看得到、數字變了才呼吸 3 下，然後停（不無限循環） */
+  .jump { position: relative; }
+  .jump::before {
+    content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 3px;
+    background: linear-gradient(180deg, #E0A23C, var(--clay)); box-shadow: 0 0 10px rgb(224 162 60 / .55);
+  }
+
+  /* ---------- 10. 青安資格：結論變成燈號光球（符合＝綠色呼吸、不符合＝紅色恆亮）；檢核項目打勾一筆一筆畫出來 ---------- */
+  .elig-verdict .vic {
+    --c: #3F8A5C; --c-hi: #BFE3C8; --c-lo: #1F4A3C; --c-glow: rgb(63 138 92 / .5);
+    position: relative; width: 26px; height: 26px;
+    background: radial-gradient(circle at 34% 30%, #fff 0 8%, var(--c-hi) 20%, var(--c) 56%, var(--c-lo) 100%);
+    box-shadow: 0 0 6px 1px var(--c-glow), 0 0 16px 3px var(--c-glow);
+  }
+  .elig-verdict.no .vic { --c: #C0532E; --c-hi: #F6C7AE; --c-lo: #7A2E14; --c-glow: rgb(192 83 46 / .42); background: radial-gradient(circle at 34% 30%, #fff 0 8%, var(--c-hi) 20%, var(--c) 56%, var(--c-lo) 100%); }
+  .elig-verdict .vic::before { position: relative; z-index: 1; text-shadow: 0 1px 1px rgb(0 0 0 / .25); }
+  .elig-verdict.ok .vic::after {
+    content: ""; position: absolute; top: -45%; right: -45%; bottom: -45%; left: -45%; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle, var(--c-glow) 0%, transparent 68%);
+    opacity: 0; animation: cine-orb-pulse 2.6s var(--cine-ease-soft) .3s 3;   /* 結論重畫時呼吸 3 下就停 */
+  }
+  .elig-verdict.no .vic::after {
+    content: ""; position: absolute; top: -30%; right: -30%; bottom: -30%; left: -30%; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle, var(--c-glow) 0%, transparent 68%); opacity: .55;
+  }
+  .elig-item .ic.has-svg::before { display: none; }
+  .elig-item .ic svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
+  .elig-item .ic svg path { stroke-dasharray: 1 1; stroke-dashoffset: 0; }
+  .elig-item .ic.pre svg path { stroke-dashoffset: 1; }
+  .elig-item .ic.draw svg path { animation: cine-dash .42s cubic-bezier(.55, .1, .25, 1) var(--dl, 0s) both; }
+  .elig-item .ic.draw svg path + path { animation-delay: calc(var(--dl, 0s) + .22s); }
+  /* 打勾畫完時一圈綠光往外散開（用一層圓環放大＋淡出，只動 transform / opacity） */
+  .elig-item .ic { position: relative; }
+  .elig-item.pass .ic.has-svg::after {
+    content: ""; position: absolute; top: -2px; right: -2px; bottom: -2px; left: -2px; border-radius: 50%; pointer-events: none;
+    border: 2px solid rgb(63 138 92 / .5); opacity: 0;
+  }
+  .elig-item.pass .ic.draw::after { animation: cine-tickring 1.1s ease-out var(--dl, 0s); }
+
+  /* ---------- 11. 結果面板：玻璃面＋慢慢繞一圈的暖金邊光（約 10 秒）；黏住時微微浮起 ---------- */
+  /* 不用毛玻璃：面板大部分時間蓋在紙色上，模糊看不出來，卻每一格都要重算 */
+  .result { background: rgb(255 253 249 / .93); }
+  @media (pointer: coarse), (max-width: 1023px) { .result { background: var(--surface); } }
+  .rs-aura {
+    position: absolute; z-index: 3; top: 0; right: 0; bottom: 0; left: 0; border-radius: inherit; padding: 1.5px; overflow: hidden; pointer-events: none;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  }
+  .rs-aura > i {
+    position: absolute; left: 50%; top: 50%; width: 260%; aspect-ratio: 1; margin: -130% 0 0 -130%;
+    background: conic-gradient(from 0deg, transparent 0 56%, rgb(var(--cine-glow) / .25) 64%, rgb(232 196 130 / .85) 71%, rgb(255 246 226 / 1) 74%, rgb(var(--cine-glow) / .55) 78%, transparent 88% 100%);
+    transform: rotate(.62turn);
+  }
+  /* 邊光平常停著（像一道反光）；數字變了才慢慢繞一圈 */
+  .result.is-live .rs-aura > i { animation: cine-aura 7s var(--cine-ease-soft) 1; }
+  .col-side .result { transition: box-shadow .4s ease, transform .45s var(--cine-ease-out); }
+  .col-side.is-stuck .result { transform: translateY(-3px); box-shadow: 0 1px 2px rgba(38, 35, 31, .05), 0 30px 60px -22px rgba(87, 70, 45, .42), 0 0 0 1px rgb(var(--cine-glow) / .18); }
+  @media (max-width: 1023px) {
+    body:not(.sheet-open) .rs-aura > i { animation-play-state: paused; }
+    .col-side.is-stuck .result { transform: none; }
+  }
+
+  /* ---------- 12. 區塊捲動進場：由上往下擦亮＋小幅上浮；標題光掃一次 ---------- */
+  .step-h h2, .block > h3 { position: relative; }
+  /* 跟大標題同一個做法：一個窄窗往右移、裡面的金色字往反方向移（字停在原位），只動 transform，不動遮罩位置 */
+  .cine-hglint { position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; pointer-events: none; }   /* 外框不動、把窗口裁在標題範圍內（不會撐出水平捲軸） */
+  .cine-hglint > span {
+    position: absolute; top: 0; left: 0; height: 100%; width: 14%; overflow: hidden; opacity: 0; transform: translateX(-100%);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 40%, #000 60%, transparent); mask-image: linear-gradient(90deg, transparent, #000 40%, #000 60%, transparent);
+  }
+  .cine-hglint > span > span { position: absolute; top: 0; left: 0; width: calc(100% / .14); }
+  .cine-hglint > span > span::before {
+    content: attr(data-text); display: block; color: #A8681C;
+    text-shadow: 0 0 14px rgb(255 196 110 / .9), 0 0 3px rgb(255 196 110 / .8);
+  }
+  .cine-hglint.is-go > span { animation: cine-glint-out 1.2s var(--cine-ease-soft) backwards; }
+  .cine-hglint.is-go > span > span { animation: cine-glint-in 1.2s var(--cine-ease-soft) backwards; }
+
+  /* 手機底部列：數字變了輕輕掃過一道光；抽屜打開時背景模糊 */
+  .dock::after {
+    content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 45%; pointer-events: none; opacity: 0;
+    background: linear-gradient(100deg, transparent 0%, rgb(201 168 106 / .22) 45%, rgb(255 248 230 / .6) 50%, rgb(201 168 106 / .22) 55%, transparent 100%);
+    transform: translateX(-100%);
+  }
+  .dock.is-shim::after { animation: cine-dockshim 1.2s var(--cine-ease-soft); }
+  /* 抽屜背景模糊只給滑鼠裝置的窄視窗：手機（尤其 iOS／LINE）模糊轉場常閃一下，低階 Android 每格全螢幕模糊很吃 GPU */
+  @media (max-width: 1023px) and (hover: hover) and (pointer: fine) {
+    .scrim { -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); transition: opacity .3s ease, -webkit-backdrop-filter .3s ease, backdrop-filter .3s ease; }
+    body.sheet-open .scrim { -webkit-backdrop-filter: blur(5px) saturate(1.1); backdrop-filter: blur(5px) saturate(1.1); background: rgba(38, 35, 31, .38); transition: opacity .42s ease, -webkit-backdrop-filter .42s ease, backdrop-filter .42s ease; }
+  }
+  @media (max-width: 1023px) {
+    .rs-aura { border-radius: 24px 24px 0 0; -webkit-mask: none; mask: none; padding: 0; height: 2px; bottom: auto; }
+    .rs-aura > i { width: 160%; margin: 0; left: -30%; top: auto; bottom: 0; height: 2px; aspect-ratio: auto;
+      background: linear-gradient(90deg, transparent 0%, rgb(var(--cine-glow) / .5) 40%, rgb(255 246 226 / 1) 50%, rgb(var(--cine-glow) / .5) 60%, transparent 100%);
+      transform: translateX(-40%); }
+    .result.is-live .rs-aura > i { animation: cine-slide 6s var(--cine-ease-soft) 1; }
+  }
+
+  @keyframes cine-breathe { from { transform: scale(1); opacity: .88; } to { transform: scale(1.07); opacity: 1; } }
+  @keyframes cine-ray-sway { from { transform: rotate(-2.2deg) scaleX(1); opacity: 1; } to { transform: rotate(2.4deg) scaleX(1.3); opacity: .5; } }
+  @keyframes cine-float { from { transform: translate3d(0, 3px, 0); } to { transform: translate3d(0, -5px, 0); } }
+  @keyframes cine-dash { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+  @keyframes cine-glint-out { 0% { transform: translateX(-100%); opacity: 1; } 88% { opacity: 1; } 100% { transform: translateX(714.3%); opacity: 0; } }
+  @keyframes cine-glint-in { 0% { transform: translateX(14%); } 100% { transform: translateX(-100%); } }
+  @keyframes cine-spin { to { transform: rotate(1turn); } }
+  @keyframes cine-aura { from { transform: rotate(.62turn); } to { transform: rotate(1.62turn); } }
+  @keyframes cine-shine { 0% { transform: translateX(-170%) skewX(-18deg); } 13%, 100% { transform: translateX(300%) skewX(-18deg); } }
+  @keyframes cine-sweep { 0% { transform: translateX(-120%); opacity: 1; } 85% { opacity: 1; } 100% { transform: translateX(190%); opacity: 0; } }
+  @keyframes cine-barglow { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
+  @keyframes cine-orb-pulse { 0% { transform: scale(.75); opacity: .95; } 70%, 100% { transform: scale(1.9); opacity: 0; } }
+  @keyframes cine-tickring { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(1.7); opacity: 0; } }
+  @keyframes cine-dockshim { 0% { opacity: 1; transform: translateX(-100%); } 85% { opacity: 1; } 100% { opacity: 0; transform: translateX(222%); } }
+  @keyframes cine-slide { 0% { transform: translateX(-40%); } 50% { transform: translateX(40%); } 100% { transform: translateX(-40%); } }
+  @keyframes cine-pop { 0% { transform: scale(.6); } 60% { transform: scale(1.12); } 100% { transform: none; } }
+
+  /* 區塊捲動進場沿用原本的淡入上浮（opacity＋transform，不做遮罩擦亮：遮罩位移每格都要重新點陣化） */
+  @media screen and (prefers-reduced-motion: no-preference) {
+    html.js .elig-verdict.is-flip .vic { animation: cine-pop .5s var(--cine-ease-out) .16s backwards; }
+  }
+
+  /* 減少動態：全部停在最終狀態（一張靜態的好畫面） */
+  @media (prefers-reduced-motion: reduce) {
+    .cs-sun, .cs-ray > i, .cine-house .ch-float, .cine-glint, .cine-glint__in, .cine-csweep, .rs-aura > i,
+    .cta.primary::after, .print-btn.primary::after, .ac-btn.primary::after, .call::after,
+    .cine-jorb::after, .elig-verdict .vic::after, .stack::after, .dock::after, .tl-bar::before, .cine-hglint > span, .cine-hglint > span > span, .elig-item .ic::after,
+    .elig-item .ic, .elig-item .ic svg path, .cine-house .ch-glow > *, .cine-house .ch-line > *, .cine-house .ch-core > * { animation: none !important; }
+    .cine-glint, .cine-hglint, .cine-ripple { display: none !important; }
+    .cine-house .ch-glow > *, .cine-house .ch-line > *, .cine-house .ch-core > *, .elig-item .ic svg path { stroke-dashoffset: 0 !important; }
+    .cine-house .ch-win > * { opacity: .95; }
+    .cine-house .ch-pool { opacity: 1; transition: none; }
+    .elig-verdict.ok .vic::after { transform: scale(1.35); opacity: .45; }
+    .cine-jorb::after { transform: scale(1.35); opacity: .45; }
+    .cine-card { transition: none; }
+  }
+
+  @media print {
+    .cine-sky, .cine-house, .cine-glint, .cine-hglint, .cine-ring, .rs-aura, .cine-cfx, .cine-ripple, .cine-jorb { display: none !important; }
+    #s1 .panel, .result { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+    #s1 .panel::before, .stack::after, .tl-bar::before, .tl-bar::after, .jump::before,
+    .cta.primary::after, .print-btn.primary::after, .ac-btn.primary::after, .call::after { display: none !important; }
+    .cine-card, .col-side .result { transform: none !important; }
+    .hero h1, .hero .sub, .overline, .progress .pl, .step-h h2, .step-h p { text-shadow: none; }
+    .hero-num, .rs-sub { padding-right: 0; }
+    /* 計數器攤平成一般文字：紙上、存成 PDF 後複製出來都是順序正確的數字 */
+    .od-c, .od-c.is-roll { display: inline !important; -webkit-clip-path: none; clip-path: none; -webkit-mask-image: none !important; mask-image: none !important; }
+    .od-s, .od-x { display: none !important; }
+    .od-c.is-roll .od-t { color: inherit; }
+    .elig-verdict .vic { box-shadow: none; }
+    /* 資格清單還沒捲到（.pre）或正在畫：列印時一律印完整的 ✓／✕ */
+    .elig-item .ic, .elig-item .ic svg path { animation: none !important; }
+    .elig-item .ic svg path, .elig-item .ic.pre svg path { stroke-dashoffset: 0 !important; }
+  }
+
+
+  @media (max-width: 720px) { .hero { padding-top: 32px; } }
+  /* 手機主視覺：標題上方留一塊空地給光線房子（主角），320 寬也放得下 */
+  @media (max-width: 559px) { html.js .hero { padding-top: 112px; } }
+  /* 手機上的房子比較小：線條加粗、光暈加深一點，亮背景上才看得出來 */
+  .cine-house.is-m .ch-line > * { stroke-width: 3.6; }
+  .cine-house.is-m .ch-glow > * { stroke-width: 8.5; stroke: rgb(176 116 44 / .62); }
+  .cine-house.is-m .ch-core > * { stroke-width: 1.3; }
+  .cine-house.is-m .ch-pool { left: -8%; right: -8%; }   /* 靠右放時光暈不超出畫面（不會多出水平捲軸） */
   /* ============ 列印簡表（一頁 A4）：畫面上不顯示，列印時預設只印這張 ============ */
   #printSheet { display: none; }
   .psh {
@@ -1288,14 +1742,25 @@ document.documentElement.classList.add('js');
   </div>
 </header>
 
+<!-- ===== 電影感天空（純裝飾：暖光、體積光、光塵）===== -->
+<div class="cine-sky" id="cineSky" aria-hidden="true">
+  <div class="cs-par" data-depth="0.5"><div class="cs-sun"></div></div>
+  <div class="cs-par" data-depth="1"><div class="cs-rays"><span class="cs-ray cs-ray--shade" style="--x:15%;--w:6%;--o:1;--r:4deg"><i style="animation-duration:23s;animation-delay:-3s"></i></span><span class="cs-ray cs-ray--shade" style="--x:37%;--w:7%;--o:1;--r:1deg"><i style="animation-duration:19s;animation-delay:-11s"></i></span><span class="cs-ray cs-ray--shade" style="--x:60%;--w:6%;--o:1;--r:-2deg"><i style="animation-duration:25s;animation-delay:-6s"></i></span><span class="cs-ray cs-ray--shade" style="--x:86%;--w:8%;--o:1;--r:-5deg"><i style="animation-duration:21s;animation-delay:-8s"></i></span></div></div>
+  <div class="cs-par cs-par--rays" data-depth="1"><div class="cs-rays"><span class="cs-ray" style="--x:4%;--w:3.5%;--o:0.75;--r:7deg"><i style="animation-duration:13s;animation-delay:0s"></i></span><span class="cs-ray" style="--x:11%;--w:7%;--o:0.5;--r:5deg"><i style="animation-duration:17s;animation-delay:-4s"></i></span><span class="cs-ray" style="--x:22%;--w:4%;--o:0.8;--r:3deg"><i style="animation-duration:11s;animation-delay:-7s"></i></span><span class="cs-ray" style="--x:31%;--w:9%;--o:0.45;--r:1.5deg"><i style="animation-duration:19s;animation-delay:-2s"></i></span><span class="cs-ray" style="--x:45%;--w:3%;--o:0.85;--r:0deg"><i style="animation-duration:15s;animation-delay:-9s"></i></span><span class="cs-ray" style="--x:53%;--w:8%;--o:0.5;--r:-1.5deg"><i style="animation-duration:21s;animation-delay:-5s"></i></span><span class="cs-ray" style="--x:66%;--w:4.5%;--o:0.7;--r:-3deg"><i style="animation-duration:14s;animation-delay:-11s"></i></span><span class="cs-ray" style="--x:78%;--w:7%;--o:0.5;--r:-4.5deg"><i style="animation-duration:18s;animation-delay:-3s"></i></span></div></div>
+  <canvas class="cs-dust" id="cineDust"></canvas>
+  <div class="cs-grain"></div>
+  <div class="cs-vig"></div>
+</div>
+
 <main class="page">
 <div class="layout">
 
   <!-- ================= 左欄：輸入與明細 ================= -->
   <div class="col-main">
     <section class="hero">
+      <div class="cine-house" id="cineHouse" data-depth="1.5" aria-hidden="true"></div>
       <p class="overline">買方試算工具</p>
-      <h1>買房自備款試算</h1>
+      <h1><span class="cine-title-box">買房自備款試算<span class="cine-glint" aria-hidden="true"><span class="cine-glint__in" data-text="買房自備款試算"></span></span></span></h1>
       <p class="sub"><span class="nw">看清楚成交時要準備多少現金．</span><wbr><span class="nw">每個月要繳多少</span></p>
       <p class="print-only print-stamp" id="printStamp"></p>
     </section>
@@ -1644,6 +2109,7 @@ document.documentElement.classList.add('js');
   <!-- ================= 右欄：試算結果（手機為底部抽屜） ================= -->
   <aside class="col-side" id="result" aria-labelledby="rsTitle">
     <div class="result">
+      <span class="rs-aura" aria-hidden="true"><i></i></span>
       <div class="rs-body">
         <div class="sheet-bar">
           <p class="sb-ttl"><b id="rsTitleM">試算結果</b><span class="rs-stamp" id="pStamp2"></span></p>
@@ -1651,7 +2117,7 @@ document.documentElement.classList.add('js');
         </div>
         <h2 class="sr" id="rsTitle">試算結果</h2>
         <p class="rs-label rs-first"><span>成交時要準備的現金</span><span class="rs-stamp" id="pStamp">僅供參考</span></p>
-        <div class="hero-num"><span class="glow" aria-hidden="true"></span><span id="pCash">─</span><span class="u">萬</span><span class="from" id="pFrom" hidden>起</span></div>
+        <div class="hero-num"><span class="glow" aria-hidden="true"></span><span id="pCash">─</span><span class="u">萬</span><span class="from" id="pFrom" hidden>起</span><svg class="cine-ring" id="cineRing" viewBox="0 0 84 84" aria-hidden="true" focusable="false"><defs><pattern id="cineHatch" width="4.5" height="4.5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="4.5" height="4.5" fill="#F7E7DD"/><rect width="1.7" height="4.5" fill="#B4593A"/></pattern></defs><path class="rg-track" d="M42 8a34 34 0 1 1 0 68a34 34 0 1 1 0-68"/><path class="rg-s rg-1" pathLength="100" d="M42 8a34 34 0 1 1 0 68a34 34 0 1 1 0-68"/><path class="rg-s rg-2" pathLength="100" d="M42 8a34 34 0 1 1 0 68a34 34 0 1 1 0-68"/><path class="rg-s rg-3" pathLength="100" d="M42 8a34 34 0 1 1 0 68a34 34 0 1 1 0-68"/><path class="rg-3o" pathLength="100" d="M42 3a39 39 0 1 1 0 78a39 39 0 1 1 0-78"/><circle class="rg-in" cx="42" cy="42" r="26"/><path class="rg-house" d="M32.5 50.5V40.5L42 33l9.5 7.5v10zM39 50.5v-5.5h6v5.5"/></svg></div>
         <p class="rs-sub" id="pCashSub"></p>
         <div class="stack" id="pStack" role="img" aria-label=""></div>
         <div class="legend" id="pLegend"></div>
@@ -2005,8 +2471,9 @@ function syncPlanUI() {
 }
 
 /* ===== 資格檢核 =====
-   注意：「年齡 + 年限 ≤ 80」不是「不符資格」，而是「年限要縮短」— 不可列入 pass 判定 */
-function checkEligibility(priceWan) {
+   注意：「年齡 + 年限 ≤ 80」不是「不符資格」，而是「年限要縮短」— 不可列入 pass 判定
+   apprWan：使用者填的銀行鑑價（萬，空白＝0）。只用在總價上限：財政部「以鑑價或買賣總價較高者認定」 */
+function checkEligibility(priceWan, apprWan) {
   const noHouse = $('noHouse').checked;
   const items = [];
 
@@ -2043,10 +2510,17 @@ function checkEligibility(priceWan) {
     : `本人年所得 <b>${income} 萬</b> > 200 萬 — <b>不符合排富門檻</b>` });
 
   const priceCap = QA3_PRICE_CAP[city];
-  const priceOk = priceWan <= priceCap;   // 條文為「不得超過」，恰好等於上限仍可
-  items.push({ st: priceOk ? 'pass' : 'fail', txt: priceOk
-    ? `${CITY_NAME[city]}總價上限 <b>${priceCap.toLocaleString('zh-TW')} 萬</b>，本案 ${priceWan.toLocaleString('zh-TW')} 萬，符合`
-    : `${CITY_NAME[city]}總價上限 <b>${priceCap.toLocaleString('zh-TW')} 萬</b>，本案 <b>${priceWan.toLocaleString('zh-TW')} 萬已超過</b> — 不得申貸青安3.0` });
+  /* 總價上限以「鑑價、成交價較高者」認定（2026-10-04 景泰核可）；鑑價沒填或不高於成交價時，文字與判斷都跟原本一樣 */
+  const capByAppr = apprWan > priceWan;
+  const capBasisWan = capByAppr ? apprWan : priceWan;
+  const priceOk = capBasisWan <= priceCap;   // 條文為「不得超過」，恰好等於上限仍可
+  items.push({ st: priceOk ? 'pass' : 'fail', txt: capByAppr
+    ? (priceOk
+      ? `${CITY_NAME[city]}總價上限 <b>${priceCap.toLocaleString('zh-TW')} 萬</b>，本案以較高的鑑價 ${apprWan.toLocaleString('zh-TW')} 萬認定，符合`
+      : `${CITY_NAME[city]}總價上限 <b>${priceCap.toLocaleString('zh-TW')} 萬</b>，本案以較高的鑑價 <b>${apprWan.toLocaleString('zh-TW')} 萬</b>認定，<b>已超過</b> — 不得申貸青安3.0`)
+    : (priceOk
+      ? `${CITY_NAME[city]}總價上限 <b>${priceCap.toLocaleString('zh-TW')} 萬</b>，本案 ${priceWan.toLocaleString('zh-TW')} 萬，符合`
+      : `${CITY_NAME[city]}總價上限 <b>${priceCap.toLocaleString('zh-TW')} 萬</b>，本案 <b>${priceWan.toLocaleString('zh-TW')} 萬已超過</b> — 不得申貸青安3.0`) });
 
   // 婚育可複選，同時符合取較高者
   const isNewlywed = $('famNewlywed').checked;
@@ -2060,7 +2534,7 @@ function checkEligibility(priceWan) {
     : `婚育狀況「${famLabel}」→ 額度上限 <b>${cap.toLocaleString('zh-TW')} 萬</b>` });
 
   const pass = noHouse && ageOk && incomeOk && priceOk;   // ⚠️ 不含 yearsOk
-  return { items, pass, cap, maxYears, priceCap, city, capReason: '青安3.0 額度上限' };
+  return { items, pass, cap, maxYears, priceCap, priceOk, capByAppr, capBasisWan, city, capReason: '青安3.0 額度上限' };
 }
 
 function renderEligibility(elig) {
@@ -2069,11 +2543,13 @@ function renderEligibility(elig) {
     `<div class="elig-item ${i.st}"><span class="ic" aria-hidden="true">${ic[i.st]}</span><span>${i.txt}</span></div>`
   ).join('');
   const v = $('eligVerdict');
+  /* 只切換 ok／no，不整個覆蓋 className（畫面外暫停用的 cine-off 等狀態要留著） */
+  v.classList.add('elig-verdict');
+  v.classList.toggle('ok', !!elig.pass);
+  v.classList.toggle('no', !elig.pass);
   if (elig.pass) {
-    v.className = 'elig-verdict ok';
     v.innerHTML = `<span class="vic" aria-hidden="true">✅</span> 初步符合青安3.0，額度上限 ${elig.cap.toLocaleString('zh-TW')} 萬<br><span class="vsub">仍須經銀行審核（收入、信用、鑑價）。依財政部青安3.0定案方案（2026/07）。</span>`;
   } else {
-    v.className = 'elig-verdict no';
     v.innerHTML = `<span class="vic" aria-hidden="true">❌</span> 不符合青安3.0條件<br><span class="vsub">可改選上方「只算一般房貸」試算。</span>`;
   }
 }
@@ -2109,7 +2585,7 @@ function render() {
   /* --- 資格與額度 --- */
   let elig = null, capWan = Infinity, qaBlocked = false;
   if (plan === 'qa3') {
-    elig = checkEligibility(priceWan);
+    elig = checkEligibility(priceWan, apprAmountWan);   // 總價上限用鑑價、成交價較高者
     renderEligibility(elig);
     if (elig.pass) {
       capWan = elig.cap;
@@ -2145,18 +2621,14 @@ function render() {
   const qaPart = useQA ? Math.min(loanAmount, qaMaxByRatio, capAmt) : 0;
   const extraPart = Math.max(0, loanAmount - qaPart);
 
-  /* 鑑價高於成交價、而且超過青安總價上限（成交價本身沒超過）：青安以兩者較高者認定，只提醒、不改資格判斷 */
-  const apprOverCap = !!(elig && apprAmountWan > priceWan && apprAmountWan > elig.priceCap && priceWan <= elig.priceCap);
-
-  /* 鑑價欄下方的即時說明（跟成交價比） */
+  /* 鑑價欄下方的即時說明（跟成交價比）。鑑價超過青安總價上限已由「資格檢核」直接判定，這裡不再另外提醒 */
   const ah = $('apprHint');
-  ah.classList.toggle('low', apprAmountWan > 0 && (apprValue < price || apprOverCap));
+  ah.classList.toggle('low', apprAmountWan > 0 && apprValue < price);
   if (!(apprAmountWan > 0)) ah.textContent = price > 0 ? `跟成交價一樣（${wan(price)} 萬）` : '跟成交價一樣';
   else if (!(price > 0)) ah.textContent = '成交總價還沒填，填好就會跟成交價比較';
   else if (Math.abs(apprValue - price) < 1) ah.textContent = '跟成交價一樣';
   else if (apprValue < price) ah.innerHTML = `＝成交價的 <b>${apprPct}%</b>，比成交價少 <b>${wan(price - apprValue)} 萬</b>`;
-  else ah.innerHTML = `＝成交價的 <b>${apprPct}%</b>，高於成交價，銀行仍以成交價計算`
-    + (apprOverCap ? `<br><span class="appr-cap">青安總價上限以「鑑價、成交價較高者」認定：鑑價已超過${CITY_NAME[elig.city]}上限 ${elig.priceCap.toLocaleString('zh-TW')} 萬，可能不符合青安3.0，請先跟銀行確認。</span>` : '');
+  else ah.innerHTML = `＝成交價的 <b>${apprPct}%</b>，高於成交價，銀行仍以成交價計算`;
   $('apprClear').hidden = $('apprAmount').value === '';
   $('ratioHint').innerHTML = (plan === 'none')
     ? `依央行規定：<b>第 1 戶（名下無房）未訂成數上限</b>、<b>第 2 戶最高 7 成</b>（2026/09/18 起由 6 成放寬，且不得有寬限期）、第 3 戶以上與高價住宅另有更嚴格限制（請洽銀行確認）。全國核貸成數中位數約 <b>75.1%</b>（對鑑估值，聯徵中心 2026/03 期）— 8 成偏樂觀`
@@ -2339,7 +2811,7 @@ function render() {
   /* --- 畫面呈現（右側結果面板、手機底部列、摘要）：只讀取上面算好的數字 --- */
   updatePanel({
     priceWan, price, apprAmountWan, apprPct, apprValue, loanRatio, base, bankMax, suggested, manual, loanAmount,
-    landWan, houseWan, landCurWan, noBase, feeTotal, downPay, gapExtra, cashTotal, apprOverCap,
+    landWan, houseWan, landCurWan, noBase, feeTotal, downPay, gapExtra, cashTotal,
     blankFees: fees.filter(f => f.blank).map(f => f.name),
     fees: fees.map(f => ({ name: f.name, amount: f.amount, blank: !!f.blank })),
     plan, elig, qaBlocked, useQA, qaPart, extraPart, qaRate, baseRate,
@@ -2677,11 +3149,12 @@ function updatePanel(s) {
   document.querySelectorAll('.yn [data-yn]').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.yn === '1') === nh)));
   document.querySelectorAll('.toggle[data-for]').forEach(l => l.classList.toggle('on', $(l.dataset.for).checked));
   if (s.elig) {
-    const ok = s.priceWan <= s.elig.priceCap;
+    const ok = s.elig.priceOk;   // 跟資格檢核同一個判斷（鑑價、成交價較高者）
     const pa = $('priceAuto');
     pa.className = 'auto-v ' + (ok ? 'ok' : 'no');
-    pa.textContent = `${CITY_NAME[s.elig.city]}上限 ${zh(s.elig.priceCap)} 萬，本案 ${zh(s.priceWan)} 萬，${ok ? '符合' : '已超過'}`
-      + (s.apprOverCap ? `；但鑑價 ${zh(s.apprAmountWan)} 萬已超過上限，請跟銀行確認` : '');
+    pa.textContent = `${CITY_NAME[s.elig.city]}上限 ${zh(s.elig.priceCap)} 萬，`
+      + (s.elig.capByAppr ? `本案以較高的鑑價 ${zh(s.elig.capBasisWan)} 萬認定，` : `本案 ${zh(s.priceWan)} 萬，`)
+      + (ok ? '符合' : '已超過');
   }
 
   /* --- 結果面板：要準備的現金 --- */
@@ -2695,7 +3168,8 @@ function updatePanel(s) {
     const f = document.createElement('span'); f.className = 'from'; f.textContent = '起';
     ctv.insertBefore(f, $('cashTotalPct'));
   }
-  if (tweenNum('pCash', $('pCash'), wan(s.cashTotal), true)) glow(document.querySelector('.hero-num .glow'));
+  const cashCh = odo('pCash', $('pCash'), wan(s.cashTotal));
+  if (cashCh) glow(document.querySelector('.hero-num .glow'));
   $('pFrom').hidden = !s.noBase;
   tweenNum('pCashSub', $('pCashSub'), s.price > 0
     ? `約 ${fmt(s.cashTotal)} 元・佔總價 ${(s.cashTotal / s.price * 100).toFixed(1)}%`
@@ -2801,13 +3275,15 @@ function updatePanel(s) {
   }
 
   /* --- 手機底部列 --- */
-  if (tweenNum('dCash', $('dCash'), wan(s.cashTotal), true)) glow(document.querySelector('.dk-cash .glow'));
+  const dockCh = odo('dCash', $('dCash'), wan(s.cashTotal));
+  if (dockCh) glow(document.querySelector('.dk-cash .glow'));
   setText('dCashU', s.noBase ? '萬起' : '萬');
-  tweenNum('dMonth', $('dMonth'), monthTxt, false);
+  const monthCh = tweenNum('dMonth', $('dMonth'), monthTxt, false);
   s.monthTxt = monthTxt;
   s.monthParts = monthParts;
 
-  /* --- 動態收尾：資格結論交叉淡入、新出現的提醒框淡入；列印簡表跟著最新結果重畫 --- */
+  /* --- 動態收尾：計數器、光環、光點、打勾；資格結論交叉淡入、新出現的提醒框淡入；列印簡表跟著最新結果重畫 --- */
+  cineAfterUpdate(s, cashCh, dockCh || monthCh);
   verdictFade();
   fadeNewNotes();
   buildPrintSheet();
@@ -2912,11 +3388,12 @@ function glow(g) {
 /* 打字中（用鍵盤在數字欄輸入）：數字直接顯示最終值、圖不動、提醒框不淡入；停手 350ms 後只發光一次 */
 var typing = false, typingTimer = 0, typingFrom = null;
 function markTyping() {
-  if (!typing) { typingFrom = twFinal.get('pCash'); twFinishAll(); typing = true; }
+  if (!typing) { typingFrom = odoPrev.get('pCash'); twFinishAll(); odoFinishAll(); typing = true; }
+  if (typeof cineHushFor === 'function') cineHushFor(1500);
   clearTimeout(typingTimer);
   typingTimer = setTimeout(() => {
     typing = false;
-    if (twFinal.get('pCash') !== typingFrom) {
+    if (odoPrev.get('pCash') !== typingFrom) {
       glow(document.querySelector('.hero-num .glow'));
       glow(document.querySelector('.dk-cash .glow'));
     }
@@ -2956,6 +3433,16 @@ function chartGrow(delay, quick) {
     { duration: 300, delay: base + (quick ? 30 : 60) + i * 25, easing: EASE_OUT, fill: 'backwards' }));
   c.querySelectorAll('.tl-ref, .tl-reflbl, .tl-x, .tl-rt, .tl-br').forEach(el => el.animate([{ opacity: 0 }, { opacity: 1 }],
     { duration: 320, delay: base + 80, easing: 'ease-out', fill: 'backwards' }));
+  const rf = c.querySelector('.tl-ref');
+  if (rf) rf.animate([{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0 0 0)' }], { duration: 1000, delay: base + 200, easing: EASE_OUT, fill: 'backwards' });
+  /* 跳升光點：等它那一根長條長完才冒出來（不先懸在半空中） */
+  const orb = c.querySelector('.cine-jorb');
+  if (orb) {
+    const k = Math.max(0, Array.from(c.querySelectorAll('.tl-col')).indexOf(orb.parentElement));
+    orb.animate([{ opacity: 0, transform: 'scale(.4)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: base + k * 25 + 400, easing: 'cubic-bezier(.34, 1.56, .64, 1)', fill: 'backwards' });
+    orb.classList.add('is-pulse');
+  }
+  setTimeout(chartRise, base);
 }
 /* 數字改變：長條高度、標籤、虛線從舊位置平順移到新位置（只用 transform） */
 function animateChart(prev) {
@@ -2978,6 +3465,7 @@ function animateChart(prev) {
     if (prev[k] == null) el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 360, easing: 'ease-out' });
     else if (Math.abs(now[k] - prev[k]) > .5) el.animate([{ transform: `translateY(${(now[k] - prev[k]).toFixed(1)}px)` }, { transform: 'none' }], opt);
   });
+  if (prev.bars.some((h, i) => Math.abs(h - now.bars[i]) > .5)) chartRise();
 }
 
 /* --- 4. 成數切換：白底塊滑到選中的那一格（自訂成數時淡出） --- */
@@ -3072,22 +3560,25 @@ function drawChecks() {
 
 /* --- 10. 資格結論翻面時交叉淡入；新出現的提醒框淡入 --- */
 let lastVerdict = null;
+const verdictCls = (v) => 'elig-verdict ' + (v.classList.contains('ok') ? 'ok' : (v.classList.contains('no') ? 'no' : ''));
 function verdictFade() {
   const v = $('eligVerdict');
-  const cur = { cls: v.className, html: v.innerHTML };
+  const cur = { cls: verdictCls(v), html: v.innerHTML };
   const prev = lastVerdict;
   lastVerdict = cur;
   if (!prev || prev.cls === cur.cls || !canAnim(v) || !v.offsetParent) return;
-  /* 舊結論蓋在新結論上淡出（放在旁邊、不放進 #eligVerdict 裡，結論文字本身一律是最終值） */
+  /* 依序換，不交叉疊字：舊結論（不透明的舊底色）先把字淡掉 140ms，再把舊底色淡掉、露出新結論。
+     同一時間只看得到一句話、一顆光球（放在旁邊、不放進 #eligVerdict 裡，結論文字本身一律是最終值） */
   const host = v.offsetParent;
   if (!host) return;
   const ov = document.createElement('div');
-  ov.className = prev.cls;
-  ov.innerHTML = prev.html;
+  ov.className = prev.cls + ' vf-ov';
+  ov.innerHTML = `<div class="vf-in">${prev.html}</div>`;
   ov.setAttribute('aria-hidden', 'true');
-  ov.style.cssText = `position:absolute;margin:0;pointer-events:none;box-sizing:border-box;left:${v.offsetLeft}px;top:${v.offsetTop}px;width:${v.offsetWidth}px;height:${v.offsetHeight}px;overflow:hidden;`;
+  ov.style.cssText = `position:absolute;margin:0;pointer-events:none;box-sizing:border-box;left:${v.offsetLeft}px;top:${v.offsetTop}px;width:${v.offsetWidth}px;height:${v.offsetHeight}px;overflow:hidden;transition:none;`;
   v.after(ov);
-  const a = ov.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 460, easing: 'ease-out', fill: 'forwards' });
+  ov.firstChild.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: 'ease-in', fill: 'forwards' });
+  const a = ov.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, delay: 140, easing: 'ease-out', fill: 'forwards' });
   a.onfinish = () => ov.remove();
   setTimeout(() => ov.remove(), 800);
 }
@@ -3136,6 +3627,725 @@ function jumpTo(d, focusEl) {
 }
 
 /* =====================================================================
+   電影感層（只動畫面，不參與任何計算）：
+   天空場景（光塵畫布、滑鼠景深視差）、光線房子、數字計數器、現金組成光環、
+   月付圖光點、資格燈號與打勾、卡片 3D 傾斜、按鈕漣漪、標題光掃。
+   減少動態時：畫一張靜態畫面、數字直接顯示最終值、不綁任何動態事件。
+   ===================================================================== */
+const FINE_POINTER = (() => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch (e) { return false; } })();
+const COARSE = (() => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } })();
+
+/* --- 12. 數字計數器（odometer）：真正的里程表。
+       用同一條減速曲線把「數值本身」從舊值補到新值，每一位的位置由這個值換算：
+       最低位連續轉，高位只在低位從 9 繞回 0 的那一下才進位 → 畫面上的數字永遠在舊值和新值之間、只朝一個方向走。
+       欄位裡的文字一律是最終值（測試、輔助工具、複製貼上都讀得到正確數字），捲動的數字帶只是畫面；捲完就攤平回純文字 --- */
+const odoPrev = new Map();     // key → 上一次的最終文字
+const odoState = new Map();    // key → 正在捲的狀態
+const odoRun = new Set();
+let odoRaf = 0;
+const NUM1_RE = /\d[\d,]*(?:\.\d+)?/;
+function odoParse(t) {
+  const m = String(t).match(NUM1_RE);
+  if (!m) return null;
+  const raw = m[0].replace(/,/g, ''), dot = raw.indexOf('.');
+  return { v: parseFloat(raw), dp: dot < 0 ? 0 : raw.length - dot - 1, il: (dot < 0 ? raw : raw.slice(0, dot)).length };
+}
+/* lead：舊值比新值多出來的整數位數（例 105 → 95），在最前面多放幾欄，捲到 0 時淡出收起來 */
+function odoBuild(el, text, lead) {
+  const m = text.match(NUM1_RE), cols = [];
+  const frag = document.createDocumentFragment();
+  let s = m ? m.index : -1, e = m ? m.index + m[0].length : -1, buf = '';
+  const intLen = m ? m[0].split('.')[0].replace(/,/g, '').length : 0;
+  let nInt = 0, nFrac = 0, afterDot = false;
+  const flush = () => { if (buf) { frag.append(document.createTextNode(buf)); buf = ''; } };
+  const col = (ch, place, extra) => {
+    const c = document.createElement('span'); c.className = extra ? 'od-c od-x' : 'od-c';
+    const t = document.createElement('span'); t.className = 'od-t'; t.textContent = ch;
+    const st = document.createElement('span'); st.className = 'od-s'; st.setAttribute('aria-hidden', 'true');
+    c.append(t, st); frag.append(c);
+    cols.push({ c, s: st, place, extra });
+  };
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (i >= s && i < e && ch >= '0' && ch <= '9') {
+      flush();
+      if (i === s) for (let q = lead; q >= 1; q--) col('', intLen - 1 + q, true);
+      col(ch, afterDot ? -(++nFrac) : intLen - (++nInt), false);
+    } else {
+      if (i >= s && i < e && ch === '.') afterDot = true;
+      buf += ch;
+    }
+  }
+  flush();
+  el.replaceChildren(frag);
+  return cols;
+}
+const ODO_EASE = [.16, .84, .26, 1];
+function bez(t, p1, p2) { const u = 1 - t; return 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t; }
+function easeAt(x) {
+  let lo = 0, hi = 1, t = x;
+  for (let i = 0; i < 18; i++) { t = (lo + hi) / 2; if (bez(t, ODO_EASE[0], ODO_EASE[2]) < x) lo = t; else hi = t; }
+  return bez(t, ODO_EASE[1], ODO_EASE[3]);
+}
+/* 數字在不在畫面上：用 IntersectionObserver 記著（重算時不能量版面，量一次就是整頁重排） */
+const odoSeen = new WeakMap();
+const odoIO = 'IntersectionObserver' in window ? new IntersectionObserver((ents) => ents.forEach(en => odoSeen.set(en.target, en.isIntersecting))) : null;
+function odoVisible(el) {
+  const host = el.closest('.hero-num, .dk-cash, .cash-total');
+  if (!host || !odoIO) return true;
+  if (!odoSeen.has(host)) { odoSeen.set(host, false); odoIO.observe(host); return false; }
+  return odoSeen.get(host);
+}
+/* 某一位在數值 V（以最低位為 1 的單位）時停在數字帶的哪裡：本位數字＋（下面幾位都是 9 時）正在進位的那一點 */
+function odoApply(st, V) {
+  st.cols.forEach((o) => {
+    if (!o.roll) return;
+    const P = o.P, hi = Math.floor(V / P);
+    const pos = (hi % 10) + Math.max(0, (V - hi * P) - (P - 1));
+    o.s.style.transform = `translateY(${(-pos * 100 / 30).toFixed(3)}%)`;
+    if (o.lead) {
+      const op = hi > 0 ? 1 : Math.min(1, pos);
+      o.c.style.opacity = op.toFixed(3);
+      if (o.extra) o.c.style.width = op.toFixed(3) + 'ch';
+    }
+  });
+}
+function odoFrame(now) {
+  odoRaf = 0;
+  odoRun.forEach((st) => {
+    if (!st.el.isConnected) { odoStop(st); return; }
+    const x = Math.min(1, Math.max(0, (now - st.t0) / st.dur));
+    const V = st.A + (st.B - st.A) * easeAt(x);
+    st.cur = V / st.sc;
+    if (x >= 1) odoStop(st); else odoApply(st, V);
+  });
+  if (odoRun.size && !odoRaf) odoRaf = requestAnimationFrame(odoFrame);
+}
+/* 停下來：攤平回純文字（DOM 少、列印與複製都是正常的數字） */
+function odoStop(st) {
+  odoRun.delete(st);
+  if (odoState.get(st.key) === st) odoState.delete(st.key);
+  if (st.el._odo === st) st.el._odo = null;
+  if (st.el.isConnected && st.el.textContent !== st.final) st.el.textContent = st.final;
+  else if (st.el.isConnected) st.el.replaceChildren(document.createTextNode(st.final));
+}
+function odo(key, el, finalText) {
+  if (!el) return false;
+  finalText = String(finalText);
+  el.setAttribute('data-final', finalText);
+  el.setAttribute('aria-label', finalText);
+  const prev = odoPrev.get(key);
+  odoPrev.set(key, finalText);
+  const changed = prev !== undefined && prev !== finalText;
+  const live = odoState.get(key);
+  if (!changed) {   // 同一個值重畫（視窗縮放）：正在捲就繼續捲
+    if (!(live && live.el === el) && el.textContent !== finalText) el.textContent = finalText;
+    return false;
+  }
+  const a = odoParse(prev), b = odoParse(finalText);
+  let fromV = a ? a.v : null, fromDp = a ? a.dp : 0;
+  if (live) { fromV = live.cur; fromDp = live.dp; odoStop(live); }
+  if (typing || reduced() || inClosedSheet(el) || !odoVisible(el) || !b || fromV == null || Math.abs(fromV - b.v) < 1e-9) {
+    el._odo = null;
+    el.textContent = finalText;
+    return changed;
+  }
+  const dp = Math.max(b.dp, fromDp), sc = Math.pow(10, dp);
+  const A = fromV * sc, B = Math.round(b.v * sc);
+  const ilA = String(Math.floor(fromV)).length;
+  const lead = Math.max(0, ilA - b.il);
+  const cols = odoBuild(el, finalText, lead);
+  const minIl = Math.min(ilA, b.il);
+  cols.forEach((o) => {
+    o.j = o.place + dp; o.P = Math.pow(10, o.j);
+    o.roll = o.extra || Math.floor(A / o.P) !== Math.floor(B / o.P);
+    o.lead = o.place >= minIl;
+    if (o.roll) o.c.classList.add('is-roll');
+  });
+  const st = { key, el, cols, A, B, sc, dp, cur: fromV, final: finalText, t0: performance.now(),
+    dur: 760 + Math.min(420, Math.log10(Math.abs(B - A) + 1) * 110) };
+  el._odo = st;
+  odoState.set(key, st);
+  odoApply(st, A);   // 第一格就放在舊值的位置，不會閃一下最終數字
+  odoRun.add(st);
+  if (!odoRaf) odoRaf = requestAnimationFrame(odoFrame);
+  return changed;
+}
+function odoFinishAll() {
+  Array.from(odoRun).forEach(odoStop);
+}
+/* 自備款明細的總額（#cashTotal 由試算本體整段重畫）：把開頭那個數字包成計數器，文字不變 */
+function odoCashTotal(s) {
+  const ct = $('cashTotal');
+  if (!ct) return;
+  const tn = ct.firstChild;
+  const fin = wan(s.cashTotal);
+  if (!tn || tn.nodeType !== 3 || tn.nodeValue.indexOf(fin) !== 0) return;
+  const sp = document.createElement('span');
+  sp.className = 'odo';
+  tn.nodeValue = tn.nodeValue.slice(fin.length);
+  ct.insertBefore(sp, tn);
+  return odo('cashTotal', sp, fin);
+}
+
+/* --- 13. 現金組成光環（頭期款／稅費雜支／還沒算的那幾項）：第一次看到時畫出來，之後數字變了平順轉到新比例 --- */
+let ringTarget = null, ringDrawn = false;
+function ringApply() {
+  const svg = $('cineRing');
+  if (!svg || !ringTarget) return;
+  const segs = svg.querySelectorAll('.rg-s');
+  ringTarget.forEach((t, i) => {
+    const c = segs[i];
+    if (!c) return;
+    c.style.strokeDasharray = ringDrawn ? `${t.len.toFixed(3)} ${(100 - t.len).toFixed(3)}` : '0 100';
+    c.style.strokeDashoffset = (-t.start).toFixed(3);
+    c.style.opacity = t.len > 0 ? '1' : '0';
+  });
+  const o = svg.querySelector('.rg-3o'), u = ringTarget[2];
+  if (o) { o.style.strokeDasharray = u.len > 0 ? `0 ${u.start.toFixed(3)} ${u.len.toFixed(3)} 100` : '0 100'; }
+  svg.classList.toggle('has-un', ringDrawn && u.len > 0);
+  svg.classList.toggle('is-drawn', ringDrawn);
+}
+function cineRing(s) {
+  const tot = s.downPay + s.feeTotal;
+  const parts = [s.downPay > 0 && tot > 0 ? s.downPay / tot * 100 : 0, s.feeTotal > 0 && tot > 0 ? s.feeTotal / tot * 100 : 0, s.noBase ? 6 : 0];
+  const on = parts.filter(p => p > 0).length;
+  const gap = on > 1 ? 1.6 : 0;
+  const sum = parts.reduce((x, y) => x + y, 0) || 1;
+  const avail = 100 - gap * on;
+  let at = 0;
+  ringTarget = parts.map((p) => {
+    const len = p > 0 ? Math.max(.8, p / sum * avail) : 0;
+    const seg = { start: at, len };
+    if (len > 0) at += len + gap;
+    return seg;
+  });
+  ringApply();
+}
+function ringDraw() {
+  if (ringDrawn) return;
+  const svg = $('cineRing');
+  if (!svg || (MQ_M.matches && !document.body.classList.contains('sheet-open'))) return;
+  ringDrawn = true;
+  if (reduced()) { ringApply(); return; }
+  void svg.getBoundingClientRect();
+  requestAnimationFrame(() => requestAnimationFrame(ringApply));
+}
+
+/* --- 14. 月付圖：寬限期結束、月付跳上去的那一年放一顆呼吸光點；長條長出來時帶一圈柔光 --- */
+function cineChartOrb() {
+  const c = $('pChart'), pj = $('pJump');
+  if (!c || !pj || pj.hidden) return;
+  const cols = Array.from(c.querySelectorAll('.tl-col'));
+  const k = cols.findIndex((col, i) => i > 0 && col.classList.contains('pay') && !cols[i - 1].classList.contains('pay'));
+  if (k < 0) return;
+  const bar = cols[k].querySelector('.tl-bar');
+  const o = document.createElement('span');
+  o.className = 'cine-jorb';
+  o.setAttribute('aria-hidden', 'true');
+  o.style.bottom = Math.max(0, (parseFloat(bar.style.height) || 0)) + 'px';
+  cols[k].append(o);
+  if (canAnim(o) && chartRevealed && chartOnScreen()) o.classList.add('is-pulse');
+  if (canAnim(o) && chartRevealed && chartOnScreen()) o.animate([{ opacity: 0, transform: 'scale(.4)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: 380, easing: 'cubic-bezier(.34, 1.56, .64, 1)', fill: 'backwards' });
+}
+function chartRise() {
+  const c = $('pChart');
+  if (!c || !canAnim(c)) return;
+  c.querySelectorAll('.tl-bar').forEach((b, i) => b.style.setProperty('--bd', (i * 0.05).toFixed(2) + 's'));
+  c.classList.remove('is-rise');
+  requestAnimationFrame(() => c.classList.add('is-rise'));
+  clearTimeout(c._rise);
+  c._rise = setTimeout(() => c.classList.remove('is-rise'), 2000);
+}
+
+/* --- 15. 青安資格：每一條的打勾／打叉一筆一筆畫出來（狀態有變的那條才重畫；第一次捲到才畫） --- */
+const TICK_SVG = {
+  pass: '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path pathLength="1" d="M5.2 10.6l3.2 3.2 6.4-7.4"/></svg>',
+  fail: '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path pathLength="1" d="M6.4 6.4l7.2 7.2"/><path pathLength="1" d="M13.6 6.4l-7.2 7.2"/></svg>'
+};
+let tickSeen = new Set(), eligShown = false, lastVerdictCls = null;
+function cineElig() {
+  const list = $('eligList');
+  if (!list) return;
+  const items = Array.from(list.querySelectorAll('.elig-item'));
+  const now = [];
+  const anim = eligShown && !typing && !reduced();
+  let k = 0;
+  items.forEach((it, i) => {
+    const stt = it.classList.contains('pass') ? 'pass' : (it.classList.contains('fail') ? 'fail' : 'note');
+    const key = stt + '|' + (it.textContent || '').replace(/[\d,.\s]/g, '').slice(0, 14);
+    now.push(key);
+    if (stt === 'note') return;
+    const ic = it.querySelector('.ic');
+    if (!ic || ic.querySelector('svg')) return;
+    ic.insertAdjacentHTML('beforeend', TICK_SVG[stt]);
+    ic.classList.add('has-svg');
+    if (!eligShown && !reduced()) ic.classList.add('pre');
+    else if (anim && !tickSeen.has(key)) { ic.style.setProperty('--dl', (k++ * 0.08).toFixed(2) + 's'); ic.classList.add('draw'); }
+  });
+  tickSeen = new Set(now);
+  const v = $('eligVerdict');
+  if (v) {
+    const vc = verdictCls(v);
+    if (lastVerdictCls && lastVerdictCls !== vc && anim) { v.classList.add('is-flip'); setTimeout(() => v.classList.remove('is-flip'), 800); }
+    lastVerdictCls = vc;
+  }
+}
+function eligReveal() {
+  if (eligShown) return;
+  eligShown = true;
+  let k = 0;
+  document.querySelectorAll('#eligList .ic.pre').forEach(ic => {
+    ic.classList.remove('pre');
+    if (!reduced()) { ic.style.setProperty('--dl', (k++ * 0.11).toFixed(2) + 's'); ic.classList.add('draw'); }
+  });
+}
+
+/* --- 16. 每次重算之後：計數器、光環、堆疊條光掃、底部列光掃、圖上光點、打勾 --- */
+function shimmer(el, cls) {
+  if (!el || typing || reduced()) return;
+  /* 先拿掉、下一格再加回去：動畫重播，又不必強迫整頁重排 */
+  el.classList.remove(cls);
+  requestAnimationFrame(() => el.classList.add(cls));
+  clearTimeout(el['_' + cls]);
+  el['_' + cls] = setTimeout(() => el.classList.remove(cls), 1600);
+}
+function cineAfterUpdate(s, cashChanged, dockChanged) {
+  if (cashChanged || dockChanged) { cineHushFor(1200); if (cashChanged && !inClosedSheet($('result'))) auraLive(); }
+  odoCashTotal(s);
+  cineRing(s);
+  if (!MQ_M.matches) ringDraw();
+  if (cashChanged && !inClosedSheet($('pStack'))) shimmer($('pStack'), 'is-shim');
+  if (dockChanged && MQ_M.matches && !document.body.classList.contains('dock-off') && !document.body.classList.contains('sheet-open')) shimmer($('dock'), 'is-shim');
+  cineChartOrb();
+  cineElig();
+}
+
+/* --- 17. 卡片 3D 傾斜＋邊框光掃＋跟著滑鼠的光暈（只在滑鼠裝置、非減少動態） --- */
+function cineTilt(el, max) {
+  if (!FINE_POINTER || reduced() || !el || el.dataset.cineTilt) return;
+  el.dataset.cineTilt = '1';
+  el.classList.add('cine-card');
+  const fx = document.createElement('span');
+  fx.className = 'cine-cfx';
+  fx.setAttribute('aria-hidden', 'true');
+  fx.innerHTML = '<span class="cine-cring"><span class="cine-csweep"></span></span><span class="cine-cspot"><i></i></span>';
+  el.prepend(fx);
+  const spot = fx.querySelector('.cine-cspot > i');
+  let raf = 0, rect = null, sy0 = 0, rx = 0, ry = 0, gx = 0, gy = 0, idle = 0;
+  /* 傾斜時整張卡（含字）會被重新取樣、字會變毛：角度壓在 1.5 度內，滑鼠停住 150ms 就回正（停下來讀字時一定是清楚的） */
+  const apply = () => {
+    raf = 0;
+    el.style.transform = (rx || ry) ? `perspective(900px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) translateY(-3px)` : 'translateY(-3px)';
+    spot.style.transform = `translate3d(${gx.toFixed(1)}px,${gy.toFixed(1)}px,0)`;
+  };
+  const settle = () => {
+    idle = 0; rx = 0; ry = 0;
+    el.style.transition = 'transform .32s ease-out, box-shadow .45s ease, background-color .22s ease, border-color .22s ease';
+    if (!raf) raf = requestAnimationFrame(apply);
+  };
+  el.addEventListener('pointerenter', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    el.style.transition = 'transform .2s ease-out, box-shadow .45s ease, background-color .22s ease, border-color .22s ease';
+    rect = el.getBoundingClientRect(); sy0 = window.scrollY;
+    el.classList.add('is-hover');
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    if (!rect) { rect = el.getBoundingClientRect(); sy0 = window.scrollY; el.classList.add('is-hover'); }
+    const top = rect.top - (window.scrollY - sy0);
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - top) / rect.height));
+    ry = (x - .5) * 2 * max; rx = -(y - .5) * 2 * max * .8;
+    gx = x * rect.width; gy = y * rect.height;
+    el.style.transition = 'transform .2s ease-out, box-shadow .45s ease, background-color .22s ease, border-color .22s ease';
+    if (!raf) raf = requestAnimationFrame(apply);
+    clearTimeout(idle); idle = setTimeout(settle, 150);
+  });
+  el.addEventListener('pointerleave', () => {
+    cancelAnimationFrame(raf); raf = 0; rect = null; clearTimeout(idle); idle = 0;
+    el.style.transition = ''; el.style.transform = '';
+    el.classList.remove('is-hover');
+  });
+}
+function cineTiltAll() {
+  document.querySelectorAll('.plan-opt').forEach(el => cineTilt(el, 1.5));
+  document.querySelectorAll('.compare-col, .cash-total').forEach(el => cineTilt(el, 1.2));
+  document.querySelectorAll('.policy, #pzCard .agent-card').forEach(el => cineTilt(el, 1));
+}
+
+/* --- 18. 主要按鈕按下去的漣漪（從按的位置擴散，只動 transform / opacity） --- */
+const RIPPLE_SEL = '.cta, .print-btn, .ac-btn, .call, .dock';
+document.addEventListener('pointerdown', (e) => {
+  if (reduced() || e.button > 0) return;
+  let b = e.target.closest(RIPPLE_SEL);
+  if (!b) return;
+  if (b.id === 'dock') b = b.querySelector('.dk-more');
+  if (!b || typeof b.animate !== 'function') return;
+  const r = b.getBoundingClientRect();
+  const sp = document.createElement('span');
+  sp.className = 'cine-ripple';
+  sp.setAttribute('aria-hidden', 'true');
+  sp.style.left = (e.clientX - r.left) + 'px';
+  sp.style.top = (e.clientY - r.top) + 'px';
+  if (getComputedStyle(b).position === 'static') b.style.position = 'relative';
+  if (getComputedStyle(b).overflow !== 'hidden') b.style.overflow = 'hidden';
+  b.append(sp);
+  const sc = Math.max(r.width, r.height) / 24 * 2.4;
+  sp.animate([{ transform: 'scale(.3)', opacity: 1 }, { transform: `scale(${sc.toFixed(2)})`, opacity: 0 }], { duration: 620, easing: 'cubic-bezier(.22, 1, .36, 1)' })
+    .onfinish = () => sp.remove();
+  setTimeout(() => sp.remove(), 900);
+}, { passive: true });
+
+/* --- 19. 標題：小節標題捲進畫面時光掃一次（大標題的光掃是純 CSS，載入就跑） --- */
+function cineHeadGlints() {
+  const hs = Array.from(document.querySelectorAll('.step-h h2, .block > h3'));
+  hs.forEach((h) => {
+    if (h.querySelector('.cine-hglint')) return;
+    const g = document.createElement('span');
+    g.className = 'cine-hglint';
+    g.setAttribute('aria-hidden', 'true');
+    const gw = document.createElement('span'), gi = document.createElement('span');
+    gi.dataset.text = h.textContent.trim();
+    gw.append(gi); g.append(gw);
+    h.append(g);
+  });
+  if (reduced() || !('IntersectionObserver' in window)) return;
+  const io = new IntersectionObserver((ents) => ents.forEach((en) => {
+    if (!en.isIntersecting) return;
+    io.unobserve(en.target);
+    const g = en.target.querySelector('.cine-hglint');
+    const pre = en.target.closest('.rv-pre');
+    setTimeout(() => { g.classList.add('is-go'); setTimeout(() => g.classList.remove('is-go'), 1400); }, pre ? 420 : (en.target.id === 's1h' ? 1300 : 150));
+  }), { threshold: .9 });
+  hs.forEach(h => io.observe(h));
+}
+
+/* --- 20. 畫面外、分頁在背景時暫停循環動畫（按鈕光澤、卡片光掃） --- */
+function cineLoopPause() {
+  if (reduced() || !('IntersectionObserver' in window)) return;
+  const io = new IntersectionObserver((ents) => ents.forEach(en => en.target.classList.toggle('cine-off', !en.isIntersecting)));
+  document.querySelectorAll('.cta.primary, .print-btn.primary, .call, #pzCard, #eligVerdict, #pChart').forEach(el => io.observe(el));
+  window.addEventListener('wl:change', () => document.querySelectorAll('.call, #pzCard').forEach(el => { io.unobserve(el); io.observe(el); }));
+}
+
+/* =====================================================================
+   21. 主視覺舞台：天空高度、光線房子的位置（放在沒有字的空地）、光塵畫布、滑鼠景深視差
+   （移植官網 cine-stage：DPR 上限 2、觸控 30fps、畫面外／背景分頁暫停、減少動態只畫一張、文字保護）
+   ===================================================================== */
+/* 光線房子：圖形由程式建立（不放在 h1 前面，首屏的字先到）；光暈用 SVG 濾鏡（iOS 對 SVG 群組上的 CSS blur 支援不完整） */
+(function buildHouse() {
+  const hz = document.getElementById('cineHouse');
+  if (!hz || hz.firstChild) return;
+  const P = [["M8 151H232", 0.0, 0.7], ["M44 151V90M196 90V151", 0.25, 0.55], ["M28 98L120 26L212 98", 0.55, 0.8], ["M157 54V36H173V67", 1.05, 0.45], ["M109 151V120a11 11 0 0 1 22 0V151", 1.2, 0.5], ["M61 105h28v24h-28zM75 105v24M61 117h28", 1.35, 0.55], ["M151 105h28v24h-28zM165 105v24M151 117h28", 1.45, 0.55], ["M112 64a8 8 0 1 0 16 0a8 8 0 1 0-16 0", 1.55, 0.45], ["M224 151v-15M224 136c-8 0-11-7-7-12-2-7 5-12 10-8 5-4 12 1 9 8 4 5 1 12-7 12z", 1.65, 0.6]];
+  const g = (cls, extra) => `<g class="${cls}"${extra || ''}>` + P.map(([d, dl, dd]) => `<path pathLength="1" d="${d}" style="--dl:${dl}s;--dd:${dd}s"/>`).join('') + '</g>';
+  hz.innerHTML = '<div class="ch-float"><div class="ch-pool"></div><svg class="ch-svg" viewBox="0 0 240 170" focusable="false"><defs><linearGradient id="chLine" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFBF2"/><stop offset=".55" stop-color="#FCE8C2"/><stop offset="1" stop-color="#F3CF92"/></linearGradient><radialGradient id="chWin" cx=".5" cy=".55" r=".75"><stop offset="0" stop-color="#FFF7DE"/><stop offset=".6" stop-color="#FCDB9A"/><stop offset="1" stop-color="#F2BC6C" stop-opacity=".55"/></radialGradient>'
+    + '<filter id="chBlur" x="-10%" y="-15%" width="120%" height="130%"><feGaussianBlur stdDeviation="2.4"/></filter></defs>'
+    + '<g class="ch-win"><rect x="61" y="105" width="28" height="24" rx="1.5" style="--wl:.1s"/><rect x="151" y="105" width="28" height="24" rx="1.5" style="--wl:.35s"/><circle class="w2" cx="120" cy="64" r="8" style="--wl:.6s"/><path class="w2" d="M109 151V120a11 11 0 0 1 22 0V151z" style="--wl:.8s"/></g>' + g('ch-glow', ' filter="url(#chBlur)"') + g('ch-line') + g('ch-core') + '</svg></div>';
+})();
+const cine = {
+  sky: document.getElementById('cineSky'), house: document.getElementById('cineHouse'),
+  canvas: document.getElementById('cineDust'), g: null, w: 0, h: 0, dpr: 1,
+  motes: [], sprites: [], boxes: [], guard: null, gw: 0, gh: 0, GC: 16,
+  running: false, inView: true, frames: 0, t: 0, last: 0, raf: 0, work: [],
+  px: 0, py: 0, tx: 0, ty: 0, lpx: 99, lpy: 99, layers: [], started: false, drew: false
+};
+function relBox(r, base) { return { x: r.left - base.left, y: r.top - base.top, w: r.width, h: r.height }; }
+function textBoxes(el, base, out) {
+  if (!el || !el.getClientRects().length) return;
+  const rg = document.createRange();
+  rg.selectNodeContents(el);
+  Array.from(rg.getClientRects()).forEach(r => { if (r.width > 2 && r.height > 2) out.push(relBox(r, base)); });
+}
+/* 天空高度：到第 1 步卡片中段為止；光塵畫布只畫到主視覺下緣（卡片後面不用畫） */
+function cineSkyLayout() {
+  const sky = cine.sky;
+  if (!sky) return;
+  const panel = document.querySelector('#s1 .panel');
+  const st = sky.getBoundingClientRect();
+  if (panel) {
+    const pr = panel.getBoundingClientRect();
+    const h = Math.round(pr.top - st.top + Math.min(360, pr.height * .55));
+    if (h > 200) sky.style.setProperty('--sky-h', h + 'px');
+    /* 光塵只需要畫到卡片上緣附近（卡片後面看不到），畫布小一點、每格省一點 */
+    const dh = Math.round(pr.top - st.top + 60);
+    if (dh > 160) sky.style.setProperty('--dust-h', Math.min(h, dh) + 'px');
+  }
+}
+/* 房子：在主視覺裡找離字最遠的空地放（字的每一行都量），空地不夠大就不出現 */
+function cinePlaceHouse() {
+  const hz = cine.house, hero = document.querySelector('.hero');
+  if (!hz || !hero) return;
+  const hr = hero.getBoundingClientRect();
+  if (!hr.width) return;
+  const boxes = [];
+  hero.querySelectorAll('.overline, h1 .cine-title-box, .sub').forEach(el => {
+    if (el.matches('.cine-title-box')) { const r = el.getBoundingClientRect(); if (r.width) boxes.push(relBox(r, hr)); }
+    else textBoxes(el, hr, boxes);
+  });
+  const W = hr.width, mob = W < 560;
+  let right = 0;
+  boxes.forEach(b => { right = Math.max(right, b.x + b.w); });
+  const pad = mob ? 14 : 30;
+  let hw = 0, x = 0, y = 0;
+  /* 桌機：字的右邊整塊空地 */
+  const freeW = W - right - pad;
+  const ratio = 170 / 240;
+  if (freeW >= 150) {
+    hw = Math.min(250, freeW - 6);
+    const topY = Math.max(0, (boxes.length ? Math.min(...boxes.map(b => b.y)) : 0) - 26);
+    const botY = boxes.length ? Math.max(...boxes.map(b => b.y + b.h)) : hr.height;
+    const hh = hw * ratio;
+    x = W - hw - Math.max(0, (freeW - hw) * .45);
+    y = Math.max(-8, Math.min(topY + (botY - topY - hh) / 2, hr.height - hh));
+  } else {
+    /* 手機：放在標題上方那塊留白（CSS 已經替它留好高度，320 寬也一定放得下），靠右、在太陽底下 */
+    const tb = hero.querySelector('h1 .cine-title-box');
+    const t = tb ? relBox(tb.getBoundingClientRect(), hr) : null;
+    if (!t) return;
+    const above = boxes.filter(b => b.y + b.h <= t.y + 2).reduce((m, b) => Math.max(m, b.y + b.h), 0);
+    const hMax = t.y - above - 6;
+    hw = Math.min(156, Math.max(132, W * .46), hMax / ratio);
+    if (hw < 96) { hz.classList.remove('is-placed'); return; }
+    x = W - hw - 4;
+    y = Math.max(above, t.y - 6 - hw * ratio);
+  }
+  hz.classList.toggle('is-m', !(freeW >= 150));
+  hz.style.width = hw.toFixed(1) + 'px';
+  hz.style.height = (hw * ratio).toFixed(1) + 'px';
+  hz.style.left = x.toFixed(1) + 'px';
+  hz.style.top = y.toFixed(1) + 'px';
+  hz.classList.add('is-placed');
+}
+function cineHouseDraw() {
+  const hz = cine.house;
+  if (!hz || !hz.classList.contains('is-placed') || hz.dataset.drawn) return;
+  hz.dataset.drawn = '1';
+  if (reduced()) { hz.classList.add('is-drawn'); return; }
+  hz.classList.add('is-drawing');
+  setTimeout(() => hz.classList.add('is-drawn'), 1900);
+}
+
+/* 光塵：粒子先畫成小 sprite，每格只做 drawImage（手機約 46 顆、桌機約 110 顆）。
+   淺底上要像發光的金粉、失焦的光：亮核心＋淡金光暈，不用深棕色（深色小點在米色上像螢幕髒點），散景外圈很淡（不像水漬） */
+const DUST_PAL = ['214,162,88', '204,150,74', '222,174,104', '198,144,72'];
+const DUST_BOKEH = ['255,244,222', '255,236,204', '252,240,220', '255,248,232'];
+const DUST_MUL = [1, .9, 2.6];
+function dustSprite(rgb, kind, idx) {
+  const size = kind === 2 ? 96 : 48;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  if (!g) return c;
+  const r = size / 2, grad = g.createRadialGradient(r, r, 0, r, r, r);
+  const s = (a) => `rgba(${rgb},${a})`;
+  const stops = kind === 0
+    ? [[0, 'rgba(255,250,236,1)'], [.14, 'rgba(255,238,200,.95)'], [.24, s(.8)], [.42, s(.3)], [.72, s(.07)], [1, s(0)]]
+    : kind === 1 ? [[0, 'rgba(255,250,238,.95)'], [.3, s(.5)], [.65, s(.16)], [1, s(0)]]
+      : [[0, `rgba(${DUST_BOKEH[idx % 4]},.5)`], [.78, 'rgba(255,244,222,.6)'], [.86, 'rgba(214,162,88,.15)'], [.92, 'rgba(214,162,88,.07)'], [1, 'rgba(214,162,88,0)']];
+  stops.forEach(([o, col]) => grad.addColorStop(o, col));
+  g.fillStyle = grad;
+  g.fillRect(0, 0, size, size);
+  return c;
+}
+function dustSeed() {
+  const n = cine.w < 640 ? 46 : (cine.w < 1024 ? 76 : 110);
+  const small = cine.w < 640 ? .8 : 1;
+  let a = 0x2f6b9e;   // 可重現的亂數：縮放視窗構圖不會變
+  const rnd = () => { a = (a + 0x6d2b79f5) >>> 0; let x = Math.imul(a ^ (a >>> 15), 1 | a); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
+  cine.motes = [];
+  for (let i = 0; i < n; i++) {
+    const z = rnd(), k = z > .84 ? 2 : (z > .46 ? 0 : 1);
+    const d = (k === 2 ? 20 + rnd() * 30 : (k === 0 ? 7 + rnd() * 9 : 4 + rnd() * 6)) * small;
+    cine.motes.push({ x: rnd() * cine.w, y: rnd() * cine.h, z, d, k, c: (rnd() * 4) | 0,
+      a: k === 2 ? .08 + rnd() * .12 : (k === 0 ? .55 + rnd() * .45 : .3 + rnd() * .35),
+      vx: (rnd() - .35) * 6 * (.4 + z), vy: -(3 + 9 * z) * (.55 + rnd() * .8),
+      ph: rnd() * Math.PI * 2, wf: .18 + rnd() * .45, wa: 3 + rnd() * 9, tw: .35 + rnd() * .8 });
+  }
+}
+/* 文字保護：量出主視覺裡每一行字、步驟列、提醒框、卡片的位置，做成 16px 一格的淡出表；
+   粒子落在字上就變淡（跟官網一樣「字不被搶」，但不必每格做整張遮罩合成） */
+function dustGuard() {
+  const base = cine.canvas.getBoundingClientRect();
+  const boxes = [];
+  document.querySelectorAll('.hero .overline, .hero .sub, .progress .pl, .progress .pn, .step-h h2, .step-h p').forEach(el => textBoxes(el, base, boxes));
+  document.querySelectorAll('.hero h1 .cine-title-box, .pre-note, #s1 .panel, .col-side .result').forEach(el => { const r = el.getBoundingClientRect(); if (r.width) boxes.push(relBox(r, base)); });
+  const G = cine.GC, gw = Math.ceil(cine.w / G) + 1, gh = Math.ceil(cine.h / G) + 1;
+  const grid = new Float32Array(gw * gh).fill(1);
+  const FEATHER = 22;
+  boxes.forEach(b => {
+    const x0 = Math.max(0, Math.floor((b.x - FEATHER) / G)), x1 = Math.min(gw - 1, Math.ceil((b.x + b.w + FEATHER) / G));
+    const y0 = Math.max(0, Math.floor((b.y - FEATHER) / G)), y1 = Math.min(gh - 1, Math.ceil((b.y + b.h + FEATHER) / G));
+    for (let gy = y0; gy <= y1; gy++) for (let gx = x0; gx <= x1; gx++) {
+      const cx = gx * G, cy = gy * G;
+      const dx = Math.max(b.x - cx, 0, cx - b.x - b.w), dy = Math.max(b.y - cy, 0, cy - b.y - b.h);
+      const d = Math.max(0, Math.hypot(dx, dy) - G * .71);   // 扣掉半格對角線：落在字邊的那一格也算「在字上」
+      const f = Math.min(1, d / FEATHER) * .92 + .08 * (d > 0 ? 1 : 0);
+      const i = gy * gw + gx;
+      if (f < grid[i]) grid[i] = f;
+    }
+  });
+  cine.guard = grid; cine.gw = gw; cine.gh = gh;
+}
+function dustResize() {
+  const cv = cine.canvas;
+  if (!cv || !cine.g) return;
+  const r = cv.getBoundingClientRect();
+  const w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height));
+  const dpr = Math.min(window.devicePixelRatio || 1, COARSE ? 1.5 : 2);   // 上限 2；觸控裝置 1.5（光塵是柔邊，看不出差別，每格少填一半像素）
+  if (w !== cine.w || h !== cine.h || dpr !== cine.dpr) {
+    const W0 = cine.w, H0 = cine.h;
+    cine.w = w; cine.h = h; cine.dpr = dpr;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    if (!cine.motes.length || (cine.motes.length !== (w < 640 ? 46 : (w < 1024 ? 76 : 110)))) dustSeed();
+    else if (W0 && H0) cine.motes.forEach(m => { m.x *= w / W0; m.y *= h / H0; });
+  }
+  dustGuard();
+  if (!cine.running) dustRender(reduced() ? 6 : cine.t, 0);
+}
+function dustRender(t, dt) {
+  const g = cine.g;
+  if (!g) return;
+  const t0 = performance.now();
+  const w = cine.w, h = cine.h, G = cine.GC, gw = cine.gw, grid = cine.guard;
+  g.setTransform(cine.dpr, 0, 0, cine.dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  const par = FINE_POINTER ? 34 : 0;
+  for (const m of cine.motes) {
+    m.x += m.vx * dt; m.y += m.vy * dt;
+    const pad = m.d;
+    if (m.y < -pad) { m.y = h + pad; m.x = Math.random() * w; } else if (m.y > h + pad) m.y = -pad;
+    if (m.x < -pad) m.x = w + pad; else if (m.x > w + pad) m.x = -pad;
+    const depth = m.z - .45;
+    const x = m.x + Math.sin(t * m.wf + m.ph) * m.wa + cine.px * par * depth;
+    const y = m.y + cine.py * par * .6 * depth;
+    let a = m.a * DUST_MUL[m.k] * (.7 + .3 * Math.sin(t * m.tw + m.ph * 2));
+    if (grid) {
+      /* 避字：粒子中心＋上下左右四個邊點都查，取最淡的那個（大顆散景中心在框外、邊緣也不會蓋進字裡） */
+      const r = m.d / 2, gh1 = cine.gh - 1, gw1 = gw - 1;
+      const at = (px, py) => grid[Math.min(gh1, Math.max(0, Math.round(py / G))) * gw + Math.min(gw1, Math.max(0, Math.round(px / G)))];
+      a *= Math.min(at(x, y), at(x - r, y), at(x + r, y), at(x, y - r), at(x, y + r));
+      /* 主視覺下緣融回底色：越往下越淡 */
+      a *= Math.max(0, Math.min(1, (h - y) / (h * .28)));
+    }
+    if (a < .02) continue;
+    g.globalAlpha = a > 1 ? 1 : a;
+    g.drawImage(cine.sprites[m.k][m.c], x - m.d / 2, y - m.d / 2, m.d, m.d);
+  }
+  g.globalAlpha = 1;
+  cine.frames++;
+  const ms = performance.now() - t0;
+  if (cine.work.length < 600) cine.work.push(ms);
+}
+function cineParallax() {
+  cine.px += (cine.tx - cine.px) * .05;
+  cine.py += (cine.ty - cine.py) * .05;
+  if (Math.abs(cine.px - cine.lpx) > .002 || Math.abs(cine.py - cine.lpy) > .002) {
+    cine.lpx = cine.px; cine.lpy = cine.py;
+    cine.layers.forEach(L => { L.el.style.transform = `translate3d(${(-cine.px * 16 * L.k).toFixed(2)}px,${(-cine.py * 10 * L.k).toFixed(2)}px,0)`; });
+  }
+}
+function cineTick(now) {
+  if (!cine.running) return;
+  cine.raf = requestAnimationFrame(cineTick);
+  const el = now - cine.last;
+  if (COARSE && el < 31) return;   // 觸控裝置 30fps
+  const dt = Math.min(.05, el / 1000);
+  cine.last = now;
+  cine.t += dt;
+  if (FINE_POINTER) cineParallax();
+  dustRender(cine.t, dt);
+}
+/* 天空和光塵什麼時候要動：看得到、分頁在前景、沒有閒置、沒有在打字／重算、手機抽屜沒有蓋住 */
+const CINE_IDLE_MS = 4000;
+let cineStill = false, cineHush = false, cineIdleT = 0, cineHushT = 0, cineWakeAt = 0;
+function cineSync() {
+  const visible = cine.inView && !document.hidden;
+  const covered = MQ_M.matches && document.body.classList.contains('sheet-open');
+  const live = visible && !cineStill && !cineHush && !covered;
+  const should = live && !reduced() && !!cine.g && cine.started;
+  if (cine.sky) cine.sky.classList.toggle('is-paused', !live);
+  document.documentElement.classList.toggle('cine-off-hero', !live);
+  if (should && !cine.running) {
+    cine.running = true;
+    cine.last = performance.now();
+    cine.raf = requestAnimationFrame(cineTick);
+  } else if (!should && cine.running) {
+    cine.running = false;
+    cancelAnimationFrame(cine.raf);
+  }
+}
+/* 閒置 4 秒：整層停在一張靜態畫面（CSS 迴圈暫停、畫布不再畫）；有人動就接著動 */
+function cineIdleArm() {
+  clearTimeout(cineIdleT);
+  cineIdleT = setTimeout(() => { cineStill = true; document.documentElement.classList.add('cine-still'); cineSync(); }, CINE_IDLE_MS);
+}
+function cineWake() {
+  const now = performance.now();
+  if (!cineStill && now - cineWakeAt < 300) return;   // 一直在動的時候不必每個事件都重設計時器
+  cineWakeAt = now;
+  if (cineStill) { cineStill = false; document.documentElement.classList.remove('cine-still'); cineSync(); }
+  cineIdleArm();
+}
+/* 打字、按按鈕重算的那一兩秒：背景先停，把主執行緒讓給數字 */
+function cineHushFor(ms) {
+  if (!cineHush) { cineHush = true; cineSync(); }
+  clearTimeout(cineHushT);
+  cineHushT = setTimeout(() => { cineHush = false; cineSync(); }, ms);
+}
+/* 結果面板邊光：數字變了才繞一圈（正在繞就讓它繞完，不重來） */
+function auraLive() {
+  const r = document.querySelector('.result');
+  if (!r || reduced()) return;
+  if (!r.classList.contains('is-live')) requestAnimationFrame(() => requestAnimationFrame(() => r.classList.add('is-live')));
+  clearTimeout(r._live);
+  r._live = setTimeout(() => r.classList.remove('is-live'), 7600);
+}
+function cineStage() {
+  if (cine.started || !cine.canvas) return;
+  cine.started = true;
+  try { cine.g = cine.canvas.getContext('2d'); } catch (e) { cine.g = null; }
+  if (!cine.g) return;
+  cine.sprites = [0, 1, 2].map(k => DUST_PAL.map((rgb, i) => dustSprite(rgb, k, i)));
+  cine.layers = Array.from(document.querySelectorAll('[data-depth]')).map(el => ({ el, k: parseFloat(el.dataset.depth) || 0 }));
+  cine.canvas.__cine = cine;   // 驗收用：frames、running、work（每格花的毫秒）
+  dustResize();
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver((es) => { cine.inView = es[es.length - 1].isIntersecting; cineSync(); }, { rootMargin: '32px' }).observe(cine.sky);
+  }
+  document.addEventListener('visibilitychange', cineSync);
+  if (!reduced()) {
+    ['pointermove', 'pointerdown', 'keydown', 'wheel', 'scroll', 'touchstart', 'input', 'focusin'].forEach(t => window.addEventListener(t, cineWake, { passive: true, capture: true }));
+    cineIdleArm();
+  }
+  try { RM.addEventListener('change', () => { cineSync(); dustRender(reduced() ? 6 : cine.t, 0); }); } catch (e) {}
+  if (FINE_POINTER && !reduced()) {
+    window.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse' || !cine.running) return;
+      const r = cine.sky.getBoundingClientRect();
+      if (e.clientY > r.bottom + 80) return;
+      const hr = document.querySelector('.hero').getBoundingClientRect();
+      const cx = hr.left + hr.width * .7, cy = hr.top + hr.height / 2;
+      cine.tx = Math.max(-1, Math.min(1, (e.clientX - cx) / (r.width / 2)));
+      cine.ty = Math.max(-1, Math.min(1, (e.clientY - cy) / (r.height / 2)));
+    }, { passive: true });
+    document.documentElement.addEventListener('pointerleave', () => { cine.tx = 0; cine.ty = 0; });
+  }
+  cineSync();
+}
+let cineLayoutRaf = 0;
+function cineLayout() {
+  cineLayoutRaf = 0;
+  cineSkyLayout();
+  cinePlaceHouse();
+  if (cine.started) dustResize();
+}
+const queueCineLayout = () => { if (!cineLayoutRaf) cineLayoutRaf = requestAnimationFrame(cineLayout); };
+
+/* 計數器所在的三個位置先登記可見度（第一次改數字就知道要不要捲） */
+document.querySelectorAll('.hero-num, .dk-cash, .cash-total').forEach(h => { if (odoIO && !odoSeen.has(h)) { odoSeen.set(h, false); odoIO.observe(h); } });
+
+/* =====================================================================
    列印簡表（一頁 A4）：只讀 render() 算好的數字，每次重算都重畫
    ===================================================================== */
 const escH = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -3149,6 +4359,7 @@ function failWhy(elig) {
     else if (t.includes('未成年')) out.push('未成年');
     else if (t.includes('已滿 50 歲')) out.push('已滿 50 歲');
     else if (t.includes('排富')) out.push('年所得超過 200 萬');
+    else if (t.includes('較高的鑑價')) out.push('鑑價超過總價上限');
     else if (t.includes('已超過')) out.push('總價超過上限');
   });
   return out.join('、');
@@ -3240,8 +4451,7 @@ function buildPrintSheet() {
 
   /* 目前有效的提醒（每則一句） */
   const W = [];
-  if (s.noBase) W.push(`還沒填稅基：${blanks.join('、')}未計入，實際要準備的現金會更高。`);
-  if (s.apprOverCap) W.push(`青安總價上限以鑑價、成交價較高者認定：鑑價 ${zh(s.apprAmountWan)} 萬已超過${CITY_NAME[s.elig.city]}上限 ${zh(s.elig.priceCap)} 萬，可能不符合青安3.0，請先跟銀行確認。`);
+  if (s.noBase) W.push(`${s.landWan > 0 || s.houseWan > 0 ? '稅基只填一半' : '還沒填稅基'}：${blanks.join('、')} ${blanks.length} 項未計入，實際要準備的現金會更高。`);
   if (s.gapExtra > 0) W.push(`鑑價不足：若銀行鑑價只有成交價的 ${s.apprPct}%，核貸會少 ${yen(s.gapExtra)}，這筆只能用現金補、無法靠加貸解決。`);
   if (s.manual) W.push(`核貸金額已手動指定為 ${wan(s.loanAmount)} 萬，試算依此金額。`);
   if (s.plan === 'qa3' && s.qaBlocked) W.push('目前不符青安3.0資格，全額以一般房貸條件計算。');
@@ -3559,12 +4769,16 @@ function openSheet() {
   sideEl.querySelector('.rs-body').scrollTop = 0;
   if (chartFitDirty) fitChartLabels(true);
   if (!chartRevealed) { chartRevealed = true; chartGrow(160); }
+  setTimeout(ringDraw, 220);
+  cineSync();   // 抽屜蓋住天空：天空和光塵先停
+  auraLive();
   setTimeout(() => { $('sheetClose').focus({ preventScroll: true }); }, 60);
 }
 function closeSheet(restoreFocus) {
   if (!sheetOpen()) return;
   document.body.classList.remove('sheet-open');
   document.documentElement.classList.remove('sheet-lock');
+  cineSync();
   dockEl.setAttribute('aria-expanded', 'false');
   sideEl.removeAttribute('role');
   sideEl.removeAttribute('aria-modal');
@@ -3645,8 +4859,10 @@ if ('IntersectionObserver' in window) {
   };
   const prog = document.querySelector('.progress');
   if (prog) new IntersectionObserver((ents) => { if (ents.some(en => en.isIntersecting)) drawChecks(); }).observe(prog);
-  const io = new IntersectionObserver((ents) => {
-    ents.forEach((en) => { if (en.isIntersecting) mark(en.target.id); });
+  const io = new IntersectionObserver(() => {
+    const y = window.innerHeight * .375;
+    const cur = ids.find((id) => { const r = $(id).getBoundingClientRect(); return r.top <= y && r.bottom > y; });
+    if (cur) mark(cur);
   }, { rootMargin: '-35% 0px -60% 0px' });
   ids.forEach((id) => io.observe($(id)));
   const io2 = new IntersectionObserver((ents) => {
@@ -3711,7 +4927,7 @@ function lineMessage() {
   const parts = s.monthParts || [];
   L.push(`・每月約繳：${parts.length ? parts.map(([v, t]) => `${m2(v)} 萬（${t}）`).join(' → ') : '─'}`);
   L.push(`・方案：${s.plan === 'none' ? '只算一般房貸' : (s.qaBlocked ? '不符合青安3.0（以一般房貸計算）'
-    : '青安3.0 初步符合' + (s.apprOverCap ? '（但鑑價已超過青安總價上限，要跟銀行確認）' : ''))}`);
+    : '青安3.0 初步符合')}`);
   L.push(`試算連結：${shareLink()}`);
   /* 連結不帶個人資料，打開時青安資格用打開那台的資料重算 → 以訊息裡的數字為準 */
   if (s.plan !== 'none') L.push('（連結打開後，青安資格會依打開的人自己的條件重算，數字以這則訊息為準）');
@@ -3820,6 +5036,7 @@ function endFullPrint() {
 }
 window.addEventListener('beforeprint', () => {
   twFinishAll();
+  odoFinishAll();
   buildPrintSheet();
   fitPrintSheet();
   if (document.documentElement.classList.contains('print-full')) {
@@ -3844,6 +5061,28 @@ if (!MQ_M.matches && $('pChart').querySelector('.tl')) { chartRevealed = true; c
 else if (!MQ_M.matches) chartRevealed = true;
 initReveal();
 queueSegThumb();
+
+/* 電影感層：小節標題光掃、卡片傾斜、按鈕光澤暫停、天空高度與房子位置；光塵畫布等頁面載入完、空檔再開（不搶首屏） */
+cineHeadGlints();
+cineTiltAll();
+window.addEventListener('wl:change', () => setTimeout(() => { cineTiltAll(); queueCineLayout(); }, 0));
+cineLoopPause();
+cineLayout();
+setTimeout(cineHouseDraw, reduced() ? 0 : 260);
+if ('ResizeObserver' in window) {
+  const cro = new ResizeObserver(queueCineLayout);
+  cro.observe(document.querySelector('.hero'));
+  cro.observe(document.querySelector('#s1 .panel'));
+}
+window.addEventListener('resize', queueCineLayout);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(queueCineLayout).catch(() => {});
+setTimeout(queueCineLayout, 1500);
+if ('IntersectionObserver' in window) {
+  const eio = new IntersectionObserver((ents) => { if (ents.some(en => en.isIntersecting)) { eligReveal(); eio.disconnect(); } }, { threshold: .25 });
+  eio.observe($('eligList'));
+} else eligReveal();
+const startStage = () => { const go = () => cineStage(); if ('requestIdleCallback' in window) requestIdleCallback(go, { timeout: 900 }); else setTimeout(go, 200); };
+if (document.readyState === 'complete') startStage(); else window.addEventListener('load', startStage, { once: true });
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
