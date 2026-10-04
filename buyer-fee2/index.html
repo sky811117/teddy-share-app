@@ -1782,7 +1782,7 @@ function syncPlanUI() {
 
   const note = $('planNote');
   if (plan === 'qa3') {
-    note.innerHTML = callouts([`📅 三道門檻請到第 3 步「資格檢核」確認。<strong>細則以財政部正式公告為準。</strong>`], 'plan');
+    note.innerHTML = callouts([`📅 三道門檻請看下方「資格檢核」確認。<strong>細則以財政部正式公告為準。</strong>`], 'plan');
   } else {
     note.innerHTML = callouts([`一般房貸不受青安資格限制，但無政府利息補貼。`], 'plan');
   }
@@ -1941,7 +1941,7 @@ function render() {
     notes.push(`銀行用「鑑價」和「成交價」比較低的那個來算：<span class="nw">${wan(base)} 萬 × ${loanRatio}% = 貸 <b>${wan(bankMax)} 萬</b></span>`);
   }
   if (qaBlocked) {
-    notes.push(`❌ 目前不符青安3.0資格（見第 3 步檢核），全額以<b>一般房貸</b>條件計算。`);
+    notes.push(`❌ 目前不符青安3.0資格（見第 2 步「資格檢核」），全額以<b>一般房貸</b>條件計算。`);
   } else if (useQA && extraPart > 0) {
     const why = [];
     if (capAmt !== Infinity && qaPart >= capAmt - 1) why.push(`青安額度上限 ${capWan.toLocaleString('zh-TW')} 萬`);
@@ -1972,16 +1972,16 @@ function render() {
     { group: '代書與登記', name: '謄本費', formula: '土地 + 建物謄本工本費（估算）', amount: 200 },
     { group: '代書與登記', name: '書狀費', formula: '每張 80 元 × 2 張（建物 + 土地）', amount: 160 },
     { group: '稅與規費', name: '契稅', formula: noHouseBase
-        ? '<span style="color:var(--warn);">↑ 請先填「房屋核定契價」才能算（契價 × 6%）</span>'
+        ? '<span style="color:var(--warn);">請先在「稅基資料」填「房屋核定契價」才能算（契價 × 6%）</span>'
         : '房屋核定契價 × 6%（<b>按評定契價，非成交價</b>；土地免徵）',
       amount: house * 0.06, blank: noHouseBase },
     { group: '稅與規費', name: '買賣登記規費', formula: noBase
-        ? '<span style="color:var(--warn);">↑ 需填土地申報地價 + 房屋契價</span>'
+        ? '<span style="color:var(--warn);">需在「稅基資料」填土地申報地價 + 房屋契價</span>'
         : '(土地申報地價 + 房屋契價) × 0.1%',
       amount: (land + house) * 0.001, blank: noBase },
     { group: '稅與規費', name: '設定登記規費', formula: '擔保債權總額 × 0.1%<br><span class="f-sub">（銀行設定的最高限額<b>常見為貸款金額 1.2 倍</b>，本表以此估算；實際倍數依銀行核定）</span>', amount: loanAmount * 1.2 * 0.001 },
     { group: '稅與規費', name: '印花稅', formula: noBase
-        ? '<span style="color:var(--warn);">↑ 需填土地公告現值（或申報地價）+ 房屋契價</span>'
+        ? '<span style="color:var(--warn);">需在「稅基資料」填土地公告現值（或申報地價）+ 房屋契價</span>'
         : `(土地公告現值 + 房屋契價) × 0.1%${stampNote}`,
       amount: (landCur + house) * 0.001, blank: noBase },
     { group: '銀行與保險', name: '火險地震險（首年）', formula: '住宅火險 + 基本地震險首年保費，<b>貸款期間每年續保</b>，依建物造價與銀行指定保單調整', amount: loanAmount > 0 ? 4000 : 0 },
@@ -1990,7 +1990,7 @@ function render() {
     { group: '交易服務', name: '仲介服務費', formula: '成交價 × 2%（買方慣例 1~2%；法規為買賣<b>雙方合計</b>上限 6%）', amount: price * 0.02 }
   ];
 
-  const feeTotal = fees.reduce((s, f) => s + f.amount, 0);
+  const feeTotal = fees.reduce((s, f) => s + (f.blank ? 0 : f.amount), 0);   // 標「未計」的列不算進合計（2026-10-04 修：稅基只填一半時曾被加進去）
 
   /* 分組標題列：項數＋小計（小計與合計同一算法） */
   let feeHTML = '';
@@ -2049,7 +2049,7 @@ function render() {
 
   const alerts = [];
   if (noBase) {
-    alerts.push(`⚠️ <strong>這個金額還沒包含契稅、買賣登記規費、印花稅</strong> — 因為還沒填入土地申報地價與房屋核定契價（步驟 4）。這三項通常合計數萬元，<strong>實際要準備的現金會比上面的數字更高</strong>。若手邊沒有謄本與稅單，可先勾「使用保守估算」抓個大概。`);
+    alerts.push(`⚠️ <strong>這個金額還沒包含契稅、買賣登記規費、印花稅</strong> — 因為還沒填入土地申報地價與房屋核定契價（第 1 步「稅基資料」）。這三項通常合計數萬元，<strong>實際要準備的現金會比上面的數字更高</strong>。若手邊沒有謄本與稅單，可先勾「使用保守估算」抓個大概。`);
   }
   if (gapExtra > 0) {
     alerts.push(`⚠️ <strong>鑑價不足的風險：</strong>若銀行鑑價只有成交價的 ${apprRatio}%，核貸金額會少 ${fmt(gapExtra)} 元，這筆<strong>只能用現金補、無法靠加貸解決</strong>。依內政部《成屋買賣定型化契約應記載及不得記載事項》第六點，貸款金額少於預定金額且<strong>不可歸責於雙方</strong>時，買方應於核撥同時以現金一次補足，<strong>或買賣雙方得解除契約</strong>。`);
@@ -2073,7 +2073,7 @@ function render() {
   let qaSim = null, exSim = null;   // 給右側結果面板用（不影響計算）
   if (plan !== 'none') {
     if (qaBlocked) {
-      $('qaDetail').innerHTML = `<div class="blocked-msg">不符合青安3.0資格<br><span class="fine-s">請見上方資格檢核；左欄的一般房貸試算仍然有效</span></div>`;
+      $('qaDetail').innerHTML = `<div class="blocked-msg">不符合青安3.0資格<br><span class="fine-s">請見上方資格檢核；「一般房貸」那一欄的試算仍然有效</span></div>`;
     } else {
       const rateFn = (y) => qa3RateOfYear(y, baseRate);   // 3+3 階梯（財政部定案）
       const qa = simulate(qaPart, rateFn, yQA, gQA);
@@ -2092,7 +2092,7 @@ function render() {
     gAlerts.push(`⚠️ <strong>寬限期 ${gQA} 年期間只繳利息、不還本金</strong>，寬限期一到月付金會大幅跳升（本金要用更短的年限攤還）。上表已分段列出跳升後的金額，請務必<strong>用「寬限期結束後」的數字</strong>評估長期還款能力。`);
   }
   if (extraPart > 0 && plan !== 'none') {
-    gAlerts.push(`⚠️ <strong>兩筆貸款的寬限期可能不同步：</strong>青安寬限期最長 5 年，但搭配的一般房貸那筆由銀行自訂（可能只有 2~3 年，或完全沒有），<strong>現金流可能出現兩個跳升點</strong>。本表以你在左方設定的一般房貸寬限期試算，實際請以銀行核定為準。`);
+    gAlerts.push(`⚠️ <strong>兩筆貸款的寬限期可能不同步：</strong>青安寬限期最長 5 年，但搭配的一般房貸那筆由銀行自訂（可能只有 2~3 年，或完全沒有），<strong>現金流可能出現兩個跳升點</strong>。本表以你在「利率、年限、寬限期」設定的一般房貸寬限期試算，實際請以銀行核定為準。`);
   }
   if (plan === 'qa3') {
     gAlerts.push(`⚠️ <strong>青安的利率會自己往上爬：</strong>1.775% 只全額補貼前 3 年，第 4 年起補貼每年減半碼，第 7 年起回到約 ${(baseRate + QA_SPREAD).toFixed(3)}%。若同時搭 5 年寬限期，<strong>第 6 年會同時遇到「開始還本金」+「利率已爬升」的雙重跳升</strong>，這是最需要提前準備的一年。`);
@@ -2209,7 +2209,7 @@ function renderLoanSplit(qa, ex, qaPart, extraPart, qaRateLabel, rGen, yQA, gQA,
       <div class="topup-body">
         <p><b>跟承作青安的同一家銀行，再辦一筆該行的一般房貸補足。</b>財政部明文規定：「本項貸款最高額度為1,000萬元（新婚家庭為1,200萬元、育兒家庭為1,500萬元），借款金額如逾上開最高貸款額度，在最高額度之內，適用本項貸款，<b>超過最高額度部分，則適用承辦銀行之其他貸款方案</b>」。所以超過額度<b>不是貸不到</b>，只是超出的那段沒有政府補貼、利率照該行一般房貸走。</p>
         <p><b>這不是二胎。</b>二胎是房貸辦完之後、再找別家銀行設第二順位的週轉型貸款，利率高一個級距。這裡講的是<b>買房當下、同一家銀行、同一間房子、一次送件</b>，只是把貸款拆成兩個帳戶、兩段利率。實務上一起送審、一次設定抵押權，不用跑兩趟。</p>
-        <p>⚠️ <b>簽約前一定要問清楚差額那筆的「年限」與「寬限期」。</b>青安最長可做 40 年、寬限 5 年，但差額那筆是銀行自己的方案，<b>條件由銀行自訂、不一定跟青安同步</b>（常見只給 30 年、寬限期也可能較短）。年限縮短，月付金差很多。本表的差額段是套用左欄「一般房貸」的利率與年限試算，你可以自行調整看看。</p>
+        <p>⚠️ <b>簽約前一定要問清楚差額那筆的「年限」與「寬限期」。</b>青安最長可做 40 年、寬限 5 年，但差額那筆是銀行自己的方案，<b>條件由銀行自訂、不一定跟青安同步</b>（常見只給 30 年、寬限期也可能較短）。年限縮短，月付金差很多。本表的差額段是套用「利率、年限、寬限期」裡「一般房貸」的利率與年限試算，你可以自行調整看看。</p>
         <p>⛔ <b>如果有人建議用「修繕貸款」「周轉金」的名目來補差額，請拒絕。</b>央行明文規定：金融機構辦理購置住宅貸款，不得以修繕、周轉金或其他貸款名目承作。</p>
         <p class="src">📌 資料來源：財政部國庫署「問答集(青安3.0)」第十四問（<a href="https://www.nta.gov.tw/singlehtml/109" target="_blank" rel="noopener">nta.gov.tw/singlehtml/109</a>，查證日 2026-10-02）；中央銀行「對金融機構辦理不動產抵押貸款業務規定」問與答（<a href="https://www.cbc.gov.tw/tw/lp-1055-1.html" target="_blank" rel="noopener">cbc.gov.tw</a>，查證日 2026-07-16）<br>
         ⚠️ 差額由「同一家銀行」承作為<b>實務常態</b>，財政部並無「必須同一家」的明文規定；實際能否核准、額度、利率、年限，一律<b>以承貸銀行核定為準</b>，本表非核貸承諾。</p>
