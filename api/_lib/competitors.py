@@ -1476,7 +1476,7 @@ _RENT591_KIND = {1: "整層住家", 2: "獨立套房", 3: "分租套房", 4: "�
 _RENT591_CAT = {1: "rent_whole", 2: "rent_suite", 3: "rent_share", 4: "rent_room", 8: "parking"}
 # 不上客戶頁的 591 標籤：「屋主直租」＝叫客戶直接找屋主（跳單）；影片/AI/新上架是平台功能；
 # 「近捷運」可能指未完工路線（未完工建設不准寫），一律不放
-_RENT591_TAG_SKIP = {"影片賞屋", "AI影音講房", "VR看屋", "3D看屋", "新上架", "屋主直租", "免服務費",
+_RENT591_TAG_SKIP = {"影片賞屋", "AI影音講房", "VR看屋", "3D看屋", "新上架", "屋主直租", "免服務費", "7日上新", "3日上新",
                      "近捷運", "近捷運站"}
 _CN_DIGIT = {"一": 1, "二": 2, "兩": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9,
              "十": 10, "半": 0.5}
@@ -1543,7 +1543,8 @@ _RENT_BYPASS_RE = re.compile(
     r'|(?:免|不|零|無|沒有|省下?)\s*(?:付|收取?|用|須|需|繳|支付)?\s*(?:任何)?\s*(?:租屋)?\s*(?:仲介|中介|服務)\s*(?:服務)?(?:費|報酬)'
     r'|免中間費|仲介勿擾|謝絕仲介|免仲介')
 # 平台品牌／站內聯絡（591站內信、591 APP 預約）
-_RENT_591_RE = re.compile(r'(?<![0-9])591(?![0-9])|站內信|私訊|預約看[房屋]|預約賞屋|預約參觀|歡迎預約')
+_RENT_591_RE = re.compile(r'(?<![0-9])591(?![0-9])|站內信|私訊|預約看[房屋]|預約賞屋|預約參觀|歡迎預約'
+                          r'|發送訊息|傳送訊息|傳訊息|留言給我')
 # 同業的服務項目／招牌口號（「買賣、委託、代管、代租、包租」「用最細心耐心誠心地迎接你」「超A獨招」）
 _RENT_AGENCY_RE = re.compile(r'代管|代租|包租|委託|獨招|專任|迎接您?你?|誠心|服務項目')
 try:
@@ -1611,10 +1612,16 @@ def _rent591_entities(link):
             continue
         if re.fullmatch(r'[\x00-\x7f]+', w) and len(w) < 5:
             continue
-        for x in (w, w[1:] if len(w) == 3 and w[0] in _SURN else ""):
+        cand = [w]
+        if len(w) == 3 and w[0] in _SURN:            # 王新詠 → 新詠、阿詠、小詠（房仲常用暱稱自稱）
+            cand += [w[1:], "阿" + w[2], "小" + w[2]]
+        brand = re.sub(r'(?:仲介|不動產經紀|經紀|開發)$', '', w)   # 華府房屋仲介 → 華府房屋（文案常只寫品牌）
+        if brand != w and len(brand) >= 3:
+            cand.append(brand)
+        for x in cand:
             if len(x) >= 2 and x not in out:
                 out.append(x)
-    return out[:20]
+    return out[:24]
 
 
 # 圈圈字（🈲 禁、🉑 可…）租屋文很常用；mp_scrub 會把它們當 emoji 刪掉 →「🈲寵」變「寵」意思相反，先換成文字
@@ -1641,17 +1648,26 @@ def _clean_rent_remark(html, entities=(), addr_nums=()):
                       r'|全網|多元行銷|帶看|賞屋請'
                       # 同業署名區開頭（後面整段都是對方的招牌、招攬房東、服務項目）
                       r'|親愛的房東|房東您好|出租需求|與我聯繫|聯繫我|規劃顧問|房產顧問|租售服務|買賣服務|專業代租'
-                      r'|代租\s*[・/／、]?\s*代管|委託代租|【[^】]*(?:顧問|房產|團隊)[^】]*】')
-    nums = [n for n in (addr_nums or ()) if n]
+                      r'|代租\s*[・/／、]?\s*代管|委託代租|【[^】]*(?:顧問|房產|團隊)[^】]*】'
+                      # 房仲自我介紹／招攬（「我是阿詠，陪你一起找到理想家」「點擊發送訊息」「約個時間喝杯咖啡」）
+                      r'|我是[^，,。！!]{1,6}[，,！!]\s*(?:陪|為|幫|帶)(?:你|您)|發送訊息|傳送訊息|點擊「?(?:發送|傳送|聊聊)'
+                      r'|喝杯咖啡|給我\s*[一半]?\s*個?\s*半?小時')
+    DIVIDER = re.compile(r'^[-—_=─━~＝－*·・.•]{8,}$')   # 長分隔線後面通常是房仲署名區
+    nums = [n for n in (addr_nums or ()) if n and len(n) >= 3]   # 1-2 位數太常見（12坪、9號公園），只認 3 位數以上
     NUM_RE = (re.compile(r'(?<![\d.$,])(?:%s)(?!\d)' % '|'.join(map(re.escape, nums)))
               if nums else None)
-    ROOM_RE = re.compile(r'(?<![\d.])\d{1,4}\s*[-之]\s*\d{1,2}\s*[A-Za-z](?![A-Za-z\d])')
+    # 房號：「116-2b」「12-8@9」（商辦：門牌-樓層@房間）
+    ROOM_RE = re.compile(r'(?<![\d.])\d{1,4}\s*[-之]\s*\d{1,3}\s*(?:[A-Za-z]|@\s*\d{1,3})(?![A-Za-z\d])')
+    # 「【空間編號：12-8@9】」「物件編號：A-12」這種標了編號的片段先拿掉，同一行其他內容保留
+    CODE_RE = re.compile(r'[【\[(（]?\s*(?:(?:空間|物件|房間)?編號|房號)\s*[:：]?\s*[A-Za-z0-9]+'
+                         r'(?:\s*[-之@#]\s*[A-Za-z0-9]+)+\s*[】\])）]?')
     ents = [e for e in (entities or ()) if e]
     lines = []
     for ln in t.split('\n'):
         ln = ln.strip()
-        if STOP.search(ln):
+        if STOP.search(ln) or DIVIDER.match(ln):
             break
+        ln = CODE_RE.sub('', ln).strip()
         if not ln:
             lines.append('')
             continue
@@ -1661,6 +1677,8 @@ def _clean_rent_remark(html, entities=(), addr_nums=()):
         if ln:
             lines.append(ln)
     intro = re.sub(r'\n{3,}', '\n\n', '\n'.join(lines)).strip()
+    if re.fullmatch(r'暫未(?:添加|填寫)(?:說明|介紹)?', intro):
+        return ""                     # 591 沒寫介紹時的預設字
     if len(intro) > 500:              # 在 500 字內最後一個換行／句末切，不要斷在半個詞
         cut = intro[:500]
         k = max(cut.rfind('\n'), cut.rfind('。'), cut.rfind('！'), cut.rfind('？'))
@@ -1845,7 +1863,7 @@ def _p_rent591(url):
 # ==================== 591 商用租屋（店面 / 辦公 / 廠房）====================
 _BRENT_CAT = {"店面": "shop", "辦公": "office", "住辦": "office", "廠房": "factory", "土地": "land", "車位": "parking"}
 # 商用才有、客戶會想看的規格欄位（照這個順序放進卡片規格格子）
-_BRENT_EXTRA = ("權狀坪數", "規格", "臨路路寬", "裝潢", "裝潢程度", "使用分區", "適合行業", "禁用行業")
+_BRENT_EXTRA = ("權狀坪數", "規格", "臨路路寬", "裝潢", "裝潢程度", "類別", "使用分區", "基礎設施", "適合行業", "禁用行業")
 
 
 def _p_business591_rent(url):
@@ -1891,7 +1909,8 @@ def _p_business591_rent(url):
 
     price = _to_int(re.split(r"[~～\-]", str((bi.get("price") or {}).get("value") or ""))[0])
     out["price"] = price
-    out["area"] = round(_to_float(labels.get("使用坪數")), 2)
+    # 店面/辦公＝使用坪數；土地＝土地面積（土地出租頁沒有使用坪數）
+    out["area"] = round(_to_float(labels.get("使用坪數") or labels.get("土地面積") or labels.get("建物面積")), 2)
     fl = labels.get("樓層", "")
     fm = re.fullmatch(r"(\d+)\s*F\s*/\s*(\d+)\s*F", fl)
     if fm:
@@ -1908,7 +1927,7 @@ def _p_business591_rent(url):
 
     city = str(basic.get("region") or "").strip()
     raw_addr = str(((dt.get("mapInfo") or {}).get("address") or {}).get("desc") or "")
-    addr = _road_level(raw_addr)
+    addr = re.sub(r'(?<=[路街段道])號$', '', _road_level(raw_addr))   # 土地頁常見「大林路號」
     if city and addr and not addr.startswith(city):
         addr = city + addr
     out["address"] = addr
@@ -1958,10 +1977,16 @@ def _p_business591_rent(url):
     link = dt.get("linkInfo") or {}
     ents = _rent591_entities({
         "name": link.get("linkman"), "imName": link.get("imName"), "roleTxt": link.get("econName"),
-        "certificateTxt": " / ".join(str(link.get(k) or "") for k in ("companyname", "subcompanyname")),
+        # 分公司常填地名（七期市政、南區）→ 標成「分公司：」讓 _rent591_entities 整欄略過
+        "certificateTxt": "%s / 分公司：%s" % (link.get("companyname") or "", link.get("subcompanyname") or ""),
     })
     out["scrub_entities"] = ents
     addr_nums = re.findall(r'(\d+)\s*(?:之\s*\d+)?\s*[巷弄號]', raw_addr)
+    # 591 地址明細最後一欄是門牌號（「1|#|7|#|26229|#||#||#|12」→ 12），介紹裡的「12-8@9」靠它認得
+    _det = str(((((dt.get("mapInfo") or {}).get("address") or {}).get("detail") or {}).get("address")) or "")
+    _hn = _det.split("|#|")[-1].strip() if "|#|" in _det else ""
+    if re.fullmatch(r"\d{1,4}", _hn) and _hn not in addr_nums:
+        addr_nums.append(_hn)
     out["intro"] = _clean_rent_remark(dt.get("remark") or "", ents, addr_nums)
 
     photos = [it for it in items if isinstance(it, dict) and it.get("type") == 3]
@@ -4443,7 +4468,17 @@ def _scrub(text):
 
 
 def _scrub_addr(a):
+    # 品牌字也可能是地名（台北市信義區、信義路、永慶路）→ 後面接 區/路/街/里… 的先遮起來，洗完再還原
+    keep = {}
+
+    def _mask(m):
+        k = "\ue000%d\ue001" % len(keep)
+        keep[k] = m.group(0)
+        return k
+    a = re.sub(r'(?:信義|中信|東森|全國|太平洋|永慶|永義|台慶|大家)(?=[區路街里鄉鎮市段巷大])', _mask, str(a or ""))
     a = _scrub(a)
+    for k, v in keep.items():
+        a = a.replace(k, v)
     a = re.split(r'\d+\s*(?:巷|弄|號|之)', a)[0]
     return re.sub(r'\d+\s*$', '', a).strip("，,、 ")
 

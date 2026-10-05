@@ -38,7 +38,7 @@ except Exception as _e:
     _L = _SC = _A = None
 
 # 版本標記（查詢台看回應的 render／build 判斷 Vercel 是不是新版；不對 → 請景泰 Redeploy 並取消 build cache）
-BUILD = "2026-10-05-rent591b"
+BUILD = "2026-10-05-rent591c"
 RENDER_CARDS = "cards-v2"
 RENDER_SINGLE = "single-v2"
 SHARE_MAX = 20                       # 一次最多 20 張卡（與 mp_config.SHARE_MAX 同值）
@@ -925,7 +925,8 @@ def _structured_name(p):
         "cat": cat, "building_kind": bt if bt in ("大樓", "華廈", "公寓") else "",
         "district": district, "road": road, "community": p.get("community_display") or None,
         "floor": {"lo": p.get("floor") or None, "hi": None, "total": p.get("floor_total") or None},
-        "rooms": int(rm.group(1)) if rm else None, "areas": {"reg": p.get("area") or None},
+        "rooms": int(rm.group(1)) if rm else None,
+        "areas": {"reg": p.get("area") or None, "land": (p.get("area") or None) if cat == "land" else None},
     }
     return _SC.structured_title(f)
 

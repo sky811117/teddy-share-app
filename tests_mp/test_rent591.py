@@ -197,6 +197,65 @@ class TestBusinessRent(unittest.TestCase):
         self.assertNotIn('25號', html)
 
 
+class TestBusinessRentRound3(unittest.TestCase):
+    """第三輪審查（商用租屋）抓到的漏網：房仲署名區、商辦房號、分公司地名、土地面積、平台標籤。"""
+
+    def test_agent_signature_after_divider_cut(self):
+        html = ('店面方正採光好<br>可做餐飲<br>------------------<br>我是阿詠，陪你一起找到「理想家」！'
+                '<br>現在就點擊「發送訊息」，我們約個時間喝杯咖啡聊聊吧！<br>永慶14期山西榮德店 欣岳不動產')
+        self.assertEqual(C._clean_rent_remark(html), '店面方正採光好\n可做餐飲')
+
+    def test_nickname_entities(self):
+        ents = C._rent591_entities({'name': '仲介: 王新詠', 'roleTxt': '華府房屋仲介股份有限公司'})
+        for e in ('阿詠', '小詠', '華府房屋'):
+            self.assertIn(e, ents)
+        self.assertEqual(C._rent_clause_drop('我是阿詠，服務熱忱', ents), '服務熱忱')
+
+    def test_unit_codes_removed(self):
+        out = C._clean_rent_remark('【空間編號：12-8@9】一間有溫度的獨立空間<br>📍物件編號：12-8@9<br>【474-11@3】永春捷運旁')
+        self.assertEqual(out, '一間有溫度的獨立空間')
+
+    def test_branch_place_name_not_blacklisted(self):
+        ents = C._rent591_entities({'certificateTxt': '億錢朝富不動產 / 分公司：七期市政'})
+        self.assertNotIn('七期市政', ents)
+        self.assertEqual(C._rent_clause_drop('位於台中七期市政北二路', ents), '位於台中七期市政北二路')
+
+    def test_short_lane_numbers_do_not_eat_lines(self):
+        self.assertEqual(C._clean_rent_remark('12坪大空間<br>近9號公園', addr_nums=['12', '9']), '12坪大空間\n近9號公園')
+
+    def test_land_area_and_tags(self):
+        page = biz_page(
+            basicData={'id': '21851246', 'kindStr': '土地', 'region': '台中市'},
+            baseInfo={'title': '大雅雙面臨路590坪', 'status': 'open', 'price': {'value': '94,000', 'unit': '元/月'},
+                      'deposit': '押金二個月',
+                      'mainInfo': [{'label': '土地面積', 'value': '590'}, {'label': '使用分區', 'value': '農業區'}],
+                      'labelInfo': {'bottom': [{'label': '最短租期', 'value': '一年'}]},
+                      'tags': [{'name': '7日上新'}, {'name': '有水電'}]},
+            mapInfo={'address': {'desc': '大雅區大林路號'}})
+        with mock.patch.object(C, '_fetch', return_value=page):
+            d = C.fetch_external('https://business.591.com.tw/rent/21851246')
+        self.assertEqual(d['area'], 590.0)
+        self.assertFalse(d['lite'])
+        self.assertEqual(d['address'], '台中市大雅區大林路')
+        self.assertEqual(d['rent_cat'], 'land')
+        self.assertNotIn('7日上新', d['rent']['tags'])
+        self.assertIn(['使用分區', '農業區'], d['rent']['extra'])
+        props = [dict(d)]
+        I._scrub_fetched(props)
+        self.assertIn('590坪', props[0]['og_title'])
+
+
+class TestAddressPlaceNames(unittest.TestCase):
+
+    def test_brand_word_inside_place_name_kept(self):
+        for a in ('台北市信義區松德路', '台北市大安區信義路四段', '台中市西屯區永慶路'):
+            self.assertEqual(C._scrub_addr(a), a)
+        self.assertEqual(C._scrub_addr('信義房屋 北屯區崇德路'), '北屯區崇德路')
+
+    def test_placeholder_intro_dropped(self):
+        self.assertEqual(C._clean_rent_remark('暫未添加說明'), '')
+
+
 class TestClauseDrop(unittest.TestCase):
 
     def test_drops(self):
