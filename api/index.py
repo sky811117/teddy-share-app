@@ -38,7 +38,7 @@ except Exception as _e:
     _L = _SC = _A = None
 
 # 版本標記（查詢台看回應的 render／build 判斷 Vercel 是不是新版；不對 → 請景泰 Redeploy 並取消 build cache）
-BUILD = "2026-10-05-rent591"
+BUILD = "2026-10-05-rent591b"
 RENDER_CARDS = "cards-v2"
 RENDER_SINGLE = "single-v2"
 SHARE_MAX = 20                       # 一次最多 20 張卡（與 mp_config.SHARE_MAX 同值）
@@ -955,6 +955,10 @@ def _scrub_fetched(properties, ents_out=None):
                     rent[k] = _SC.scrub_short(rent[k]) or None
             for k in ("tags", "equip"):
                 rent[k] = [t for t in (_SC.scrub_short(str(x)) for x in (rent.get(k) or [])) if t]
+            rent["extra"] = [[str(kv[0]), v] for kv in (rent.get("extra") or [])
+                             if isinstance(kv, (list, tuple)) and len(kv) == 2
+                             for v in [_SC.scrub_short(str(kv[1]))]   # 「金華路二段(20米)」路名＋路寬，scrub_short 會擋門牌
+                             if v]
         p["address"] = _SC.road_only(p.get("address") or "")
         # 591 租屋：只認 591 有登錄的社區名（rent_comm）；沒有就用路段當分組標題，標題不疊「路段＋型態＋格局」
         _cd = (p.get("rent_comm") or "") if deal == "rent" else p.get("community_display")
@@ -1151,6 +1155,9 @@ def _rent_cells(rent):
         cell("最短租期", ml)
     if rent.get("incl"):                           # 591 租屋：「管理費、水費、網路、第四台」
         cell("租金含", rent["incl"])
+    for kv in (rent.get("extra") or []):           # 591 商用租屋：權狀坪數、規格、臨路路寬、適合行業…
+        if isinstance(kv, (list, tuple)) and len(kv) == 2 and kv[0] and kv[1]:
+            cell(str(kv[0]), str(kv[1]))
     return "".join(cells)
 
 
@@ -1396,9 +1403,10 @@ def parse_district(address):
 
 # 類型 chip／卡片 data-type 共用分類（不在清單裡的一律「其他」，chip 數字跟篩選結果才會一致）
 TYPE_ORDER = ['大樓', '華廈', '透天', '別墅', '公寓', '其他']
-RENT_TYPE_ORDER = ['整層住家', '獨立套房', '分租套房', '雅房', '車位', '其他']
+RENT_TYPE_ORDER = ['整層住家', '獨立套房', '分租套房', '雅房', '店面', '辦公', '廠房', '土地', '車位', '其他']
 _RENT_CAT_TYPE = {'rent_whole': '整層住家', 'rent_suite': '獨立套房', 'rent_share': '分租套房',
-                  'rent_room': '雅房', 'parking': '車位'}
+                  'rent_room': '雅房', 'shop': '店面', 'office': '辦公', 'factory': '廠房', 'land': '土地',
+                  'parking': '車位'}
 
 
 def _type_bucket(p, rent_mode=False):
@@ -1584,10 +1592,13 @@ def district_section_html(district, communities_dict, anchor, rc=None):
     if ages:
         age_text = f"屋齡 {_g(ages[0])} 年" if len(ages) == 1 else f"屋齡 {_g(ages[0])}~{_g(ages[-1])} 年"
 
-    # 分兩組：住宅 vs 透天/別墅
+    # 分三組：住宅 vs 透天/別墅 vs 商用（店面/辦公/廠房；591 商用租售）
     TOWNHOUSE = {'透天', '別墅'}
-    residential_props = [p for p in all_props if (p.get('building_type') or '').strip() not in TOWNHOUSE]
-    townhouse_props = [p for p in all_props if (p.get('building_type') or '').strip() in TOWNHOUSE]
+    COMMERCIAL = {'店面', '辦公', '住辦', '廠房', '土地', '商辦', '商用'}
+    _bt = lambda p: (p.get('building_type') or '').strip()
+    residential_props = [p for p in all_props if _bt(p) not in TOWNHOUSE and _bt(p) not in COMMERCIAL]
+    townhouse_props = [p for p in all_props if _bt(p) in TOWNHOUSE]
+    commercial_props = [p for p in all_props if _bt(p) in COMMERCIAL]
 
     def group_by_community(props):
         d = {}
@@ -1625,7 +1636,8 @@ def district_section_html(district, communities_dict, anchor, rc=None):
 
     sub_sections = (
         render_group(residential_props, '住宅', '🏢') +
-        render_group(townhouse_props, '透天 / 別墅', '🏠')
+        render_group(townhouse_props, '透天 / 別墅', '🏠') +
+        render_group(commercial_props, '商用', '🏬')
     )
 
     # community_order 用全部物件（給 chip 預覽用）

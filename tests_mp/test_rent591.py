@@ -127,6 +127,76 @@ class TestRentParse(unittest.TestCase):
             self.assertEqual(d['age'], want, raw)
 
 
+def biz_page(**kw):
+    d = {
+        'basicData': {'id': '21437774', 'kindStr': '店面', 'region': '台中市', 'section': '北區'},
+        'baseInfo': {
+            'title': '(專)梅亭東街黃金店面', 'status': 'open', 'price': {'value': '35,000', 'unit': '元/月'},
+            'deposit': '押金二個月',
+            'mainInfo': [{'label': '使用坪數', 'value': '28.56'}, {'label': '樓層', 'value': '1F/5F'}],
+            'labelInfo': {'left': [{'label': '最短租期', 'value': '一年'}, {'label': '權狀坪數', 'value': '30坪'}],
+                          'right': [{'label': '租金', 'value': '不含水電費'}, {'label': '登記', 'value': '可工商登記'},
+                                    {'label': '管理費', 'value': '1,200元/月'}],
+                          'bottom': [{'label': '臨路路寬', 'value': '梅亭東街(12米)'}, {'label': '使用分區', 'value': '暫未填寫'}]},
+            'tags': [{'name': '可登記'}, {'name': '免租1個月'}]},
+        'facilityInfo': {'facility': [{'name': '獨立出入口', 'active': 1}, {'name': '電梯', 'active': 0}]},
+        'linkInfo': {'linkman': '林先生', 'imName': '林靖崴', 'econName': '館前不動產有限公司', 'mobile': '0922-972-222',
+                     'companyname': '', 'subcompanyname': ''},
+        'remark': '<p>三角窗店面，人潮多，２４小時川流不息</p><p>林靖崴為您服務 0922-972-222</p>',
+        'mapInfo': {'address': {'desc': '北區梅亭東街25號'}},
+    }
+    d.update(kw)
+    album = [{'type': 3, 'isCover': 1, 'photo': 'https://img1.591.com.tw/house/b/1.jpg!1000x.water2.jpg'}]
+    nuxt = {'pinia': {'business-rent-detail': {'detailInfo': d}, 'album': {'albumData': {'items': album}}}}
+    return '<html><script>window.__NUXT__=%s</script></html>' % json.dumps(nuxt, ensure_ascii=False)
+
+
+class TestBusinessRent(unittest.TestCase):
+    """591 商用租屋 business.591.com.tw/rent/{id}（景泰 2026-10-05 貼店面出租被回「找不到物件網址」）。"""
+
+    def parse(self, **kw):
+        with mock.patch.object(C, '_fetch', return_value=biz_page(**kw)):
+            return C.fetch_external('https://business.591.com.tw/rent/21437774')
+
+    def test_url_recognised(self):
+        urls = [u for _p, u, _b in C.scan_external('看 https://business.591.com.tw/rent/21728726 這間')]
+        self.assertEqual(urls, ['https://business.591.com.tw/rent/21728726'])
+
+    def test_fields(self):
+        d = self.parse()
+        self.assertEqual(d['mode'], 'rent')
+        self.assertEqual(d['price'], 35000)
+        self.assertEqual(d['address'], '台中市北區梅亭東街')
+        self.assertEqual((d['floor'], d['floor_total']), (1, 5))
+        self.assertEqual(d['rent_cat'], 'shop')
+        self.assertEqual(d['rent_id'], 'b21437774')
+        self.assertEqual(d['parking'], '')
+        r = d['rent']
+        self.assertEqual((r['deposit'], r['mgmt'], r['min_lease']), (2, 1200, '一年'))
+        self.assertIn('租金不含水電費', r['tags'])
+        self.assertEqual(r['equip'], ['獨立出入口'])
+        self.assertEqual(r['extra'], [['權狀坪數', '30坪'], ['臨路路寬', '梅亭東街(12米)']])
+        self.assertIn('２４小時川流不息', d['intro'])              # 「24小時」不是聯絡資訊時不截斷
+        for bad in ('林靖崴', '0922', '館前'):
+            self.assertNotIn(bad, d['intro'])
+        self.assertIn('館前不動產', d['scrub_entities'])
+
+    def test_page(self):
+        with mock.patch.object(C, '_fetch', return_value=biz_page()):
+            props = I.fetch_full_batch(I.extract_refs('https://business.591.com.tw/rent/21437774'))
+        ents = set()
+        found = I._scrub_fetched(props, ents)
+        html = I.gen_html({'name': '', 'need': '', 'share_id': 'TB', 'contact': I.DEFAULT_CONTACT,
+                           'mode': I._page_mode(props)}, props)
+        self.assertTrue(I._audit_page(html, I.DEFAULT_CONTACT, (), [], found,
+                                      I._audit_entities(ents, props, I.DEFAULT_CONTACT)).ok)
+        self.assertIn('35,000', html)
+        self.assertIn('元/月', html)
+        self.assertIn('梅亭東街(12米)', html)
+        self.assertIn('北區梅亭東街 店面', html)
+        self.assertNotIn('25號', html)
+
+
 class TestClauseDrop(unittest.TestCase):
 
     def test_drops(self):

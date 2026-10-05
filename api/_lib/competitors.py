@@ -1543,7 +1543,7 @@ _RENT_BYPASS_RE = re.compile(
     r'|(?:免|不|零|無|沒有|省下?)\s*(?:付|收取?|用|須|需|繳|支付)?\s*(?:任何)?\s*(?:租屋)?\s*(?:仲介|中介|服務)\s*(?:服務)?(?:費|報酬)'
     r'|免中間費|仲介勿擾|謝絕仲介|免仲介')
 # 平台品牌／站內聯絡（591站內信、591 APP 預約）
-_RENT_591_RE = re.compile(r'(?<![0-9])591(?![0-9])|站內信|私訊|預約看房|預約賞屋')
+_RENT_591_RE = re.compile(r'(?<![0-9])591(?![0-9])|站內信|私訊|預約看[房屋]|預約賞屋|預約參觀|歡迎預約')
 # 同業的服務項目／招牌口號（「買賣、委託、代管、代租、包租」「用最細心耐心誠心地迎接你」「超A獨招」）
 _RENT_AGENCY_RE = re.compile(r'代管|代租|包租|委託|獨招|專任|迎接您?你?|誠心|服務項目')
 try:
@@ -1637,7 +1637,7 @@ def _clean_rent_remark(html, entities=(), addr_nums=()):
     t = _ENCLOSED_CJK_RE.sub(lambda m: _ENCLOSED_CJK[m.group()], t.replace('\ufe0f', ''))
     STOP = re.compile(r'09\d{2}[-\s]?\d{3}[-\s]?\d{3}|0\d{1,2}[-\s]?\d{6,8}|LINE|Line|line|ＬＩＮＥ'
                       r'|加盟店|不動產|房仲|經紀人|營業員|仲介(?!(?:服務)?費)|託付|咨詢|諮詢|為您服務'
-                      r'|24小時|２４小時|ID[:：]|竭誠|敬上|歡迎來電|來電洽|請洽|洽詢|專線|聯絡我們|聯繫我們'
+                      r'|(?:24|２４)小時\s*(?:服務|專線|聯絡|洽詢|為您|接聽|在線)|ID[:：]|竭誠|敬上|歡迎來電|來電洽|請洽|洽詢|專線|聯絡我們|聯繫我們'
                       r'|全網|多元行銷|帶看|賞屋請'
                       # 同業署名區開頭（後面整段都是對方的招牌、招攬房東、服務項目）
                       r'|親愛的房東|房東您好|出租需求|與我聯繫|聯繫我|規劃顧問|房產顧問|租售服務|買賣服務|專業代租'
@@ -1839,6 +1839,145 @@ def _p_rent591(url):
     out["gallery"] = gallery[:12]
     out["cover_image"] = gallery[0] if gallery else ""
     out["og_title"] = ""          # 刊登標題是房東行銷句，不用；客戶頁標題由 index.py 結構化產生
+    return out
+
+
+# ==================== 591 商用租屋（店面 / 辦公 / 廠房）====================
+_BRENT_CAT = {"店面": "shop", "辦公": "office", "住辦": "office", "廠房": "factory", "土地": "land", "車位": "parking"}
+# 商用才有、客戶會想看的規格欄位（照這個順序放進卡片規格格子）
+_BRENT_EXTRA = ("權狀坪數", "規格", "臨路路寬", "裝潢", "裝潢程度", "使用分區", "適合行業", "禁用行業")
+
+
+def _p_business591_rent(url):
+    """591 商用租屋 business.591.com.tw/rent/{id}（店面 / 辦公 / 廠房）。
+
+    資料在 window.__NUXT__ 的 pinia['business-rent-detail'].detailInfo（跟商用買賣同一套版型）：
+    baseInfo（租金/押金/mainInfo 坪數樓層/labelInfo 左右下三欄/tags）、facilityInfo、remark；相簿 pinia.album。
+    卡片走租屋版（元/月），洗白比照住家租屋：linkInfo 只當黑名單、屋況介紹子句級過濾、地址砍到路段。"""
+    out = _blank()
+    m = re.search(r"business\.591\.com\.tw/rent/(\d{6,9})", url or "")
+    if not m:
+        return out
+    hid = m.group(1)
+    try:
+        html = _fetch("https://business.591.com.tw/rent/%s" % hid)
+    except Exception:
+        return out
+    dt, items = None, []
+    try:
+        import quickjs
+        mx = re.search(r'window\.__NUXT__=(.+?)</script>', html, re.S)
+        if mx:
+            ctx = quickjs.Context()
+            ctx.eval('var D=(' + mx.group(1).strip().rstrip(';') + ')')
+            _dj = ctx.eval("JSON.stringify((D.pinia&&D.pinia['business-rent-detail']&&D.pinia['business-rent-detail'].detailInfo)||null)")
+            dt = json.loads(_dj) if _dj else None
+            _aj = ctx.eval("JSON.stringify((D.pinia&&D.pinia.album&&D.pinia.album.albumData&&D.pinia.album.albumData.items)||[])")
+            items = json.loads(_aj) if _aj else []
+    except Exception:
+        dt = None
+    if not isinstance(dt, dict) or not dt.get("baseInfo"):
+        return out
+    bi = dt["baseInfo"]
+    if str(bi.get("status") or "open") != "open":
+        return out
+    basic = dt.get("basicData") or {}
+    LI = bi.get("labelInfo") or {}
+    labels = {}
+    for arr in (bi.get("mainInfo"), LI.get("left"), LI.get("right"), LI.get("bottom")):
+        for i in (arr or []):
+            if isinstance(i, dict) and i.get("label") and str(i.get("value") or "").strip():
+                labels.setdefault(str(i["label"]), str(i["value"]).strip())
+
+    price = _to_int(re.split(r"[~～\-]", str((bi.get("price") or {}).get("value") or ""))[0])
+    out["price"] = price
+    out["area"] = round(_to_float(labels.get("使用坪數")), 2)
+    fl = labels.get("樓層", "")
+    fm = re.fullmatch(r"(\d+)\s*F\s*/\s*(\d+)\s*F", fl)
+    if fm:
+        out["floor"], out["floor_total"] = int(fm.group(1)), int(fm.group(2))
+    elif fl:
+        out["floor_text"] = fl                       # 「整棟/2F」「1-2F/5F」照原樣
+    age = labels.get("屋齡", "")
+    _y = re.search(r"(\d+(?:\.\d+)?)\s*年", age)
+    if _y:
+        out["age"] = float(_y.group(1))
+    kind = str(basic.get("kindStr") or "").strip()
+    out["building_type"] = kind or "商用"
+    out["rent_cat"] = _BRENT_CAT.get(kind, "other")
+
+    city = str(basic.get("region") or "").strip()
+    raw_addr = str(((dt.get("mapInfo") or {}).get("address") or {}).get("desc") or "")
+    addr = _road_level(raw_addr)
+    if city and addr and not addr.startswith(city):
+        addr = city + addr
+    out["address"] = addr
+    out["rent_comm"] = ""                            # 商用標題是行銷句，不當社區名
+
+    # 車位（辦公大樓常有）；店面/廠房沒寫就不放「無車位」
+    out["parking"] = ""
+    if labels.get("車位"):
+        out["parking"] = labels["車位"]
+        out["has_parking"] = True
+
+    mg = labels.get("管理費", "")
+    mgmt = _to_int(mg) if re.search(r"\d", mg) else None
+    dep = re.sub(r"^押金\s*", "", str(bi.get("deposit") or "")).strip()
+
+    tags = []
+    for t in (bi.get("tags") or []):
+        v = str((t or {}).get("name") or "").strip() if isinstance(t, dict) else ""
+        if v and v not in _RENT591_TAG_SKIP and v not in tags:
+            tags.append(v)
+    for k in ("登記", "隔間", "遷入時間"):
+        v = labels.get(k, "")
+        if k == "登記" and any(x.endswith("登記") for x in tags):
+            continue                                 # 已有「可登記」「可工廠登記」標籤就不再重複
+        if v and v not in tags and v not in ("視具體情況",) and not any(v in x or x in v for x in tags):
+            tags.append(v)
+    if labels.get("租金"):                            # 「不含水電費」→「租金不含水電費」
+        tags.append("租金" + labels["租金"] if not labels["租金"].startswith("租金") else labels["租金"])
+    fac = dt.get("facilityInfo") or {}
+    equip = [str(f.get("name")) for f in (fac.get("facility") or []) if isinstance(f, dict) and f.get("active") and f.get("name")]
+    equip += [str(f.get("name") if isinstance(f, dict) else f) for f in (fac.get("handlingEquipment") or []) if f]
+    extra = [[k, labels[k]] for k in _BRENT_EXTRA if labels.get(k) and "暫未填寫" not in labels[k]]
+
+    out["rent"] = {
+        "rent": price or None,
+        "deposit": _cn_months(dep) or None,
+        "mgmt": mgmt, "mgmt_incl": None, "mgmt_text": "",
+        "parking_fee": None,
+        "min_lease": _cn_months(labels.get("最短租期", "")) or None,
+        "incl": "",
+        "equip": equip[:15],
+        "tags": tags[:12],
+        "extra": extra,
+    }
+    out["mode"] = "rent"
+    out["rent_id"] = "b" + hid                       # 商用跟住家編號分開算，加前綴免得撞號
+    link = dt.get("linkInfo") or {}
+    ents = _rent591_entities({
+        "name": link.get("linkman"), "imName": link.get("imName"), "roleTxt": link.get("econName"),
+        "certificateTxt": " / ".join(str(link.get(k) or "") for k in ("companyname", "subcompanyname")),
+    })
+    out["scrub_entities"] = ents
+    addr_nums = re.findall(r'(\d+)\s*(?:之\s*\d+)?\s*[巷弄號]', raw_addr)
+    out["intro"] = _clean_rent_remark(dt.get("remark") or "", ents, addr_nums)
+
+    photos = [it for it in items if isinstance(it, dict) and it.get("type") == 3]
+    photos.sort(key=lambda it: 0 if it.get("isCover") else 1)
+    gallery = []
+    for it in photos:
+        u = (it.get("photo") or it.get("origPhoto") or "").split("!")[0]
+        if u and u + "!1000x.jpg" not in gallery:
+            gallery.append(u + "!1000x.jpg")
+    if not gallery:
+        mo = re.search(r'<meta[^>]+property=["\']og:image["\'][^>]*content=["\']([^"\']+)["\']', html)
+        if mo and mo.group(1).split("!")[0]:
+            gallery.append(mo.group(1).split("!")[0] + "!1000x.jpg")
+    out["gallery"] = gallery[:12]
+    out["cover_image"] = gallery[0] if gallery else ""
+    out["og_title"] = ""
     return out
 
 
@@ -4254,6 +4393,7 @@ _ADAPTERS = [
     (re.compile(r"https?://(?:www\.)?twhg\.com\.tw/buy/[A-Za-z]{2}\d+"), "台灣房屋", _p_twhg),
     (re.compile(r"https?://sale\.591\.com\.tw/home/house/detail/\d+/\d+\.html?"), "591", _p_h591),
     (re.compile(r"https?://business\.591\.com\.tw/sale/\d+"), "591", _p_business591),
+    (re.compile(r"https?://business\.591\.com\.tw/rent/\d{6,9}"), "591", _p_business591_rent),
     # 591 租屋：rent.591.com.tw/{id}（含舊版 rent-detail-{id}.html、home/{id}）、手機版、App 分享短網址
     (re.compile(r"https?://rent\.591\.com\.tw/(?:rent-detail-|home/)?\d{6,9}"), "591", _p_rent591),
     (re.compile(r"https?://m\.591\.com\.tw/v2/rent/\d{6,9}"), "591", _p_rent591),
