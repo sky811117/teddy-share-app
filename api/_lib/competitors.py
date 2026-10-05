@@ -1728,7 +1728,7 @@ def _p_rent591(url):
     except Exception:
         D = None
     if not isinstance(D, dict) or not D.get("priceUnit"):
-        return out
+        return _p_rent591_legacy(html, hid) if _RENT_LEGACY_MARK.search(html or "") else out
     if str(D.get("status") or "open") != "open":
         return out
 
@@ -1859,6 +1859,141 @@ def _p_rent591(url):
     out["og_title"] = ""          # 刊登標題是房東行銷句，不用；客戶頁標題由 index.py 結構化產生
     return out
 
+# ==================== 591 租屋舊版頁（rent-detail-{id}.html，伺服器直出 HTML、沒有 __NUXT__）====================
+# 商用「住辦」(kind=12) 會被 302 到這種舊頁；591 在字中間塞空標籤防抓（「6<wp></wp>0,000」「二<prk></prk>個月」）。
+_RENT_LEGACY_MARK = re.compile(r'class="houseIntro"|class="labelList|<ul class="attr">')
+_LEGACY_KIND_CAT = {"整層住家": "rent_whole", "獨立套房": "rent_suite", "分租套房": "rent_share", "雅房": "rent_room",
+                    "車位": "parking", "住辦": "office", "辦公": "office", "店面": "shop", "廠房": "factory"}
+
+
+def _legacy_clean(html):
+    prev = None
+    while prev != html:                              # 巢狀的空標籤一層層拿掉
+        prev = html
+        html = re.sub(r'<([a-z]{1,10})>\s*</\1>', '', html)
+    return html
+
+
+def _legacy_text(s):
+    s = re.sub(r'<[^>]+>', '', s or '')
+    return _html.unescape(s).replace('\xa0', ' ').strip()
+
+
+def _p_rent591_legacy(html, hid):
+    """591 舊版租屋頁 → 跟 _p_rent591 同一套輸出（卡片走租屋版）。
+    ⛔ 聯絡人（avatarRight 的「張先生（代理人）」、經紀業公司）只當洗白黑名單，不上頁；⛔ 不收「性別要求」「身份要求」。"""
+    out = _blank()
+    h = _legacy_clean(html or "")
+    if re.search(r'此房屋已(?:出租|下架|關閉)|已出租', _legacy_text(re.sub(r'<script[\s\S]*?</script>', '', h))[:20000]):
+        return out
+    m = re.search(r'<n-average-rent-price[^>]*\bprice="([\d,]+)"', h) or \
+        re.search(r'class="price[^"]*">\s*<i>\s*([\d,]+)', h)
+    price = _to_int(m.group(1)) if m else 0
+    if not price:
+        return out
+    attr = {}
+    ma = re.search(r'<ul class="attr">(.*?)</ul>', h, re.S)
+    for li in re.findall(r'<li>(.*?)</li>', ma.group(1) if ma else '', re.S):
+        t = _legacy_text(li)
+        if ':' in t:
+            k, v = t.split(':', 1)
+            attr[re.sub(r'\s+', '', k)] = v.strip()
+    lab = {}
+    for k, v in re.findall(r'<div class="one">(.*?)</div>\s*<div class="two">\s*<span>：</span>\s*<em[^>]*>(.*?)</em>', h, re.S):
+        lab.setdefault(re.sub(r'\s+', '', _legacy_text(k)), _legacy_text(v))
+
+    out["price"] = price
+    out["area"] = round(_to_float(attr.get("坪數")), 2)
+    lm = re.match(r'(\d+房(?:\d+廳)?(?:\d+衛)?)', attr.get("格局", ""))
+    out["layout"] = lm.group(1) if lm else ""
+    fl = attr.get("樓層", "")
+    fm = re.fullmatch(r"(\d+)\s*F\s*/\s*(\d+)\s*F", fl)
+    if fm:
+        out["floor"], out["floor_total"] = int(fm.group(1)), int(fm.group(2))
+    elif fl:
+        out["floor_text"] = fl
+    age = lab.get("屋齡", "")
+    _y = re.search(r"(\d+(?:\.\d+)?)\s*年", age)
+    if _y:
+        out["age"] = float(_y.group(1))
+
+    # 類型：「現況」（住辦／整層住家…），沒有就看麵包屑最後一層
+    kind_txt = attr.get("現況", "")
+    if not kind_txt:
+        bc = re.findall(r'kind=\d+[^"]*">([^<]{2,6})</a>', h)
+        kind_txt = bc[-1] if bc else ""
+    shape = attr.get("型態", "")
+    cat = _LEGACY_KIND_CAT.get(kind_txt, "rent_whole" if out["layout"] else "other")
+    if kind_txt in ("獨立套房", "分租套房", "雅房", "車位", "住辦", "辦公", "店面", "廠房"):
+        out["building_type"] = kind_txt
+    else:
+        out["building_type"] = shape or kind_txt
+    out["rent_cat"] = cat
+
+    am = re.search(r'<span class="addr">(.*?)</span>', h, re.S)
+    raw_addr = _legacy_text(am.group(1)) if am else ""
+    out["address"] = re.sub(r'(?<=[路街段道])號$', '', _road_level(raw_addr))
+    # 舊版頁的「社區」是刊登者自己填的：有數字／坪／路街／行銷字眼（蛋黃區、黃金…）就不當社區名
+    _comm = _strip_tags(attr.get("社區", ""))
+    if (len(_comm) > 12 or re.search(r'[\d０-９]|坪|[路街]|蛋黃|精華|黃金|稀有|首選|超值|捷運|近|旁|樓', _comm)):
+        _comm = ""
+    out["rent_comm"] = _comm
+    out["community_display"] = _comm
+
+    pk = lab.get("車位", "")
+    if pk and pk not in ("無", "沒有"):
+        out["parking"] = pk
+        out["has_parking"] = True
+    mg = lab.get("管理費", "")
+    mgmt = _to_int(mg) if re.search(r"\d", mg) else None
+    mgmt_incl = True if (mg and "含" in mg and mgmt is None) else None
+    mgmt_text = mg if (mg and mgmt is None and mgmt_incl is None) else ""
+    tags = []
+    for k, yes, no in (("開伙", "可開伙", "不可開伙"), ("養寵物", "可養寵物", "不可養寵物")):
+        v = lab.get(k, "")
+        if v:
+            tags.append(no if re.search(r"不|否", v) else yes)
+    incl = lab.get("租金含", "")
+
+    out["rent"] = {
+        "rent": price,
+        "deposit": (lambda d: (d + " 元") if isinstance(d, str) and re.fullmatch(r"[\d,]+", d) else d)(
+            _cn_months(lab.get("押金", ""))) or None,     # 「30,000」→「30,000 元」
+        "mgmt": mgmt, "mgmt_incl": mgmt_incl, "mgmt_text": mgmt_text,
+        "parking_fee": None,
+        "min_lease": _cn_months(lab.get("最短租期", "")) or None,
+        "incl": incl,
+        "equip": [],
+        "tags": tags,
+    }
+    out["mode"] = "rent"
+    out["rent_id"] = hid
+
+    nm = re.search(r'class="avatarRight">[\s\S]{0,1500}?<i>([^<]{1,20})</i>', h)
+    co = re.search(r'(?:經紀業|公司名稱?)\s*[:：]\s*([^<\s]{2,40})', h)
+    ents = _rent591_entities({"name": nm.group(1) if nm else "", "roleTxt": co.group(1) if co else ""})
+    out["scrub_entities"] = ents
+    addr_nums = re.findall(r'(\d+)\s*(?:之\s*\d+)?\s*[巷弄號]', raw_addr)
+    im = re.search(r'class="houseIntro"[^>]*>([\s\S]*?)</div>\s*(?:<!--|<div class="(?:needle-app|mapBox))', h)
+    out["intro"] = _clean_rent_remark(im.group(1) if im else "", ents, addr_nums)
+
+    # 相簿：封面（og:image）排第一，再依縮圖列順序；只收這間的 /house/ 圖
+    og = re.search(r'<meta[^>]+property="og:image"[^>]*content="([^"]+)"', h)
+    seg_i = h.find('class="imgList"')
+    seg = h[seg_i:seg_i + 20000] if seg_i >= 0 else ""
+    urls = ([og.group(1)] if og else []) + re.findall(r'https?://img\d\.591\.com\.tw/house/[^"\'\s)<>]+', seg)
+    gallery, seen = [], set()
+    for u in urls:
+        base = u.split("!")[0]
+        key = base.rsplit("/", 1)[-1]
+        if base and key not in seen and "/house/" in base:
+            seen.add(key)
+            gallery.append(base + "!1000x.jpg")
+    out["gallery"] = gallery[:12]
+    out["cover_image"] = gallery[0] if gallery else ""
+    out["og_title"] = ""
+    return out
+
 
 # ==================== 591 商用租屋（店面 / 辦公 / 廠房）====================
 _BRENT_CAT = {"店面": "shop", "辦公": "office", "住辦": "office", "廠房": "factory", "土地": "land", "車位": "parking"}
@@ -1895,7 +2030,8 @@ def _p_business591_rent(url):
     except Exception:
         dt = None
     if not isinstance(dt, dict) or not dt.get("baseInfo"):
-        return out
+        # 住辦（kind=12）會被 591 導到 rent-detail-{id}.html 舊版頁
+        return _p_rent591_legacy(html, hid) if _RENT_LEGACY_MARK.search(html or "") else out
     bi = dt["baseInfo"]
     if str(bi.get("status") or "open") != "open":
         return out

@@ -245,6 +245,73 @@ class TestBusinessRentRound3(unittest.TestCase):
         self.assertIn('590坪', props[0]['og_title'])
 
 
+LEGACY_PAGE = '''<html><head>
+<meta property="og:image" content="https://img2.591.com.tw/house/2026/08/25/cover1.jpg!1000x.water2.jpg" />
+</head><body>
+<a href="//business.591.com.tw/?type=1&kind=12&regionid=8&section=106">住辦</a> &gt;
+<span class="addr">台中市太<ide></ide>平區立功路190巷</span>
+<div class="imgList"><textarea class="datalazyload"><ol>
+<li><img src="https://img1.591.com.tw/house/2026/08/25/cover1.jpg!94x68.jpg"></li>
+<li><img src="https://img2.591.com.tw/house/2026/08/25/p2.jpeg!400x300.jpeg"></li></ol></textarea></div>
+<ul class="clearfix labelList labelList-1">
+<li class="clearfix"><div class="one">押金</div><div class="two"><span>：</span><em title="x">二<prk></prk>個<prk></prk>月</em></div>
+<li class="clearfix"><div class="one"><f></f>車 位</div><div class="two"><span>：</span><em title="無">無</em></div>
+<li class="clearfix"><div class="one">性別要求</div><div class="two"><span>：</span><em title="x">限女生</em></div>
+<li class="clearfix"><div class="one">管理費</div><div class="two"><span>：</span><em title="x">6000元/月</em></div>
+<li class="clearfix"><div class="one">最短租期</div><div class="two"><span>：</span><em title="x">3<sovxjx></sovxjx>年</em></div>
+<li class="clearfix"><div class="one">開伙</div><div class="two"><span>：</span><em title="x">可以</em></div>
+<li class="clearfix"><div class="one">養寵物</div><div class="two"><span>：</span><em title="x">不可以</em></div>
+</ul>
+<div class="houseIntro" onselectstart="return false;"><p>透天空間＋大樓服務</p><p>190巷口就是公車站</p><p>限女生承租</p></div>
+<!-- 新聞入口 -->
+<div class="price clearfix"><i>6<wp></wp>0,000 <b>元/月</b></i></div>
+<n-average-rent-price price="60,000" area="0"></n-average-rent-price>
+<ul class="attr"><li>格局&nbsp;:&nbsp;&nbsp;4房2廳5衛5陽台</li><li>坪數&nbsp;:&nbsp;&nbsp;92.13坪</li>
+<li><j></j>樓層&nbsp;:&nbsp;&nbsp;整棟/4F</li><li>型態&nbsp;:&nbsp;&nbsp;<pr></pr>透天厝</li><li>現況&nbsp;:&nbsp;&nbsp;住辦</li>
+<li><dwbr></dwbr>社區&nbsp;:&nbsp;&nbsp;微笑莊園香榭區</li></ul>
+<div class="avatarRight"><div style="margin-top: 13px;"><i>王新詠</i>（仲介）</div></div>
+</body></html>'''
+
+
+class TestLegacyRentPage(unittest.TestCase):
+    """591 舊版租屋頁（住辦 302 到 rent-detail-{id}.html，沒有 __NUXT__、字中間塞空標籤）。"""
+
+    def parse(self):
+        with mock.patch.object(C, '_fetch', return_value=LEGACY_PAGE):
+            return C.fetch_external('https://business.591.com.tw/rent/21893496')
+
+    def test_fields(self):
+        d = self.parse()
+        self.assertEqual(d['mode'], 'rent')
+        self.assertEqual(d['price'], 60000)
+        self.assertEqual(d['area'], 92.13)
+        self.assertEqual(d['layout'], '4房2廳5衛')
+        self.assertEqual(d['floor_text'], '整棟/4F')
+        self.assertEqual(d['building_type'], '住辦')
+        self.assertEqual(d['address'], '台中市太平區立功路')
+        self.assertEqual(d['rent_comm'], '微笑莊園香榭區')
+        r = d['rent']
+        self.assertEqual((r['deposit'], r['mgmt'], r['min_lease']), (2, 6000, '3年'))
+        self.assertEqual(r['tags'], ['可開伙', '不可養寵物'])
+        self.assertEqual(d['gallery'], ['https://img2.591.com.tw/house/2026/08/25/cover1.jpg!1000x.jpg',
+                                        'https://img2.591.com.tw/house/2026/08/25/p2.jpeg!1000x.jpg'])
+        self.assertIn('阿詠', d['scrub_entities'])
+
+    def test_intro_and_no_leaks(self):
+        d = self.parse()
+        self.assertEqual(d['intro'], '透天空間＋大樓服務')                 # 190 巷號那行、限女生那行都拿掉
+        blob = json.dumps({k: v for k, v in d.items() if k != 'scrub_entities'}, ensure_ascii=False)
+        for bad in ('王新詠', '限女生', '190'):
+            self.assertNotIn(bad, blob)
+
+    def test_page_title_says_zhuban(self):
+        with mock.patch.object(C, '_fetch', return_value=LEGACY_PAGE):
+            props = I.fetch_full_batch(I.extract_refs('https://business.591.com.tw/rent/21893496'))
+        I._scrub_fetched(props)
+        self.assertIn('住辦', props[0]['og_title'])
+        self.assertNotIn('辦公', props[0]['og_title'])
+
+
 class TestAddressPlaceNames(unittest.TestCase):
 
     def test_brand_word_inside_place_name_kept(self):
