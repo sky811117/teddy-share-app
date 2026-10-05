@@ -312,6 +312,62 @@ class TestLegacyRentPage(unittest.TestCase):
         self.assertNotIn('辦公', props[0]['og_title'])
 
 
+class TestLegacyRound4(unittest.TestCase):
+    """第四輪審查（住辦舊版頁）：自填社區、租金含／設備、無照片佔位圖、標題已出租、同棟門牌、空格電話、禁止符號。"""
+
+    def parse(self, page):
+        with mock.patch.object(C, '_fetch', return_value=page):
+            return C.fetch_external('https://business.591.com.tw/rent/21893496')
+
+    def test_agency_named_community_dropped(self):
+        page = (LEGACY_PAGE.replace('微笑莊園香榭區', '亮點商仲精選租案')
+                .replace('<i>王新詠</i>', '<i>亮小姐</i>').replace('</body>', '經紀業：亮點不動產</body>'))
+        d = self.parse(page)
+        self.assertEqual(d['rent_comm'], '')
+        for comm in ('屋主自租', '限女生', '免仲介費', '無'):
+            self.assertEqual(self.parse(LEGACY_PAGE.replace('微笑莊園香榭區', comm))['rent_comm'], '', comm)
+
+    def test_rent_incl_and_equipment(self):
+        page = LEGACY_PAGE.replace(
+            '<n-average-rent-price',
+            '<div class="price clearfix"><i>60,000</i></div><div class="explain">含管理費/清潔費</div>'
+            '<ul class="facility clearfix"><li><span class="bed"></span>床</li><li><span class="no"></span>沙發</li>'
+            '<li><span class="cold"></span>冷氣</li></ul><n-average-rent-price')
+        r = self.parse(page)['rent']
+        self.assertEqual(r['incl'], '管理費、清潔費')
+        self.assertTrue(r['mgmt_incl'])
+        self.assertEqual(r['equip'], ['床', '冷氣'])
+
+    def test_no_photo_placeholder_not_used(self):
+        page = (LEGACY_PAGE.replace('https://img2.591.com.tw/house/2026/08/25/cover1.jpg!1000x.water2.jpg',
+                                    'images/index/house/newVersion/noImgBigNew1.png')
+                .replace('<li><img src="https://img1.591.com.tw/house/2026/08/25/cover1.jpg!94x68.jpg"></li>', '')
+                .replace('<li><img src="https://img2.591.com.tw/house/2026/08/25/p2.jpeg!400x300.jpeg"></li>', ''))
+        d = self.parse(page)
+        self.assertEqual(d['gallery'], [])
+        self.assertTrue(d['no_clean_photo'])
+
+    def test_title_with_partially_rented_not_skipped(self):
+        d = self.parse(LEGACY_PAGE.replace('<span class="addr">', '<h1>一樓已出租 二三樓住辦招租</h1><span class="addr">'))
+        self.assertEqual(d['price'], 60000)
+        self.assertIn('error', self.parse(LEGACY_PAGE.replace('<body>', '<body><div>此房屋已出租</div>')))
+
+    def test_neighbouring_house_number_and_spaced_phone(self):
+        out = C._clean_rent_remark('台中市北區中清路一段705，707號兩戶共用電梯<br>705號 (租完)，約20坪<br>近國道3號',
+                                   addr_nums=['707'])
+        self.assertNotIn('705', out)
+        self.assertIn('國道3號', out)
+        self.assertEqual(C._clean_rent_remark('採光好<br>✨0 9 0 9 - 6 3 1 2 5 8 張小姐<br>成交時收取半個月服務費'), '採光好')
+
+    def test_prohibition_symbols_become_text(self):
+        out = C._clean_rent_remark('❌開伙<br>⛔寵物<br>🚫吸菸')
+        self.assertEqual(I._SC.scrub_body(out, '591', deal='rent').text, '禁開伙\n禁寵物\n禁吸菸')
+
+    def test_rent_community_not_whitelisted_for_audit(self):
+        props = [{'mode': 'rent', 'address': '台中市北區衛道六街', 'community_display': '權威物業', 'og_title': '權威物業 住辦'}]
+        self.assertEqual(I._audit_entities({'權威物業'}, props, I.DEFAULT_CONTACT), {'權威物業'})
+
+
 class TestAddressPlaceNames(unittest.TestCase):
 
     def test_brand_word_inside_place_name_kept(self):

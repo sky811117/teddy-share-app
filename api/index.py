@@ -38,7 +38,7 @@ except Exception as _e:
     _L = _SC = _A = None
 
 # 版本標記（查詢台看回應的 render／build 判斷 Vercel 是不是新版；不對 → 請景泰 Redeploy 並取消 build cache）
-BUILD = "2026-10-05-rent591d"
+BUILD = "2026-10-05-rent591e"
 RENDER_CARDS = "cards-v2"
 RENDER_SINGLE = "single-v2"
 SHARE_MAX = 20                       # 一次最多 20 張卡（與 mp_config.SHARE_MAX 同值）
@@ -983,7 +983,9 @@ def _scrub_fetched(properties, ents_out=None):
 def _audit_entities(ents, properties, contact):
     """刊登者黑名單交給整頁稽核 A12 前，剔掉本頁本來就合法會出現的字：物件地址／社區／標題、聯絡區
     （自己刊在 591 的物件，刊登者就是自己 → 名字、店名一定在聯絡區，不能因此整頁擋掉）。"""
-    legit = [str(p.get(k) or "") for p in properties for k in ("address", "community_display", "og_title")]
+    # 租屋的社區名／標題可能來自刊登者自填（舊版 591 頁）→ 不算合法字，只認地址與聯絡區
+    legit = [str(p.get(k) or "") for p in properties
+             for k in (("address",) if p.get("mode") == "rent" else ("address", "community_display", "og_title"))]
     legit += [str(v) for v in (contact or {}).values() if isinstance(v, str)]
     legit += [str(v) for v in DEFAULT_CONTACT.values() if isinstance(v, str)]
     flat = _SC._flat(" ".join(legit))

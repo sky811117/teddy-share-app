@@ -1642,6 +1642,7 @@ def _clean_rent_remark(html, entities=(), addr_nums=()):
     t = (t.replace('&nbsp;', ' ').replace('&amp;', '&')
          .replace('&lt;', '<').replace('&gt;', '>').replace('\r', ''))
     t = _ENCLOSED_CJK_RE.sub(lambda m: _ENCLOSED_CJK[m.group()], t.replace('\ufe0f', ''))
+    t = re.sub('[\u274c\u26d4\U0001F6AB\u2716]\\s*(?=[\u4e00-\u9fff])', '禁', t)   # ❌⛔🚫✖＋字 → 禁（mp_scrub 會當 emoji 刪掉）
     STOP = re.compile(r'09\d{2}[-\s]?\d{3}[-\s]?\d{3}|0\d{1,2}[-\s]?\d{6,8}|LINE|Line|line|ＬＩＮＥ'
                       r'|加盟店|不動產|房仲|經紀人|營業員|仲介(?!(?:服務)?費)|託付|咨詢|諮詢|為您服務'
                       r'|(?:24|２４)小時\s*(?:服務|專線|聯絡|洽詢|為您|接聽|在線)|ID[:：]|竭誠|敬上|歡迎來電|來電洽|請洽|洽詢|專線|聯絡我們|聯繫我們'
@@ -1654,6 +1655,10 @@ def _clean_rent_remark(html, entities=(), addr_nums=()):
                       r'|喝杯咖啡|給我\s*[一半]?\s*個?\s*半?小時')
     DIVIDER = re.compile(r'^[-—_=─━~＝－*·・.•]{8,}$')   # 長分隔線後面通常是房仲署名區
     nums = [n for n in (addr_nums or ()) if n and len(n) >= 3]   # 1-2 位數太常見（12坪、9號公園），只認 3 位數以上
+    own = [int(n) for n in (addr_nums or ()) if n and n.isdigit()]
+    # 同棟／隔壁門牌：本戶 707 號，介紹寫「705號 (租完)」→ 差 20 號以內的「N號」整行拿掉
+    NEAR_RE = re.compile(r'(?<!國道)(?<!省道)(?<!縣道)(?<![台臺\d.$,])(\d{1,4})\s*(?:之\s*\d+\s*)?號'
+                         r'(?!出口|公園|線|道|碼頭|倉|機|門|快|高|省|國)')
     NUM_RE = (re.compile(r'(?<![\d.$,])(?:%s)(?!\d)' % '|'.join(map(re.escape, nums)))
               if nums else None)
     # 房號：「116-2b」「12-8@9」（商辦：門牌-樓層@房間）
@@ -1665,13 +1670,16 @@ def _clean_rent_remark(html, entities=(), addr_nums=()):
     lines = []
     for ln in t.split('\n'):
         ln = ln.strip()
-        if STOP.search(ln) or DIVIDER.match(ln):
+        # 電話寫成「0 9 0 9 - 6 3 1 2 5 8」防爬 → 數字間的空白／點／橫線拿掉再比 STOP
+        ln_d = re.sub(r'(?<=\d)[\s.．\-－‧]+(?=\d)', '', ln)
+        if STOP.search(ln) or STOP.search(ln_d) or DIVIDER.match(ln) or re.search(r'成交時?收取|收取.{0,8}服務費', ln):
             break
         ln = CODE_RE.sub('', ln).strip()
         if not ln:
             lines.append('')
             continue
-        if (NUM_RE and NUM_RE.search(ln)) or ROOM_RE.search(ln):
+        if ((NUM_RE and NUM_RE.search(ln)) or ROOM_RE.search(ln)
+                or (own and any(abs(int(x) - o) <= 20 for x in NEAR_RE.findall(ln) for o in own))):
             continue                  # 「116-2b 6300」＝本戶巷號＋樓層房號，地址只准到路名
         ln = _rent_clause_drop(ln, ents)
         if ln:
@@ -1884,7 +1892,7 @@ def _p_rent591_legacy(html, hid):
     ⛔ 聯絡人（avatarRight 的「張先生（代理人）」、經紀業公司）只當洗白黑名單，不上頁；⛔ 不收「性別要求」「身份要求」。"""
     out = _blank()
     h = _legacy_clean(html or "")
-    if re.search(r'此房屋已(?:出租|下架|關閉)|已出租', _legacy_text(re.sub(r'<script[\s\S]*?</script>', '', h))[:20000]):
+    if re.search(r'此(?:房屋|物件)已(?:出租|成交|下架|關閉)', _legacy_text(re.sub(r'<script[\s\S]*?</script>', '', h))):
         return out
     m = re.search(r'<n-average-rent-price[^>]*\bprice="([\d,]+)"', h) or \
         re.search(r'class="price[^"]*">\s*<i>\s*([\d,]+)', h)
@@ -1933,9 +1941,21 @@ def _p_rent591_legacy(html, hid):
     am = re.search(r'<span class="addr">(.*?)</span>', h, re.S)
     raw_addr = _legacy_text(am.group(1)) if am else ""
     out["address"] = re.sub(r'(?<=[路街段道])號$', '', _road_level(raw_addr))
-    # 舊版頁的「社區」是刊登者自己填的：有數字／坪／路街／行銷字眼（蛋黃區、黃金…）就不當社區名
+    nm = re.search(r'class="avatarRight">[\s\S]{0,1500}?<i>([^<]{1,20})</i>', h)
+    co = re.search(r'(?:經紀業|公司名稱?)\s*[:：]\s*([^<\s]{2,40})', h)
+    ents = _rent591_entities({"name": nm.group(1) if nm else "", "roleTxt": co.group(1) if co else ""})
+    # 舊版頁的「社區」是刊登者自己填的（「亮點商仲精選租案」「屋主自租」「東興路二段243號」）→ 嚴格過濾
     _comm = _strip_tags(attr.get("社區", ""))
-    if (len(_comm) > 12 or re.search(r'[\d０-９]|坪|[路街]|蛋黃|精華|黃金|稀有|首選|超值|捷運|近|旁|樓', _comm)):
+    _stems = [re.sub(r'(?:不動產|房屋|地產|物業|仲介|經紀|開發|商仲)+$', '', e) for e in ents]
+    if (len(_comm) > 12
+            or re.search(r'[\d０-９]|坪|[路街]|蛋黃|精華|黃金|稀有|首選|超值|捷運|近|旁|樓', _comm)
+            or re.search(r'仲介|商仲|不動產|房屋|地產|置業|物業|租案|租售|精選|優質|代理|屋主|房東|自租|直租|服務費'
+                         r'|勿擾|限定|優先|出租|招租|住辦|辦公', _comm)
+            or re.fullmatch(r'無|無社區|[-—－]+', _comm)
+            or _RENT_BYPASS_RE.search(_comm) or _RENT_LIMIT_RE.search(_comm) or _RENT_KIN_RE.search(_comm)
+            or _RENT_AGENCY_RE.search(_comm) or _RENT_591_RE.search(_comm)
+            or any(e in _comm or _ent_hit(e, _comm) for e in ents)
+            or any(len(st) >= 2 and st in _comm for st in _stems)):
         _comm = ""
     out["rent_comm"] = _comm
     out["community_display"] = _comm
@@ -1944,16 +1964,22 @@ def _p_rent591_legacy(html, hid):
     if pk and pk not in ("無", "沒有"):
         out["parking"] = pk
         out["has_parking"] = True
+    ex = re.search(r'<div class="price clearfix">[\s\S]*?</div>\s*<div class="explain">([\s\S]*?)</div>', h)
+    ex_t = _legacy_text(ex.group(1)) if ex else ""
+    incl = re.sub(r'^含\s*', '', ex_t).replace('/', '、') if ex_t.startswith('含') else lab.get("租金含", "")
     mg = lab.get("管理費", "")
     mgmt = _to_int(mg) if re.search(r"\d", mg) else None
-    mgmt_incl = True if (mg and "含" in mg and mgmt is None) else None
-    mgmt_text = mg if (mg and mgmt is None and mgmt_incl is None) else ""
+    mgmt_incl = True if ("管理費" in incl or (mg and "含" in mg and mgmt is None)) else None
+    mgmt_text = mg if (mg and mgmt is None and mgmt_incl is None and not re.fullmatch(r'[-—－]+', mg)) else ""
     tags = []
     for k, yes, no in (("開伙", "可開伙", "不可開伙"), ("養寵物", "可養寵物", "不可養寵物")):
         v = lab.get(k, "")
         if v:
             tags.append(no if re.search(r"不|否", v) else yes)
-    incl = lab.get("租金含", "")
+    fi = h.find('<ul class="facility')
+    fseg = h[fi:h.find('</ul>', fi)] if fi >= 0 else ""
+    equip = [t for c, x in re.findall(r'<li[^>]*>\s*<span class="([^"]*)"></span>([\s\S]*?)</li>', fseg)
+             if c != "no" for t in [_legacy_text(x)] if t]
 
     out["rent"] = {
         "rent": price,
@@ -1963,15 +1989,11 @@ def _p_rent591_legacy(html, hid):
         "parking_fee": None,
         "min_lease": _cn_months(lab.get("最短租期", "")) or None,
         "incl": incl,
-        "equip": [],
+        "equip": equip[:15],
         "tags": tags,
     }
     out["mode"] = "rent"
     out["rent_id"] = hid
-
-    nm = re.search(r'class="avatarRight">[\s\S]{0,1500}?<i>([^<]{1,20})</i>', h)
-    co = re.search(r'(?:經紀業|公司名稱?)\s*[:：]\s*([^<\s]{2,40})', h)
-    ents = _rent591_entities({"name": nm.group(1) if nm else "", "roleTxt": co.group(1) if co else ""})
     out["scrub_entities"] = ents
     addr_nums = re.findall(r'(\d+)\s*(?:之\s*\d+)?\s*[巷弄號]', raw_addr)
     im = re.search(r'class="houseIntro"[^>]*>([\s\S]*?)</div>\s*(?:<!--|<div class="(?:needle-app|mapBox))', h)
@@ -1980,13 +2002,15 @@ def _p_rent591_legacy(html, hid):
     # 相簿：封面（og:image）排第一，再依縮圖列順序；只收這間的 /house/ 圖
     og = re.search(r'<meta[^>]+property="og:image"[^>]*content="([^"]+)"', h)
     seg_i = h.find('class="imgList"')
-    seg = h[seg_i:seg_i + 20000] if seg_i >= 0 else ""
+    seg_e = h.find('</textarea>', seg_i) if seg_i >= 0 else -1
+    seg = h[seg_i:seg_e] if seg_i >= 0 and seg_e > seg_i else ""
     urls = ([og.group(1)] if og else []) + re.findall(r'https?://img\d\.591\.com\.tw/house/[^"\'\s)<>]+', seg)
+    photo_re = re.compile(r'https?://img\d\.591\.com\.tw/house/\S+\.(?:jpe?g|png|webp)$', re.I)
     gallery, seen = [], set()
     for u in urls:
         base = u.split("!")[0]
         key = base.rsplit("/", 1)[-1]
-        if base and key not in seen and "/house/" in base:
+        if base and key not in seen and photo_re.match(base) and "noimg" not in base.lower():
             seen.add(key)
             gallery.append(base + "!1000x.jpg")
     out["gallery"] = gallery[:12]
