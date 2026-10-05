@@ -38,7 +38,7 @@ except Exception as _e:
     _L = _SC = _A = None
 
 # 版本標記（查詢台看回應的 render／build 判斷 Vercel 是不是新版；不對 → 請景泰 Redeploy 並取消 build cache）
-BUILD = "2026-10-03-mp"
+BUILD = "2026-10-05-rent591"
 RENDER_CARDS = "cards-v2"
 RENDER_SINGLE = "single-v2"
 SHARE_MAX = 20                       # 一次最多 20 張卡（與 mp_config.SHARE_MAX 同值）
@@ -604,13 +604,16 @@ def fetch_full_batch(refs):
 
     items, by_fp = [], {}
     for it in raw:
-        fp = (
-            it.get("community_display", "").strip(),
-            it.get("floor", 0),
-            it.get("floor_total", 0),
-            round(it.get("area", 0), 2),
-            it.get("price", 0),
-        )
+        if it.get("mode") == "rent" and it.get("rent_id"):
+            fp = ("rent591", it["rent_id"])    # 591 租屋看物件編號：同路段同坪同價的兩間不同套房不能被併成一張
+        else:
+            fp = (
+                it.get("community_display", "").strip(),
+                it.get("floor", 0),
+                it.get("floor_total", 0),
+                round(it.get("area", 0), 2),
+                it.get("price", 0),
+            )
         if fp in by_fp:
             _merge_dup(by_fp[fp], it)   # 就地合併(by_fp[fp] 已在 items 內)
             continue
@@ -899,7 +902,9 @@ def _card_to_prop(card, i):
 def _structured_name(p):
     """urls_text 路徑：抓回來的仲介原標題不上客戶頁，改結構化名稱（區＋路／社區＋樓層＋房數）。"""
     bt = (p.get("building_type") or "").strip()
-    if any(k in bt for k in ("透天", "別墅", "透店", "店透", "農舍")):
+    if p.get("mode") == "rent":                       # 591 租屋：整層出租／獨立套房／分租套房／雅房／車位
+        cat = p.get("rent_cat") or "other"
+    elif any(k in bt for k in ("透天", "別墅", "透店", "店透", "農舍")):
         cat = "house"
     elif "套房" in bt:
         cat = "suite"
@@ -925,18 +930,35 @@ def _structured_name(p):
     return _SC.structured_title(f)
 
 
-def _scrub_fetched(properties):
-    """urls_text／regen：抓回來的文字欄位過 mp_scrub、標題換結構化名稱。回 secrets（給稽核 A11）。"""
+def _scrub_fetched(properties, ents_out=None):
+    """urls_text／regen：抓回來的文字欄位過 mp_scrub、標題換結構化名稱。回 secrets（給稽核 A11）。
+    ents_out（set）：收集刊登者名字／公司（591 租屋 linkInfo），呼叫端交給整頁稽核 A12。"""
     found = set()
     for p in properties:
         src = "591" if "591" in str(p.get("host") or p.get("brand") or "") else str(p.get("source") or "ext")
+        deal = "rent" if p.get("mode") == "rent" else "sale"   # 租屋另刪國籍／族群／身分／性別限制句
+        ents = [str(e) for e in (p.pop("scrub_entities", None) or []) if e]
+        if ents_out is not None:
+            ents_out.update(ents)
         for k in ("intro", "og_description"):
             if p.get(k):
-                r = _SC.scrub_body(str(p[k]), src)
+                r = _SC.scrub_body(str(p[k]), src, deal=deal, ctx={"entities": ents} if ents else None)
                 p[k] = r.text
                 found |= set(r.secrets)
+        rent = p.get("rent")
+        if deal == "rent" and isinstance(rent, dict):           # 591 租屋條件的文字欄位逐一過短欄位洗白
+            for k in ("incl", "mgmt_text"):
+                if rent.get(k):
+                    rent[k] = _SC.scrub_short(str(rent[k])) or ""
+            for k in ("deposit", "min_lease"):
+                if isinstance(rent.get(k), str) and rent[k]:
+                    rent[k] = _SC.scrub_short(rent[k]) or None
+            for k in ("tags", "equip"):
+                rent[k] = [t for t in (_SC.scrub_short(str(x)) for x in (rent.get(k) or [])) if t]
         p["address"] = _SC.road_only(p.get("address") or "")
-        comm = _SC.scrub_short(p.get("community_display")) if p.get("community_display") else None
+        # 591 租屋：只認 591 有登錄的社區名（rent_comm）；沒有就用路段當分組標題，標題不疊「路段＋型態＋格局」
+        _cd = (p.get("rent_comm") or "") if deal == "rent" else p.get("community_display")
+        comm = _SC.scrub_short(_cd) if _cd else None
         p["community_display"] = comm or ""
         p["og_title"] = _structured_name(p)
         if not p["community_display"]:                     # 社區名洗不乾淨 → 分組標題用路段
@@ -948,6 +970,27 @@ def _scrub_fetched(properties):
             if p.get(k) and p[k] not in ("無車位", "—", "含於主建"):
                 p[k] = _SC.scrub_short(str(p[k])) or "含車位"
     return found
+
+
+def _audit_entities(ents, properties, contact):
+    """刊登者黑名單交給整頁稽核 A12 前，剔掉本頁本來就合法會出現的字：物件地址／社區／標題、聯絡區
+    （自己刊在 591 的物件，刊登者就是自己 → 名字、店名一定在聯絡區，不能因此整頁擋掉）。"""
+    legit = [str(p.get(k) or "") for p in properties for k in ("address", "community_display", "og_title")]
+    legit += [str(v) for v in (contact or {}).values() if isinstance(v, str)]
+    legit += [str(v) for v in DEFAULT_CONTACT.values() if isinstance(v, str)]
+    flat = _SC._flat(" ".join(legit))
+    return {e for e in (ents or ()) if _SC._flat(e) and _SC._flat(e) not in flat}
+
+
+MIXED_DEAL_MSG = "這次貼的有買賣也有租屋，月租跟總價放同一頁會混在一起；請分成兩頁各做一次（買賣一頁、租屋一頁）"
+
+
+def _page_mode(properties):
+    """urls_text：全部租屋 → 'rent'、全部買賣 → 'sale'、租售混貼 → None（呼叫端回 MIXED_DEAL_MSG）。"""
+    kinds = {"rent" if p.get("mode") == "rent" else "sale" for p in properties}
+    if len(kinds) > 1:
+        return None
+    return kinds.pop() if kinds else "sale"
 
 
 def _is_owner(contact):
@@ -963,11 +1006,11 @@ def _audit_contact(contact):
     return c
 
 
-def _audit_page(html, contact, allowed_urls=(), names=(), secrets_=()):
-    """推 GitHub 前的整頁稽核（mp_audit.audit_html；fail-closed）。"""
+def _audit_page(html, contact, allowed_urls=(), names=(), secrets_=(), entities=()):
+    """推 GitHub 前的整頁稽核（mp_audit.audit_html；fail-closed）。entities＝刊登者名字／公司（A12）。"""
     allow = {"names": [n for n in names if n], "owner": _is_owner(contact)}
     return _A.audit_html(html, _audit_contact(contact), frozenset(allowed_urls), allow,
-                         secrets=tuple(sorted(secrets_)))
+                         secrets=tuple(sorted(secrets_)), entities=tuple(sorted(entities)))
 
 
 def _leak(res):
@@ -1092,6 +1135,8 @@ def _rent_cells(rent):
         cell("管理費", f'另計 {rent["mgmt"]:,} 元/月')
     elif rent.get("mgmt_incl") is False:
         cell("管理費", "另計")
+    elif rent.get("mgmt_text"):                    # 591 租屋：「無」
+        cell("管理費", rent["mgmt_text"])
     dep = rent.get("deposit")
     if isinstance(dep, (int, float)) and not isinstance(dep, bool) and dep > 0:
         cell("押金", f"{dep:g} 個月")
@@ -1104,6 +1149,8 @@ def _rent_cells(rent):
         cell("最短租期", f"{ml:g} 個月")
     elif isinstance(ml, str) and ml:
         cell("最短租期", ml)
+    if rent.get("incl"):                           # 591 租屋：「管理費、水費、網路、第四台」
+        cell("租金含", rent["incl"])
     return "".join(cells)
 
 
@@ -1114,7 +1161,8 @@ def _card_html_raw(p, rc):
     tagline = (p.get("tagline") or clean_tagline(p.get("og_title", "")) or p.get("community_display", "")).strip()
     district = parse_district(p.get("address", ""))
     tier_key = price_to_tier_key(p.get("price", 0), "rent" if rent_mode else "sale")
-    age_key = age_to_tier_key(p.get("age"))
+    # 租屋多半沒填屋齡（0）→ 不算進「< 15 年」，標 unknown
+    age_key = "unknown" if (rent_mode and not p.get("age")) else age_to_tier_key(p.get("age"))
     community = (p.get("community_display") or "").strip()
     slug = p.get("slug", "")
     noimg_html = ('<div class="card-noimg"><span class="card-noimg-ic">📸</span>'
@@ -1132,11 +1180,11 @@ def _card_html_raw(p, rc):
         else:
             img_l = ''
         price_l = (f'<div class="card-price-row"><div><span class="card-price">{p["price"]:,}</span>'
-                   f'<span class="card-price-unit">萬</span></div></div>') if p.get("price") else ''
+                   f'<span class="card-price-unit">{"元/月" if rent_mode else "萬"}</span></div></div>') if p.get("price") else ''
         layout_l2 = layout_l + (("　·　屋齡 %s 年" % p["age"]) if p.get("age") else "")
         layout_html = f'<div class="card-lite-spec">🛏️ {_h(layout_l2)}</div>' if layout_l else ''
         addr_html = f'<div class="card-address">{_h(addr_l)}</div>' if addr_l else ''
-        type_l = (p.get("building_type") or "其他").strip() or "其他"
+        type_l = _type_bucket(p, rent_mode)
         return f'''
     <div class="card" data-slug="{_h(slug)}" data-district="{_h(district)}" data-price-tier="{tier_key}" data-age-tier="{age_key}" data-parking="" data-type="{_h(type_l)}" data-unit-price-tier="" data-rooms="{layout_to_rooms_key(p.get("layout"))}" data-community="{_h(community)}">
       <div class="card-image">{img_l}</div>
@@ -1194,8 +1242,7 @@ def _card_html_raw(p, rc):
     else:
         note_html = ''
     parking_attr = 'yes' if has_parking else 'no'
-    building_type = (p.get("building_type") or "").strip()
-    type_attr = building_type if building_type else "其他"
+    type_attr = _type_bucket(p, rent_mode)        # 跟類型 chip 同一套分類，篩選才對得上
     unit_tier_key = unit_price_to_tier_key(unit_price)
     rooms_key = layout_to_rooms_key(p.get("layout"))
 
@@ -1248,7 +1295,7 @@ def _card_html_raw(p, rc):
     if (p.get("layout") or "").strip():
         _cell("格局", p["layout"])
     if p.get("age"):
-        _cell("屋齡", f'{_g(p["age"])} 年')
+        _cell("屋齡", "未滿 1 年" if 0 < float(p["age"]) < 1 else f'{_g(p["age"])} 年')
     # 透天/別墅本來就自帶車庫,車位欄位意義不大又常誤判 → 一律不顯示車位/車位坪數
     if not _house:
         _pk = (str(p.get("parking") or "")).strip()
@@ -1262,6 +1309,12 @@ def _card_html_raw(p, rc):
     if rent_mode and (p.get("rent") or {}).get("tags"):
         tags_html = '<div class="card-tags">%s</div>' % "".join(
             f'<span class="card-tag">{_h(t)}</span>' for t in p["rent"]["tags"] if t)
+    # 591 租屋提供的設備（冰箱、洗衣機、冷氣…）— 一行列完，inline style 不依賴 CSS 區
+    _equip = [e for e in ((p.get("rent") or {}).get("equip") or []) if e] if rent_mode else []
+    if _equip:
+        tags_html += ('<div class="card-equip" style="margin:10px 0 2px;font-size:15px;line-height:1.7;color:#5a4c38;">'
+                      '<span style="font-weight:700;color:var(--wood-deep);">🛋️ 提供設備：</span>'
+                      f'{_h("、".join(_equip))}</div>')
 
     if p.get("floor_text"):
         floor_html = f'<div class="card-floor">{_h(p["floor_text"])}</div>'
@@ -1321,17 +1374,38 @@ def _card_html_raw(p, rc):
     </div>'''
 
 
+_CITY_PREFIX_RE = re.compile(
+    r'^\s*\d{0,6}\s*(?:臺灣|台灣)?\s*((?:[台臺](?:北|中|南|東)|新北|桃園|高雄|基隆|新竹|嘉義|苗栗|彰化|南投|雲林|屏東'
+    r'|宜蘭|花蓮|澎湖|金門|連江)[縣市])')
+
+
 def parse_district(address):
-    """從地址抓行政區（台灣），「台中市北屯區XX路」→「北屯區」/「台中市北區XX路」→「北區」"""
+    """從地址抓行政區（台灣），「台中市北屯區XX路」→「北屯區」/「台中市北區XX路」→「北區」/
+    「新竹縣竹北市光明六路」→「竹北市」/「中區市府路」→「中區」/「406台中市北屯區」→「北屯區」。
+    先剝掉開頭真正的縣市名（舊寫法會把縣轄市切成「竹縣竹北市」；也不能把「中區市府路」的「中區市」當縣市）。"""
     if not address:
         return "其他"
-    # 非貪婪：避免「台中市北區」整串吃成 1 個 match（要切成「台中市」+「北區」兩個）
-    matches = re.findall(r'[一-龥]{1,4}?[區鄉鎮市]', address)
-    if len(matches) >= 2:
-        return matches[1]  # 第一個是縣市，第二個是區
-    if matches:
-        return matches[0]
-    return "其他"
+    m0 = _CITY_PREFIX_RE.match(address)
+    rest = address[m0.end():] if m0 else address
+    # 非貪婪：「北區XX路」只取「北區」
+    m = re.search(r'[一-龥]{1,4}?[區鄉鎮市]', rest)
+    if m:
+        return m.group(0)
+    return m0.group(1) if m0 else "其他"
+
+
+# 類型 chip／卡片 data-type 共用分類（不在清單裡的一律「其他」，chip 數字跟篩選結果才會一致）
+TYPE_ORDER = ['大樓', '華廈', '透天', '別墅', '公寓', '其他']
+RENT_TYPE_ORDER = ['整層住家', '獨立套房', '分租套房', '雅房', '車位', '其他']
+_RENT_CAT_TYPE = {'rent_whole': '整層住家', 'rent_suite': '獨立套房', 'rent_share': '分租套房',
+                  'rent_room': '雅房', 'parking': '車位'}
+
+
+def _type_bucket(p, rent_mode=False):
+    if rent_mode and p.get("rent_cat"):           # 591 租屋（urls_text）才有 rent_cat；查詢台租屋卡照舊看 building_type
+        return _RENT_CAT_TYPE.get(p["rent_cat"], "其他")
+    bt = (p.get("building_type") or "").strip()
+    return bt if bt in TYPE_ORDER else "其他"
 
 
 # 價格段 — 一致用於 client page 篩選 + dashboard 分析
@@ -1684,6 +1758,8 @@ def gen_html(client_data, properties):
                         a = float(p.get("age") or 0)
                     except (TypeError, ValueError):
                         continue
+                    if mode == "rent" and a <= 0:      # 租屋沒填屋齡 → 不算進任何屋齡段
+                        continue
                     if lo <= a < hi:
                         n += 1
         if n > 0:
@@ -1752,16 +1828,12 @@ def gen_html(client_data, properties):
     has_parking_filter = len(parking_chips_list) >= 1  # 永遠顯示車位 chip（即使全部同邊）
 
     # 物件類型 chip（大樓 / 華廈 / 透天 / 別墅 / 公寓 / 其他）
-    TYPE_ORDER = ['大樓', '華廈', '透天', '別墅', '公寓', '其他']
-    type_counts = {t: 0 for t in TYPE_ORDER}
+    _type_order = ([t for t in RENT_TYPE_ORDER if t != "其他"] + TYPE_ORDER) if mode == "rent" else TYPE_ORDER
+    type_counts = {t: 0 for t in _type_order}
     for d in districts.values():
         for c in d.values():
             for p in c:
-                bt = (p.get('building_type') or '').strip() or '其他'
-                # 把 ycut 變體歸類進主類別
-                if bt not in TYPE_ORDER:
-                    bt = '其他'
-                type_counts[bt] += 1
+                type_counts[_type_bucket(p, (p.get("mode") or mode) == "rent")] += 1
     type_chips_list = []
     type_total = sum(type_counts.values())
     if type_total > 0:
@@ -1769,7 +1841,7 @@ def gen_html(client_data, properties):
         type_chips_list.append(
             f'<a class="nav-chip type-nav-chip filter-chip type-all-chip" data-filter-type="__all__">全部<span class="nav-chip-count">{type_total}</span></a>'
         )
-    for t in TYPE_ORDER:
+    for t in _type_order:
         n = type_counts.get(t, 0)
         if n > 0:
             type_chips_list.append(
@@ -3215,6 +3287,9 @@ def _publish_urls(body, name, need, contact, dry_run):
     properties = fetch_full_batch(refs)
     if not properties:
         return jsonify({"error": "全部物件抓取失敗（可能 URL 已失效）"}), 400
+    mode = _page_mode(properties)
+    if mode is None:
+        return jsonify({"error": MIXED_DEAL_MSG}), 400
 
     # 注入每筆物件的備註 — 前端 /api/preview 後讓景泰填的賣點補充（稽核照樣會掃）
     notes = body.get("notes") or {}
@@ -3224,7 +3299,8 @@ def _publish_urls(body, name, need, contact, dry_run):
             if n:
                 p["note"] = n
 
-    found = _scrub_fetched(properties)
+    ents = set()
+    found = _scrub_fetched(properties, ents)
     client_data = {
         "name": name,
         "need": need,
@@ -3233,9 +3309,11 @@ def _publish_urls(body, name, need, contact, dry_run):
         "theme": theme,
         "signature": signature,
         "hide_promo": bool(body.get("hide_promo")),
+        "mode": mode,                                   # 全部是 591 租屋 → 租屋頁（月租篩選、精選租屋）
     }
     html = gen_html(client_data, properties)
-    res = _audit_page(html, contact, (), [name, need, _clean_str(body.get("need"), 200)], found)
+    res = _audit_page(html, contact, (), [name, need, _clean_str(body.get("need"), 200)], found,
+                      _audit_entities(ents, properties, contact))
     if dry_run:
         return jsonify({"html_len": len(html), "render": RENDER_CARDS, "leak": _leak(res), "build": BUILD,
                         "count": len(properties)})
@@ -3315,6 +3393,9 @@ def preview_endpoint():
         properties = fetch_full_batch(refs)
         if not properties:
             return jsonify({"error": "全部物件抓取失敗(可能 URL 已失效)"}), 400
+        mode = _page_mode(properties)
+        if mode is None:                                # 預覽就先擋，不要等按「製作網頁」才說
+            return jsonify({"error": MIXED_DEAL_MSG}), 400
         items = []
         for p in properties:
             source = p.get("source", "ycut")
@@ -3329,7 +3410,7 @@ def preview_endpoint():
             elif source == "yungching":
                 src_label, src_tone = "⚠️ 永慶直營（資料加密：僅照片+名稱+地址，無外連）", "warn"
             elif source == "external":
-                _b = p.get("brand") or "競品站"
+                _b = (p.get("brand") or "競品站") + (" 租屋" if p.get("mode") == "rent" else "")
                 _photo = "含乾淨照片" if not p.get("no_clean_photo") else "無競品照片(建議補自家圖)"
                 src_label, src_tone = f"🔁 {_b} · 已洗淨變你的（{_photo}）", "warn"
             else:
@@ -3340,6 +3421,8 @@ def preview_endpoint():
                 "tagline": clean_tagline(p.get("og_title", "")) or p.get("community_display", ""),
                 "community": p.get("community_display", ""),
                 "price": p.get("price", 0),
+                "price_text": _price_text(p.get("price", 0), mode),   # 「1,980 萬」或「18,000 元/月」
+                "mode": mode,
                 "address": p.get("address", ""),
                 "og_image": p.get("og_image", ""),
                 "area": p.get("area", 0),
@@ -3531,7 +3614,8 @@ def notion_log_snapshot(share_id, client_name, properties_list):
         summary_parts = [
             district if district != "其他" else "",
             (p.get("community_display") or "").strip(),
-            p.get("price_text") or (f"{p['price']}萬" if p.get("price") else ""),
+            p.get("price_text") or ((_price_text(p["price"], "rent") if p.get("mode") == "rent"
+                                     else f"{p['price']}萬") if p.get("price") else ""),
             (p.get("floor_text") or "") or (f"{p.get('floor')}F/{p.get('floor_total')}" if p.get("floor") else ""),
             f"{p.get('area')}坪" if p.get("area") else "",
             f"{p.get('age')}年" if p.get("age") else "",
@@ -4414,13 +4498,16 @@ def regen_endpoint():
             "need": "找房需求",
             "share_id": sid,
             "contact": DEFAULT_CONTACT,
+            "mode": _page_mode(properties) or "sale",
         }
         if _A is None:
             results.append({"share_id": sid, "ok": False, "error": "洗白稽核模組載入失敗"})
             continue
-        found = _scrub_fetched(properties)
+        ents = set()
+        found = _scrub_fetched(properties, ents)
         html = gen_html(client_data, properties)
-        res = _audit_page(html, DEFAULT_CONTACT, (), [info["client"], "找房需求"], found)
+        res = _audit_page(html, DEFAULT_CONTACT, (), [info["client"], "找房需求"], found,
+                          _audit_entities(ents, properties, DEFAULT_CONTACT))
         if not res.ok:                                   # 推 GitHub 前稽核（公開 repo 收不回來）
             results.append({"share_id": sid, "ok": False, "error": "稽核擋下", "hits": _leak(res)})
             continue

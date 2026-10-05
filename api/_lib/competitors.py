@@ -1469,6 +1469,379 @@ def _p_business591(url):
     return out
 
 
+# ==================== 591 租屋 ====================
+# 591 kind 代碼 → 類型（整層住家 / 獨立套房 / 分租套房 / 雅房 / 車位 / 其他）
+_RENT591_KIND = {1: "整層住家", 2: "獨立套房", 3: "分租套房", 4: "雅房", 8: "車位", 24: "其他"}
+# 結構化標題分類（mp_scrub.structured_title 的 cat）
+_RENT591_CAT = {1: "rent_whole", 2: "rent_suite", 3: "rent_share", 4: "rent_room", 8: "parking"}
+# 不上客戶頁的 591 標籤：「屋主直租」＝叫客戶直接找屋主（跳單）；影片/AI/新上架是平台功能；
+# 「近捷運」可能指未完工路線（未完工建設不准寫），一律不放
+_RENT591_TAG_SKIP = {"影片賞屋", "AI影音講房", "VR看屋", "3D看屋", "新上架", "屋主直租", "免服務費",
+                     "近捷運", "近捷運站"}
+_CN_DIGIT = {"一": 1, "二": 2, "兩": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9,
+             "十": 10, "半": 0.5}
+
+
+def _cn_months(s):
+    """押金／租期：「二個月」→2、「1個月」→1、「半個月」→0.5；其他（「6,480元」「一年」「面議」）回原字串。"""
+    s = (s or "").strip()
+    m = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?|[一二兩三四五六七八九十半])\s*個?月", s)
+    if not m:
+        return s
+    v = m.group(1)
+    return float(v) if v[0].isdigit() else _CN_DIGIT[v]
+
+
+def _rent591_id(url):
+    """591 租屋網址 → 物件編號：rent.591.com.tw/{id}、rent-detail-{id}.html、home/{id}、m.591.com.tw/v2/rent/{id}。
+    ⛔ 不看 ?s=：App 分享短網址 www.591.com.tw/1R?salt=XX&s=YY 的物件是由 salt 決定（s 常是空的或別間編號），
+    1R 一律交給 _rent591_resolve_share 問 591 導去哪。"""
+    u = url or ""
+    if "/1R" in u:
+        return ""
+    for rx in (r"/rent-detail-(\d{6,9})", r"/v2/rent/(\d{6,9})", r"rent\.591\.com\.tw/(?:home/)?(\d{6,9})"):
+        m = re.search(rx, u)
+        if m:
+            return m.group(1)
+    return ""
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def _rent591_resolve_share(url):
+    """App 分享短網址 → 物件編號：發一次不跟轉址的請求，讀 302 Location（m.591.com.tw/v2/rent/{id}）。
+    問不到就回空字串（不猜，不出卡）。"""
+    try:
+        opener = urllib.request.build_opener(_NoRedirect)
+        req = urllib.request.Request(url, headers={"User-Agent": _UA})
+        try:
+            resp = opener.open(req, timeout=10)
+            loc = resp.headers.get("Location") or ""
+        except urllib.error.HTTPError as e:
+            loc = e.headers.get("Location") or ""
+    except Exception:
+        return ""
+    m = re.search(r"/v2/rent/(\d{6,9})|rent\.591\.com\.tw/(?:home/)?(\d{6,9})|/rent-detail-(\d{6,9})", loc)
+    return next((g for g in m.groups() if g), "") if m else ""
+
+
+# ── 屋況介紹的子句級過濾（mp_lexicon 要跟查詢台一字不差，不在那邊改；591 租屋自己多擋一層）──
+# 租屋歧視／身分限制：性別（限租女生、只租給女性、女性限定）、國籍（限國人、台灣籍）、身分（限學生）、年齡（限40歲以下）
+_RENT_LIMIT_RE = re.compile(
+    r'(?<![不無])(?:僅限|只限|只租|僅租|限定|限)\s*(?:租給?|給|單身|租客)?\s*(?:女|男)(?:性|生|士)?'
+    r'|(?:女|男)(?:性|生|士)?\s*(?:限定|專屬|專用|尤佳|優先|為主)'
+    r'|(?:租客|房客)\s*限定?\s*(?:女|男)'
+    r'|(?<![不無])(?:僅限|只限|只租|僅租|限)\s*(?:租給?|給)?\s*(?:國人|本國|台灣籍|臺灣籍|本國籍|外籍|學生|上班族|家庭|社會新鮮人|OL)'
+    r'|(?:學生|上班族|家庭|外籍|外國人)\s*(?:勿擾|免談|謝絕|恕不|婉拒|不租)'
+    r'|限\s*\d{2}\s*歲以[上下]')
+# 跳過經紀人的暗示：屋主自租／房東直接出租／免付服務費／不收仲介費／省下仲介費
+_RENT_BYPASS_RE = re.compile(
+    r'(?:屋主|房東|業主)\s*(?:自己|親自|直接)?\s*(?:自租|直租|出租|自售|自營)'
+    r'|(?:免|不|零|無|沒有|省下?)\s*(?:付|收取?|用|須|需|繳|支付)?\s*(?:任何)?\s*(?:租屋)?\s*(?:仲介|中介|服務)\s*(?:服務)?(?:費|報酬)'
+    r'|免中間費|仲介勿擾|謝絕仲介|免仲介')
+# 平台品牌／站內聯絡（591站內信、591 APP 預約）
+_RENT_591_RE = re.compile(r'(?<![0-9])591(?![0-9])|站內信|私訊|預約看房|預約賞屋')
+# 同業的服務項目／招牌口號（「買賣、委託、代管、代租、包租」「用最細心耐心誠心地迎接你」「超A獨招」）
+_RENT_AGENCY_RE = re.compile(r'代管|代租|包租|委託|獨招|專任|迎接您?你?|誠心|服務項目')
+try:
+    from . import mp_lexicon as _MPL
+    _SURN = _MPL.SURNAMES
+except Exception:                     # 單獨執行 competitors.py 時
+    _SURN = '陳林黃張李王吳劉蔡楊許鄭謝洪郭邱曾廖賴徐周葉蘇莊呂江何蕭羅高潘簡朱鍾彭游詹胡施沈余盧梁趙顏柯'
+# 房東常見自稱：姓氏＋親屬稱謂（黃伯伯、陳媽媽、李阿姨）、房東/屋主＋暱稱（房東阿明、屋主小美）
+_RENT_KIN_RE = re.compile(
+    '[' + _SURN + r'](?:伯伯|伯母|叔叔|阿姨|阿伯|阿嬤|阿公|媽媽|奶奶|爺爺|姊姊|姐姐|哥哥|嬸嬸|大哥|大姐)'
+    r'|(?:房東|屋主|代理人)\s*[阿小](?!姨|伯|嬤|公|婆|叔|孩|朋友|心|坪|套|房|家|資)[一-鿿]')
+
+
+def _ent_hit(e, cl):
+    """刊登者名字比對：≥3 字直接比；兩字（多半是去姓的名字）只在自稱／聯絡語境才算（「我是嘉恩」「找建國」），
+    免得「建國」把「近建國市場」整句刪掉。"""
+    if len(e) >= 3:
+        return e in cl
+    return bool(re.search(r'(?:我是|我叫|叫我|找|洽|聯絡|聯繫|妹仔|哥|姐)[^，,。；;！!？?]{0,6}' + re.escape(e), cl))
+
+
+def _rent_clause_drop(line, entities=()):
+    """一行切成子句（，。；！？），命中限制／跳單／591／同業口號／房東自稱／刊登者名字的子句整句拿掉。"""
+    parts = re.split(r'([，,。；;！!？?])', line)
+    keep = []
+    for i in range(0, len(parts), 2):
+        cl = parts[i]
+        sep = parts[i + 1] if i + 1 < len(parts) else ''
+        bad = (_RENT_LIMIT_RE.search(cl) or _RENT_BYPASS_RE.search(cl) or _RENT_591_RE.search(cl)
+               or _RENT_AGENCY_RE.search(cl) or _RENT_KIN_RE.search(cl)
+               or any(_ent_hit(e, cl) for e in entities))
+        if not bad:
+            keep.append(cl + sep)
+    out = ''.join(keep).strip()
+    return '' if not re.search(r'[一-鿿A-Za-z0-9]', out) else out
+
+
+_PLACE_WORD_RE = re.compile(r'[一-鿿]{1,4}[區鄉鎮市縣里村]|[一-鿿]{1,6}(?:路|街|大道)(?:[一二三四五六七八九十]段)?')
+
+
+def _rent591_entities(link):
+    """linkInfo（刊登者）→ 洗白黑名單：姓名／暱稱／名字（去姓）／公司（含去「有限公司」）。只拿來刪，不上頁。
+    不收：「分公司」欄（常填行政區）、地名（南區、西屯區、XX路）、稱謂（張女士）、短英文（Lin、Sky 會誤中 LINE/帳號）。"""
+    if not isinstance(link, dict):
+        return []
+    raw = []
+    for k in ("name", "imName", "roleTxt", "certificateTxt"):
+        v = str(link.get(k) or "")
+        v = re.sub(r'分公司\s*[:：][^\r\n／/|｜]*', ' ', v)
+        v = re.sub(r'(?:仲介|屋主|代理人|房東|經紀業|經紀人|營業員|公司名稱?|加盟店名?)\s*[:：]', ' ', v)
+        for piece in re.split(r'[：:／/\r\n、,，|｜]+', v):
+            piece = piece.strip()
+            if re.search(r'[一-鿿]', piece):
+                raw += re.split(r'\s+', piece)      # 中文：空白也切
+            elif piece:
+                raw.append(piece)                   # 英文名整串保留（Vivian Lin），不拆成 Lin
+    out = []
+    for w in raw:
+        w = re.sub(r'(?:股份)?有限公司$', '', w.strip())
+        if len(w) < 2 or re.fullmatch(r'\d+年?加入591|仲介|屋主|代理人|房東|經紀業|-|無', w):
+            continue
+        if re.fullmatch(r'[一-鿿]{1,2}(?:先生|小姐|女士|太太)', w):
+            continue                  # 「張女士」「台先生」這種稱謂本身 mp_scrub 會處理，當黑名單會誤刪
+        if _PLACE_WORD_RE.fullmatch(w):
+            continue
+        if re.fullmatch(r'[\x00-\x7f]+', w) and len(w) < 5:
+            continue
+        for x in (w, w[1:] if len(w) == 3 and w[0] in _SURN else ""):
+            if len(x) >= 2 and x not in out:
+                out.append(x)
+    return out[:20]
+
+
+# 圈圈字（🈲 禁、🉑 可…）租屋文很常用；mp_scrub 會把它們當 emoji 刪掉 →「🈲寵」變「寵」意思相反，先換成文字
+_ENCLOSED_CJK = {'\U0001F232': '禁', '\U0001F251': '可', '\U0001F21A': '無', '\U0001F236': '有',
+                 '\U0001F235': '滿', '\U0001F233': '空', '\U0001F250': '得', '\U0001F239': '割', '\U0001F23A': '營'}
+_ENCLOSED_CJK_RE = re.compile('[' + ''.join(_ENCLOSED_CJK) + ']')
+
+
+def _clean_rent_remark(html, entities=(), addr_nums=()):
+    """591 租屋「屋況介紹」：HTML 轉純文字、在聯絡資訊／同業署名區截斷、子句級拿掉租屋限制／跳單暗示／
+    591 站內聯絡／同業口號／房東自稱／刊登者名字；含本戶巷弄號數字或房號（116-2b）的行整行拿掉。
+    其餘洗白（電話/人名/未完工建設）交給 index.py _scrub_fetched 的 mp_scrub.scrub_body(deal='rent')，最後還有整頁稽核。
+    不沿用 _clean_remark：它碰到「房屋」就截斷，租屋文常寫「此房屋…」會把整段砍光。"""
+    if not html:
+        return ""
+    t = re.sub(r'</p>|<br\s*/?>|</div>|</li>', '\n', str(html))
+    t = re.sub(r'<[^>]+>', '', t)
+    t = (t.replace('&nbsp;', ' ').replace('&amp;', '&')
+         .replace('&lt;', '<').replace('&gt;', '>').replace('\r', ''))
+    t = _ENCLOSED_CJK_RE.sub(lambda m: _ENCLOSED_CJK[m.group()], t.replace('\ufe0f', ''))
+    STOP = re.compile(r'09\d{2}[-\s]?\d{3}[-\s]?\d{3}|0\d{1,2}[-\s]?\d{6,8}|LINE|Line|line|ＬＩＮＥ'
+                      r'|加盟店|不動產|房仲|經紀人|營業員|仲介(?!(?:服務)?費)|託付|咨詢|諮詢|為您服務'
+                      r'|24小時|２４小時|ID[:：]|竭誠|敬上|歡迎來電|來電洽|請洽|洽詢|專線|聯絡我們|聯繫我們'
+                      r'|全網|多元行銷|帶看|賞屋請'
+                      # 同業署名區開頭（後面整段都是對方的招牌、招攬房東、服務項目）
+                      r'|親愛的房東|房東您好|出租需求|與我聯繫|聯繫我|規劃顧問|房產顧問|租售服務|買賣服務|專業代租'
+                      r'|代租\s*[・/／、]?\s*代管|委託代租|【[^】]*(?:顧問|房產|團隊)[^】]*】')
+    nums = [n for n in (addr_nums or ()) if n]
+    NUM_RE = (re.compile(r'(?<![\d.$,])(?:%s)(?!\d)' % '|'.join(map(re.escape, nums)))
+              if nums else None)
+    ROOM_RE = re.compile(r'(?<![\d.])\d{1,4}\s*[-之]\s*\d{1,2}\s*[A-Za-z](?![A-Za-z\d])')
+    ents = [e for e in (entities or ()) if e]
+    lines = []
+    for ln in t.split('\n'):
+        ln = ln.strip()
+        if STOP.search(ln):
+            break
+        if not ln:
+            lines.append('')
+            continue
+        if (NUM_RE and NUM_RE.search(ln)) or ROOM_RE.search(ln):
+            continue                  # 「116-2b 6300」＝本戶巷號＋樓層房號，地址只准到路名
+        ln = _rent_clause_drop(ln, ents)
+        if ln:
+            lines.append(ln)
+    intro = re.sub(r'\n{3,}', '\n\n', '\n'.join(lines)).strip()
+    if len(intro) > 500:              # 在 500 字內最後一個換行／句末切，不要斷在半個詞
+        cut = intro[:500]
+        k = max(cut.rfind('\n'), cut.rfind('。'), cut.rfind('！'), cut.rfind('？'))
+        intro = cut[:k + 1] if k > 200 else cut
+    # 結尾只剩「衣：」「Kontak」這種沒講完的標題行 → 拿掉
+    ls = intro.rstrip().split('\n')
+    while ls and (re.search(r'[:：]\s*$', ls[-1]) or re.fullmatch(r'\s*[A-Za-z]{1,12}\s*', ls[-1])):
+        ls.pop()
+    return '\n'.join(ls).strip()
+
+
+def _p_rent591(url):
+    """591 租屋 rent.591.com.tw/{id}（整層住家 / 獨立套房 / 分租套房 / 雅房 / 車位）。
+
+    完整資料在 window.__NUXT__：data 裡帶 priceUnit 的那包 = 租金/押金/info(類型、坪數、樓層、型態)/
+    costData(租金含、管理費、車位租金)/service(設備、最短租期、開伙、寵物)/infoData(屋齡、車位)/remark；
+    pinia.album.albumData.items = 相簿。跟商用一樣用 quickjs 執行 __NUXT__（og 沒有租金，不做 og 退路）。
+    ⛔ linkInfo（代理人/房東姓名、公司、手機）只拿來做洗白黑名單（scrub_entities），絕不上頁；
+    ⛔ 不收「性別」「身份要求」（租屋歧視條件），屋況介紹裡同類句子由 _clean_rent_remark 子句級拿掉；
+    ⛔ positionRound.communityName 在 communityId=0 時是刊登者自由填寫（「全聯對面…」「無」），不當社區名；
+    ⛔ positionRound.address 常寫到巷弄號 → 砍到路段。
+    圖片直連 591 去浮水印版（`!1000x.jpg`；景泰 2026-10-05 指定，同商用做法），只用 type=3 實景照。
+    已出租／關閉（status≠open）不出卡。"""
+    out = _blank()
+    hid = _rent591_resolve_share(url) if "/1R" in url else _rent591_id(url)
+    if not hid:
+        return out
+    try:
+        html = _fetch("https://rent.591.com.tw/%s" % hid)
+    except Exception:
+        return out
+
+    D, items = None, []
+    try:
+        import quickjs
+        mx = re.search(r'window\.__NUXT__=(.+?)</script>', html, re.S)
+        if mx:
+            ctx = quickjs.Context()
+            ctx.eval('var D=(' + mx.group(1).strip().rstrip(';') + ')')
+            _dj = ctx.eval(
+                "JSON.stringify((function(){var o=D.data||{};for(var k in o){var v=o[k];"
+                "if(v&&v.data&&v.data.priceUnit)return v.data;}"
+                "var p=D.pinia&&D.pinia['rent-detail-info'];return (p&&p.ctx&&p.ctx.priceUnit)?p.ctx:null;})())")
+            D = json.loads(_dj) if _dj else None
+            _aj = ctx.eval("JSON.stringify((D.pinia&&D.pinia.album&&D.pinia.album.albumData&&D.pinia.album.albumData.items)||[])")
+            items = json.loads(_aj) if _aj else []
+    except Exception:
+        D = None
+    if not isinstance(D, dict) or not D.get("priceUnit"):
+        return out
+    if str(D.get("status") or "open") != "open":
+        return out
+
+    def _kv(arr, k="name"):
+        return {str(i.get(k) or ""): str(i.get("value") or "").strip()
+                for i in (arr or []) if isinstance(i, dict)}
+
+    info = _kv(D.get("info"))
+    cost = _kv((D.get("costData") or {}).get("data"))
+    svc = D.get("service") or {}
+    desc = _kv(svc.get("descData"), "label")
+    base = _kv((D.get("infoData") or {}).get("data"))
+    pos = D.get("positionRound") or {}
+
+    kind = _to_int(D.get("kind"))
+    price = _to_int(re.split(r"[~～\-]", str(D.get("price") or ""))[0])   # 「7,000」「24,999」；區間取下限
+    out["price"] = price
+    out["area"] = round(_to_float(info.get("使用坪數") or base.get("可使用面積")), 2)
+    out["layout"] = info.get("格局", "")
+    fl = info.get("樓層", "")
+    fm = re.fullmatch(r"(\d+)\s*F\s*/\s*(\d+)\s*F", fl)
+    if fm:
+        out["floor"], out["floor_total"] = int(fm.group(1)), int(fm.group(2))
+    elif fl:
+        out["floor_text"] = fl                       # 「頂樓加蓋/5F」「B1/7F」「整棟/3F」照原樣
+    # 屋齡：「15年」「1年3個月」「2個月」（新成屋常寫月數，不能當年）；「-」＝未提供
+    age = (base.get("屋齡", "") or "").strip()
+    _y = re.search(r"(\d+(?:\.\d+)?)\s*年", age)
+    _mo = re.search(r"(\d+)\s*個?月", age)
+    if _y or _mo:
+        out["age"] = round((float(_y.group(1)) if _y else 0.0) + (int(_mo.group(1)) / 12.0 if _mo else 0.0), 1) or 0.1
+    elif re.fullmatch(r"\d+(?:\.\d+)?", age):
+        out["age"] = float(age)
+
+    shape = info.get("型態", "")
+    if kind in (2, 3, 4, 8):
+        bt = _RENT591_KIND[kind]
+    else:
+        bt = shape or _RENT591_KIND.get(kind, "")
+    out["building_type"] = bt
+    out["rent_cat"] = _RENT591_CAT.get(kind) or ("rent_whole" if out["layout"] else "other")
+
+    # 地址：區+路段（前面補縣市），社區名只認 591 有登錄的社區（communityId>0）
+    city = ""
+    for b in (D.get("breadcrumb") or []):
+        if isinstance(b, dict) and re.search(r"[縣市]$", str(b.get("name") or "")):
+            city = str(b["name"])
+            break
+    addr = _road_level(pos.get("address") or "")
+    if city and addr and not addr.startswith(city):
+        addr = city + addr
+    out["address"] = addr
+    if _to_int(pos.get("communityId")) > 0:
+        out["community_display"] = _strip_tags(pos.get("communityName") or "")
+    out["rent_comm"] = out["community_display"]     # 真社區名（沒有就空）；index.py 結構化標題只認這個
+
+    # 車位：整層常見「平面式」「1平面+2機械」；車位物件本身看 種類+車位現狀
+    pk = base.get("車位", "")
+    parking_fee = None
+    pk_cost = cost.get("車位租金", "")
+    incl = cost.get("租金含", "")
+    if kind == 8:
+        pk = " ".join(x for x in (info.get("種類", ""), info.get("車位現狀", "")) if x)
+    if pk:
+        if kind != 8:
+            if "車位租金" in incl:
+                pk += "（含在租金）"
+            elif re.search(r"\d", pk_cost):
+                parking_fee = _to_int(pk_cost)
+            elif pk_cost:
+                pk += "（%s）" % pk_cost.replace("費用", "")
+        out["parking"] = pk
+        out["has_parking"] = True
+
+    # 管理費：數字＝另計；「無」照寫；租金含管理費＝含在租金內
+    mg = cost.get("管理費", "")
+    mgmt = _to_int(mg) if re.search(r"\d", mg) else None
+    mgmt_incl = True if "管理費" in incl else None
+    mgmt_text = mg if (mg and mgmt is None and mgmt_incl is None) else ""
+
+    tags = []
+    for t in (D.get("tags") or []):
+        v = str((t or {}).get("value") or "").strip() if isinstance(t, dict) else ""
+        if v and v not in _RENT591_TAG_SKIP and v not in tags:
+            tags.append(v)
+    for k in (("開伙", "養寵物") if kind != 8 else ()):  # 「不可開伙」「不可養寵物」也是客戶要知道的條件（車位不適用）
+        v = desc.get(k, "")
+        if v and v not in tags:
+            tags.append(v)
+    mv = desc.get("可遷入日", "")
+    if mv and mv not in ("可隨時遷入",) and mv not in tags:
+        tags.append(mv)
+    equip = [str(f.get("name")) for f in (svc.get("facility") or [])
+             if isinstance(f, dict) and f.get("active") and f.get("name")]
+
+    out["rent"] = {
+        "rent": price or None,
+        "deposit": _cn_months(D.get("deposit") or cost.get("押金", "")) or None,
+        "mgmt": mgmt, "mgmt_incl": mgmt_incl, "mgmt_text": mgmt_text,
+        "parking_fee": parking_fee,
+        "min_lease": _cn_months(desc.get("最短租期") or info.get("最短租期", "")) or None,
+        "incl": incl,
+        "equip": equip[:15],
+        "tags": tags[:12],
+    }
+    out["mode"] = "rent"
+    out["rent_id"] = hid                     # 去重用：不同網址形式（1R/rent-detail/m.591）同一間只留一張
+    ents = _rent591_entities(D.get("linkInfo"))
+    out["scrub_entities"] = ents             # 刊登者名字/公司 → mp_scrub ctx entities ＋ 整頁稽核 A12
+    # 本戶巷弄號數字（地址砍掉的那段）：屋況介紹裡再出現就整行拿掉（「116-2b 6300」）
+    addr_nums = re.findall(r'(\d+)\s*(?:之\s*\d+)?\s*[巷弄號]', str(pos.get("address") or ""))
+    out["intro"] = _clean_rent_remark((D.get("remark") or {}).get("content", ""), ents, addr_nums)
+
+    # 相簿：type=3 實景照，去浮水印 `!1000x.jpg`；封面（isCover）排第一
+    photos = [it for it in items if isinstance(it, dict) and it.get("type") == 3]
+    photos.sort(key=lambda it: 0 if it.get("isCover") else 1)
+    gallery = []
+    for it in photos:
+        u = (it.get("photo") or it.get("origPhoto") or "").split("!")[0]
+        if u and u + "!1000x.jpg" not in gallery:
+            gallery.append(u + "!1000x.jpg")
+    if not gallery:
+        m = re.search(r'<meta[^>]+property=["\']og:image["\'][^>]*content=["\']([^"\']+)["\']', html)
+        if m and m.group(1).split("!")[0]:
+            gallery.append(m.group(1).split("!")[0] + "!1000x.jpg")
+    out["gallery"] = gallery[:12]
+    out["cover_image"] = gallery[0] if gallery else ""
+    out["og_title"] = ""          # 刊登標題是房東行銷句，不用；客戶頁標題由 index.py 結構化產生
+    return out
+
+
 if __name__ == "__main__":
     import sys
     sys.stdout.reconfigure(encoding="utf-8")
@@ -3881,6 +4254,12 @@ _ADAPTERS = [
     (re.compile(r"https?://(?:www\.)?twhg\.com\.tw/buy/[A-Za-z]{2}\d+"), "台灣房屋", _p_twhg),
     (re.compile(r"https?://sale\.591\.com\.tw/home/house/detail/\d+/\d+\.html?"), "591", _p_h591),
     (re.compile(r"https?://business\.591\.com\.tw/sale/\d+"), "591", _p_business591),
+    # 591 租屋：rent.591.com.tw/{id}（含舊版 rent-detail-{id}.html、home/{id}）、手機版、App 分享短網址
+    (re.compile(r"https?://rent\.591\.com\.tw/(?:rent-detail-|home/)?\d{6,9}"), "591", _p_rent591),
+    (re.compile(r"https?://m\.591\.com\.tw/v2/rent/\d{6,9}"), "591", _p_rent591),
+    # 1R 的物件由 salt 決定（s 常空白）；遇到下一個 http 就停，黏在一起的兩條分得開
+    (re.compile(r"https?://(?:www\.)?591\.com\.tw/1R\?(?:(?!https?://)[^\s\"'<>])*?\bsalt=[A-Za-z0-9]+"
+                r"(?:(?!https?://)[^\s\"'<>])*"), "591", _p_rent591),
     (re.compile(r"https?://(?:www\.)?etwarm\.com\.tw/houses/(?:buy|rent)/\d+(?:/\d+)?"), "東森", _p_et),
     (re.compile(r"https?://buy\.cthouse\.com\.tw/house/\d+\.html"), "中信", _p_ct),
     (re.compile(r"https?://(?:www\.)?century21\.com\.tw/buypage/\d+"), "21世紀", _p_c21),
@@ -3973,7 +4352,9 @@ def fetch_external(url):
     cover = d.get("cover_image") or ""
     gallery = [g for g in (d.get("gallery") or []) if g]
 
-    has_specs = bool(d.get("price")) and bool(d.get("area")) and bool(d.get("layout"))
+    is_rent = d.get("mode") == "rent"
+    # 租屋（套房/雅房/車位）本來就沒有格局 → 有租金＋坪數就算完整卡
+    has_specs = bool(d.get("price")) and bool(d.get("area")) and (is_rent or bool(d.get("layout")))
     import hashlib
     slug = "x" + hashlib.md5(url.encode("utf-8")).hexdigest()[:10]
 
@@ -3985,7 +4366,7 @@ def fetch_external(url):
         _lay = (d.get("layout") or "").strip()
         _name = " ".join(x for x in (_road, _bt, _lay) if x).strip() or "精選物件"
 
-    return {
+    out = {
         "source": "external",
         "brand": brand,
         "lite": not has_specs,
@@ -4016,3 +4397,13 @@ def fetch_external(url):
         "no_clean_photo": (not cover),   # card 用來決定放不放「洽景泰」佔位
         "intro": d.get("intro", ""),     # 591 商用物件介紹(remark 洗白)，card_html render 📋 物件介紹
     }
+    if is_rent:                          # 591 租屋：card_html 走租屋版（元/月、押金、租金含、設備）
+        out["mode"] = "rent"
+        out["rent"] = d.get("rent") or {}
+        out["rent_cat"] = d.get("rent_cat") or ""
+        out["rent_comm"] = d.get("rent_comm") or ""
+        out["rent_id"] = d.get("rent_id") or ""
+        out["scrub_entities"] = list(d.get("scrub_entities") or [])
+    if d.get("floor_text"):
+        out["floor_text"] = d["floor_text"]
+    return out

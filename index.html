@@ -319,7 +319,7 @@
   <div class="field">
     <label class="field-label" for="urls">物件清單</label>
     <div class="field-hint">
-      貼物件網址即可，可混貼、自動辨識、洗掉他站品牌變成你的卡。支援：ycut、永慶集團（永慶/有巢氏/台慶/永義）、信義、住商、台灣房屋、591、東森、中信、21世紀、太平洋、全國、大家、樂屋、好房。其他文字自動忽略、重複自動過濾。
+      貼物件網址即可，可混貼、自動辨識、洗掉他站品牌變成你的卡。支援：ycut、永慶集團（永慶/有巢氏/台慶/永義）、信義、住商、台灣房屋、591（買賣／租屋）、東森、中信、21世紀、太平洋、全國、大家、樂屋、好房。其他文字自動忽略、重複自動過濾。租屋跟買賣請分開各做一頁。
     </div>
     <textarea id="urls" placeholder="把整段貼進來，多少物件都行..."></textarea>
   </div>
@@ -567,7 +567,7 @@ function renderPreview(items) {
       : `<div style="width:84px;height:84px;background:var(--bg-soft);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--text-muted);flex-shrink:0;">🏠</div>`;
     const tagline = escapeHtml((it.tagline || '').slice(0, 70));
     const community = escapeHtml(it.community || '未知社區');
-    const price = (it.price || 0).toLocaleString();
+    const price = escapeHtml(it.price_text || ((it.price || 0).toLocaleString() + ' 萬'));   // 租屋＝「7,000 元/月」
     let srcBadge = '';
     if (it.src_label) {
       const warn = it.src_tone === 'warn';
@@ -582,7 +582,7 @@ function renderPreview(items) {
         ${img}
         <div style="flex:1; min-width:0;">
           ${srcBadge}
-          <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px;line-height:1.4;">${community} · ${price} 萬</div>
+          <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px;line-height:1.4;">${community} · ${price}</div>
           <div style="font-size:13px;color:var(--text-soft);margin-bottom:8px;line-height:1.5;">${tagline}</div>
           <textarea data-slug="${escapeHtml(it.slug)}" placeholder="📝 景泰提醒(可留空)— 例:離捷運 3 分鐘 / 樓上沒住人 / 屋主能談"
             style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:14px;line-height:1.6;font-family:inherit;background:#FFF;color:var(--text);min-height:56px;resize:vertical;">${escapeHtml(note)}</textarea>
