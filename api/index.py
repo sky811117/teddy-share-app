@@ -38,7 +38,7 @@ except Exception as _e:
     _L = _SC = _A = None
 
 # 版本標記（查詢台看回應的 render／build 判斷 Vercel 是不是新版；不對 → 請景泰 Redeploy 並取消 build cache）
-BUILD = "2026-10-05-rent591e"
+BUILD = "2026-10-08-introfold"
 RENDER_CARDS = "cards-v2"
 RENDER_SINGLE = "single-v2"
 SHARE_MAX = 20                       # 一次最多 20 張卡（與 mp_config.SHARE_MAX 同值）
@@ -1339,13 +1339,17 @@ def _card_html_raw(p, rc):
         floor_html = ''
 
     # 物件介紹(remark 洗白後)—有值才顯示，inline style 不依賴 CSS 區
+    # 2026-10-08 景泰：介紹太長把頁面拉很長 → 超過 3 行就摺疊（.intro-fold，CSS/JS 在 gen_html），列印一律全文
     _intro = (p.get("intro") or "").strip()
     if _intro:
         _si = _h(_intro).replace("\n", "<br>")
-        intro_html = ('<div class="card-intro" style="margin:12px 0;padding:13px 15px;'
+        _fold = len(_intro) > 60 or _intro.count("\n") >= 3
+        intro_html = (f'<div class="card-intro{" intro-fold" if _fold else ""}" style="margin:12px 0;padding:13px 15px;'
                       'background:var(--bg-soft);border-radius:10px;border-left:3px solid var(--wood-light);">'
                       '<div style="font-size:14px;font-weight:700;color:var(--wood-deep);margin-bottom:6px;">📋 物件介紹</div>'
-                      f'<div style="font-size:15px;line-height:1.75;color:#5a4c38;white-space:normal;">{_si}</div></div>')
+                      f'<div class="card-intro-body" style="font-size:15px;line-height:1.75;color:#5a4c38;white-space:normal;">{_si}</div>'
+                      + ('<button class="intro-toggle" type="button" aria-expanded="false">展開全文 ▾</button>' if _fold else '')
+                      + '</div>')
     else:
         intro_html = ''
 
@@ -1559,14 +1563,14 @@ def unit_price_per_area(price, area):
 
 
 def community_subsection_html(community, items, rc=None):
-    """單一社區的 sub-section（在區裡面）— 物件按單坪價低到高（fallback: 總價低到高）"""
+    """單一社區的 sub-section（在區裡面）— 物件按總價低到高（同價再比單坪價）
+    2026-10-08 景泰：原本按單坪價排，客戶看起來「價格沒有低到高」→ 改總價。"""
     rc = rc or {}
     mode = rc.get("mode") or "sale"
 
     def _sort_key(x):
         up = unit_price_per_area(x.get("price"), x.get("area")) if mode != "rent" else None
-        # 算得出單坪價的優先按單坪價排，算不出的用大數字推到後面再用總價排
-        return (0, up) if up is not None else (1, x.get("price", 0))
+        return (x.get("price") or 0, up if up is not None else float("inf"))
     items_sorted = sorted(items, key=_sort_key)
     prices = sorted(x["price"] for x in items_sorted)
     c_range = _price_span(prices[0], prices[-1], mode)
@@ -2226,6 +2230,12 @@ def gen_html(client_data, properties):
   /* 無乾淨圖佔位(競品圖有浮水印不放) */
   .card-noimg {{ width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, #F3EDE3 0%, #E8DECB 100%); color: var(--wood-deep); font-size: 16px; font-weight: 600; letter-spacing: 1px; text-align: center; padding: 12px; }}
   .card-noimg-ic {{ font-size: 34px; opacity: 0.7; }}
+  /* 物件介紹摺疊：預設露 3 行＋淡出，按「展開全文」看全部 */
+  .intro-fold .card-intro-body {{ position: relative; max-height: 5.25em; overflow: hidden; }}
+  .intro-fold .card-intro-body::after {{ content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1.9em; background: linear-gradient(rgba(242,237,228,0), var(--bg-soft)); pointer-events: none; }}
+  .intro-fold.open .card-intro-body {{ max-height: none; }}
+  .intro-fold.open .card-intro-body::after {{ display: none; }}
+  .intro-toggle {{ display: block; width: 100%; margin-top: 8px; padding: 8px 0; background: none; border: 0; border-top: 1px dashed var(--wood-light); color: var(--wood-deep); font-size: 14px; font-weight: 700; letter-spacing: 1px; cursor: pointer; font-family: inherit; }}
   /* 多媒體按鈕列(VR / 影片 / AI) */
   .card-media {{ display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }}
   .card-media-btn {{ display: inline-flex; align-items: center; gap: 6px; background: var(--bg-soft); color: var(--wood-deep); border: 1.5px solid var(--wood-light); border-radius: 10px; padding: 9px 14px; font-size: 15px; font-weight: 700; text-decoration: none; transition: all 0.2s; }}
@@ -2405,6 +2415,9 @@ def gen_html(client_data, properties):
     }}
     .card-note-label {{ font-size: 10pt !important; color: #A85D3F !important; letter-spacing: 1pt; }}
     .card-note-body {{ font-size: 12pt !important; color: #000 !important; line-height: 1.7 !important; }}
+    /* 物件介紹：列印一律印全文、不印「展開」鈕 */
+    .intro-fold .card-intro-body {{ max-height: none !important; overflow: visible !important; }}
+    .intro-fold .card-intro-body::after, .intro-toggle {{ display: none !important; }}
     /* 頁尾證號 — 最後一頁印 */
     .footer {{ background: none !important; color: #000 !important; padding: 4mm 0 0 0 !important; margin-top: 6mm !important; border-top: 1.5px solid #000 !important; page-break-inside: avoid; }}
     .footer-content {{ text-align: left !important; max-width: none !important; }}
@@ -2475,6 +2488,20 @@ def gen_html(client_data, properties):
 
 <script>
 (function() {{
+  // 物件介紹「展開全文／收合」——放最前面先掛上，後面任何一段出錯都不影響展開
+  document.addEventListener('click', function(e) {{
+    var b = e.target.closest ? e.target.closest('.intro-toggle') : null;
+    if (!b) return;
+    var box = b.closest('.card-intro');
+    var open = box.classList.toggle('open');
+    b.textContent = open ? '收合 ▴' : '展開全文 ▾';
+    b.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (!open) {{
+      var r = box.getBoundingClientRect();
+      if (r.top < 0) window.scrollBy(0, r.top - 80);
+    }}
+  }});
+
   // 承辦人本人排除 + 解除標記機制（注意：admin 模式仍要讓 filter / 互動 JS 跑，只是不發追蹤）
   var IS_ADMIN = false;
   try {{
