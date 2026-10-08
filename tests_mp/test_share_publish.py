@@ -146,10 +146,13 @@ class DryRunAuditTest(_Base):
             self.assertIn('<meta name="x-render" content="cards-v2">', html)
             self.assertIn('<meta name="referrer" content="no-referrer">', html)
             self.assertIn('<meta name="x-share-promo"', html)          # stamp_promo 有蓋
-            self.assertEqual(html.count('<!--z:links-->'), 2)
+            # 2026-10-08 景泰：原始刊登連結不給客人 → 連結區、外站網址、「第三方網站」字樣都不能出現
+            self.assertEqual(html.count('<!--z:links-->'), 0)
             self.assertEqual(html.count('<!--z:contact-->'), 2)
-            self.assertIn('rel="nofollow noopener noreferrer">原始刊登 1</a>', html)
-            self.assertIn('原始刊登 2</a>', html)
+            self.assertNotIn('>原始刊登', html)                         # CSS 註解裡的字不算，看畫面上的字
+            for u in (S591_URL, YC_URL, RK_URL):
+                self.assertNotIn(u, html)
+            self.assertNotIn('第三方網站', html)
             self.assertIn('各刊登開價 1,950–1,980 萬', html)
             self.assertIn('本頁物件資訊整理自公開刊登資料', html)
 
@@ -161,8 +164,9 @@ class DryRunAuditTest(_Base):
             self.assertEqual(j['render'], 'single-v2')
             self.assertIn('<meta name="x-render" content="single-v2">', html)
             self.assertEqual(html.count('<!--z:contact-->'), 2)         # .foot、.bar 兩塊
-            self.assertIn('<!--z:links-->', html)
-            self.assertIn('原始刊登 1</a>', html)
+            self.assertNotIn('<!--z:links-->', html)                    # 2026-10-08：原始刊登連結不給客人
+            self.assertNotIn('>原始刊登', html)                         # CSS 註解裡的字不算，看畫面上的字
+            self.assertNotIn(YC_URL, html)
 
     def test_snapshot_keeps_src_urls_internal(self):
         html, j = self.publish_html(self.body(OWNER, [card(), card2()]))
@@ -171,8 +175,8 @@ class DryRunAuditTest(_Base):
         self.assertEqual(sid, j['share_id'])
         self.assertEqual(props[0]['detail_url'], S591_URL)
         self.assertIn(YC_URL, props[0]['src_urls_all'])
-        self.assertNotIn('class="card-cta"', html)                          # 卡片不另外外連（只有連結區）
-        self.assertEqual(html.count('href="%s"' % S591_URL), 1)
+        self.assertNotIn('class="card-cta"', html)                          # 卡片不另外外連
+        self.assertEqual(html.count('href="%s"' % S591_URL), 0)             # 連結區也關了：外站網址只留在快照
 
 
 # ───────────────────────── 同事頁 ─────────────────────────

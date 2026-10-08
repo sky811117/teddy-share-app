@@ -44,6 +44,8 @@ RENDER_SINGLE = "single-v2"
 SHARE_MAX = 20                       # 一次最多 20 張卡（與 mp_config.SHARE_MAX 同值）
 CARD_LINKS_MAX = 12                  # 每張卡原始刊登連結上限
 CARD_GALLERY_MAX = 24                # 每張卡照片上限
+GALLERY_SHOW = 12                    # 縮圖先攤幾張，多的收進「看更多照片」（2026-10-08 景泰）
+SHOW_SRC_LINKS = False               # 客戶頁放「原始刊登連結」？2026-10-08 景泰：不要給客人（單筆頁 single_page 同步）
 OWNER_AGENT = "陳景泰"               # 愛心推播、官網推廣只給景泰本人頁
 
 GITHUB_OWNER = "sky811117"
@@ -712,8 +714,9 @@ def _img_ref(u):
     return "strict-origin-when-cross-origin" if _host_in(host, ("591.com.tw",)) else "no-referrer"
 
 
-def _img_tag(u, alt=""):
-    return (f'<img src="{_h(u)}" loading="lazy" decoding="async" referrerpolicy="{_img_ref(u)}" '
+def _img_tag(u, alt="", cls=""):
+    c = f' class="{_h(cls)}"' if cls else ''
+    return (f'<img{c} src="{_h(u)}" loading="lazy" decoding="async" referrerpolicy="{_img_ref(u)}" '
             f'alt="{_h(alt)}" />')
 
 
@@ -1117,7 +1120,10 @@ def card_html(p, rc=None):
 
 
 def _links_html(links):
-    """原始刊登連結區（cards-v2）：文字一律「原始刊登 N」、不露平台與店名；整塊包 z:links 給稽核分區。"""
+    """原始刊登連結區（cards-v2）：文字一律「原始刊登 N」、不露平台與店名；整塊包 z:links 給稽核分區。
+    ⛔ 2026-10-08 景泰：「原始刊登連結不要給客人」→ SHOW_SRC_LINKS=False，客戶頁一律不出（推翻 10-02 的「附原始連結」）。"""
+    if not SHOW_SRC_LINKS:
+        return ""
     links = [ln for ln in (links or []) if isinstance(ln, dict) and ln.get("url")]
     if not links:
         return ""
@@ -1271,9 +1277,14 @@ def _card_html_raw(p, rc):
     gallery_html = ''
     photocount_html = ''
     if len(gallery) > 1:
-        # 全部攤開（上限 24 張純粹是防呆），客戶往下滑就看完，不必橫滑也不必點
-        thumbs = ''.join(_img_tag(u) for u in gallery[:24])
+        # 上限 24 張純粹是防呆。2026-10-08 景泰：先攤 12 張，多的收進「看更多照片」（.g-extra，CSS/JS 在 gen_html）；
+        # 燈箱照樣能左右滑到全部，列印也印全部
+        gal = gallery[:24]
+        thumbs = ''.join(_img_tag(u, cls="g-extra" if i >= GALLERY_SHOW else "") for i, u in enumerate(gal))
         gallery_html = f'<div class="card-gallery" aria-label="物件實景照片">{thumbs}</div>'
+        if len(gal) > GALLERY_SHOW:
+            gallery_html += (f'<button class="gallery-toggle" type="button" aria-expanded="false" '
+                             f'data-more="{len(gal) - GALLERY_SHOW}">看更多照片（還有 {len(gal) - GALLERY_SHOW} 張）▾</button>')
         photocount_html = f'<div class="card-photo-count">📷 {len(gallery)} 張實景</div>'
 
     # 多媒體按鈕(VR/影片/AI — 只有本店的物件才掛，避免露出它店品牌)
@@ -1885,10 +1896,10 @@ def gen_html(client_data, properties):
             district_section_html(d, districts[d], district_anchors[d], rc)
             for d in district_order
         )
-    # 有原始刊登連結（外部平台整理來的）→ 頁尾放一次免責小字
+    # 外部平台整理來的物件 → 頁尾放一次免責小字（連結區關掉時不提「第三方網站」）
     src_note_html = (
-        '<div class="src-note">本頁物件資訊整理自公開刊登資料，實際以現場及正式文件為準；'
-        '原始刊登連結為第三方網站。</div>'
+        '<div class="src-note">本頁物件資訊整理自公開刊登資料，實際以現場及正式文件為準'
+        + ('；原始刊登連結為第三方網站。' if SHOW_SRC_LINKS else '。') + '</div>'
     ) if any(p.get("links") for p in properties) else ''
 
     community_count = sum(len(c) for c in districts.values())
@@ -2236,6 +2247,9 @@ def gen_html(client_data, properties):
   .intro-fold.open .card-intro-body {{ max-height: none; }}
   .intro-fold.open .card-intro-body::after {{ display: none; }}
   .intro-toggle {{ display: block; width: 100%; margin-top: 8px; padding: 8px 0; background: none; border: 0; border-top: 1px dashed var(--wood-light); color: var(--wood-deep); font-size: 14px; font-weight: 700; letter-spacing: 1px; cursor: pointer; font-family: inherit; }}
+  /* 相簿摺疊：先攤 12 張，多的按「看更多照片」 */
+  .card-gallery:not(.open) .g-extra {{ display: none; }}
+  .gallery-toggle {{ display: block; width: 100%; margin: -4px 0 12px; padding: 10px 0; background: var(--bg-soft); border: 1px solid var(--border); border-radius: 8px; color: var(--wood-deep); font-size: 14px; font-weight: 700; letter-spacing: 1px; cursor: pointer; font-family: inherit; }}
   /* 多媒體按鈕列(VR / 影片 / AI) */
   .card-media {{ display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }}
   .card-media-btn {{ display: inline-flex; align-items: center; gap: 6px; background: var(--bg-soft); color: var(--wood-deep); border: 1.5px solid var(--wood-light); border-radius: 10px; padding: 9px 14px; font-size: 15px; font-weight: 700; text-decoration: none; transition: all 0.2s; }}
@@ -2418,6 +2432,9 @@ def gen_html(client_data, properties):
     /* 物件介紹：列印一律印全文、不印「展開」鈕 */
     .intro-fold .card-intro-body {{ max-height: none !important; overflow: visible !important; }}
     .intro-fold .card-intro-body::after, .intro-toggle {{ display: none !important; }}
+    /* 相簿：列印攤全部、不印「看更多」鈕 */
+    .card-gallery .g-extra {{ display: block !important; }}
+    .gallery-toggle {{ display: none !important; }}
     /* 頁尾證號 — 最後一頁印 */
     .footer {{ background: none !important; color: #000 !important; padding: 4mm 0 0 0 !important; margin-top: 6mm !important; border-top: 1.5px solid #000 !important; page-break-inside: avoid; }}
     .footer-content {{ text-align: left !important; max-width: none !important; }}
@@ -2490,6 +2507,20 @@ def gen_html(client_data, properties):
 (function() {{
   // 物件介紹「展開全文／收合」——放最前面先掛上，後面任何一段出錯都不影響展開
   document.addEventListener('click', function(e) {{
+    // 相簿「看更多照片／收合照片」
+    var gt = e.target.closest ? e.target.closest('.gallery-toggle') : null;
+    if (gt) {{
+      var gal = gt.previousElementSibling;
+      if (!gal || !gal.classList.contains('card-gallery')) return;
+      var gOpen = gal.classList.toggle('open');
+      gt.textContent = gOpen ? '收合照片 ▴' : '看更多照片（還有 ' + gt.getAttribute('data-more') + ' 張）▾';
+      gt.setAttribute('aria-expanded', gOpen ? 'true' : 'false');
+      if (!gOpen) {{
+        var gr = gal.getBoundingClientRect();
+        if (gr.top < 0) window.scrollBy(0, gr.top - 80);
+      }}
+      return;
+    }}
     var b = e.target.closest ? e.target.closest('.intro-toggle') : null;
     if (!b) return;
     var box = b.closest('.card-intro');

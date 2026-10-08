@@ -108,8 +108,13 @@ def _img(u, cls='', alt=''):
         (' class="%s"' % cls) if cls else '', _ref(u), _e(u), _e(alt))
 
 
+SHOW_SRC_LINKS = False   # 2026-10-08 景泰：「原始刊登連結不要給客人」（跟 index.py 同名開關同步）
+
+
 def _links_html(links):
     """原始刊登連結區：文字一律「原始刊登 N」、rel 三件套；包 z:links。"""
+    if not SHOW_SRC_LINKS:
+        return ''
     links = [ln for ln in (links or []) if isinstance(ln, dict) and ln.get('url')]
     if not links:
         return ''
