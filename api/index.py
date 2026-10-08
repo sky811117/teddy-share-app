@@ -2501,6 +2501,19 @@ def gen_html(client_data, properties):
       if (r.top < 0) window.scrollBy(0, r.top - 80);
     }}
   }});
+  // 螢幕夠寬、其實 3 行內就放得下的 → 拿掉摺疊與按鈕
+  function _unfoldShort() {{
+    var fs = document.querySelectorAll('.intro-fold:not(.open)');
+    for (var i = 0; i < fs.length; i++) {{
+      var bd = fs[i].querySelector('.card-intro-body');
+      if (bd && bd.scrollHeight <= bd.clientHeight + 4) {{
+        fs[i].classList.remove('intro-fold');
+        var tg = fs[i].querySelector('.intro-toggle');
+        if (tg) tg.parentNode.removeChild(tg);
+      }}
+    }}
+  }}
+  _unfoldShort();
 
   // 承辦人本人排除 + 解除標記機制（注意：admin 模式仍要讓 filter / 互動 JS 跑，只是不發追蹤）
   var IS_ADMIN = false;
