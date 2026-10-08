@@ -38,7 +38,7 @@ except Exception as _e:
     _L = _SC = _A = None
 
 # 版本標記（查詢台看回應的 render／build 判斷 Vercel 是不是新版；不對 → 請景泰 Redeploy 並取消 build cache）
-BUILD = "2026-10-08-introfold"
+BUILD = "2026-10-08-galfold-nolinks"
 RENDER_CARDS = "cards-v2"
 RENDER_SINGLE = "single-v2"
 SHARE_MAX = 20                       # 一次最多 20 張卡（與 mp_config.SHARE_MAX 同值）
