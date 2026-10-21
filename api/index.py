@@ -41,7 +41,7 @@ except Exception as _e:
 BUILD = "2026-10-08-galfold-nolinks"
 RENDER_CARDS = "cards-v2"
 RENDER_SINGLE = "single-v2"
-SHARE_MAX = 20                       # 一次最多 20 張卡（與 mp_config.SHARE_MAX 同值）
+SHARE_MAX = 30                       # 一次最多 30 張卡（與 mp_config.SHARE_MAX 同值；2026-10-21 景泰：需求卡完全符合最多放 30 間）
 CARD_LINKS_MAX = 12                  # 每張卡原始刊登連結上限
 CARD_GALLERY_MAX = 24                # 每張卡照片上限
 GALLERY_SHOW = 12                    # 縮圖先攤幾張，多的收進「看更多照片」（2026-10-08 景泰）
@@ -3187,9 +3187,9 @@ def _card_snapshot(card, prop):
 
 
 def _publish_props(body, props_in, name, need, contact, dry_run):
-    """查詢台金鑰路徑：單筆（single_page）或 1–20 張 _card（gen_html）。"""
+    """查詢台金鑰路徑：單筆（single_page）或 1–SHARE_MAX 張 _card（gen_html）。"""
     if not isinstance(props_in, list) or not props_in or not all(isinstance(p, dict) for p in props_in):
-        return jsonify({"error": "格式錯：props 要是 1 筆單筆物件，或 1–20 筆卡片"}), 400
+        return jsonify({"error": f"格式錯：props 要是 1 筆單筆物件，或 1–{SHARE_MAX} 筆卡片"}), 400
     has_card = [p.get("_card") is True for p in props_in]
     if all(has_card):
         kind = "card"
