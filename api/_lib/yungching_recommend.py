@@ -512,21 +512,30 @@ def parse_detail(html_str: str) -> dict:
     if out["unit_price_wan_per_ping"] is None and out["price_wan"] and out["building_area_ping"]:
         out["unit_price_wan_per_ping"] = round(out["price_wan"] / out["building_area_ping"], 1)
 
-    # ---- 照片 photo-swiper -----------------------------------------
-    swiper = re.search(
-        r'class="photo-swiper[^"]*"[^>]*>(.*?)</div>\s*</div>',
-        html_str,
-        re.DOTALL,
-    )
-    img_haystack = swiper.group(1) if swiper else html_str
+    # ---- 照片 album-v2 輪播 / 舊版 photo-swiper ----------------------
+    # 2026-10-29 永慶詳情頁改版 album-v2：照片搬進 <yc-ng-album-v2-carousel>，
+    # src 改成省略協定的「//yccdn…」，同一張照片出現 3 次（主圖／模糊背景／縮圖）。
+    # 舊寫法找不到 photo-swiper、又只認 https:// → 一張都抓不到。
+    # 找相簿順序：新版輪播 → 舊版 photo-swiper → 都沒有才整頁掃（同改版前）。
+    box = (re.search(r'<yc-ng-album-v2-carousel(?:\s[^>]*)?>(.*?)</yc-ng-album-v2-carousel>',
+                     html_str, re.DOTALL)
+           or re.search(r'class="photo-swiper[^"]*"[^>]*>(.*?)</div>\s*</div>',
+                        html_str, re.DOTALL))
+    img_haystack = box.group(1) if box else html_str
+    # 輪播裡夾一格地圖（/v1/staticmap 靜態地圖）會露出精確位置，客戶頁地址只准到路段
+    # → 地圖整格先挖掉，網址也只收 /v1/image/，兩道保險
+    img_haystack = re.sub(r'<yc-ng-album-v2-map-pane(?:\s[^>]*)?>.*?</yc-ng-album-v2-map-pane>',
+                          ' ', img_haystack, flags=re.DOTALL)
     img_urls = re.findall(
-        r'<img[^>]*\bsrc="(https://yccdn\.yungching\.com\.tw/v1/image/\?key=[^"]+)"',
+        r'<img[^>]*\bsrc="((?:https:)?//yccdn\.yungching\.com\.tw/v1/image/\?key=[^"]+)"',
         img_haystack,
     )
     seen = set()
     uniq = []
     for u in img_urls:
         uc = unescape(u)
+        if uc.startswith("//"):
+            uc = "https:" + uc                 # 一律存 https，跟舊版同一種網址
         if uc in seen:
             continue
         seen.add(uc)
