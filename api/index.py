@@ -38,7 +38,7 @@ except Exception as _e:
     _L = _SC = _A = None
 
 # 版本標記（查詢台看回應的 render／build 判斷 Vercel 是不是新版；不對 → 請景泰 Redeploy 並取消 build cache）
-BUILD = "2026-10-08-galfold-nolinks"
+BUILD = "2026-10-29-typebucket"
 RENDER_CARDS = "cards-v2"
 RENDER_SINGLE = "single-v2"
 SHARE_MAX = 30                       # 一次最多 30 張卡（與 mp_config.SHARE_MAX 同值；2026-10-21 景泰：需求卡完全符合最多放 30 間）
@@ -504,6 +504,10 @@ def _fetch_one_yungching_og(case_id, html):
     title, desc, img = og("og:title"), og("og:description"), _fill_pic(og("og:image"))
     if not title and not img:
         return {"slug": f"yc{case_id}", "error": "永慶頁解析失敗"}
+    # 2026-10-29：一次抓十幾戶時有一戶回來的不是它的物件頁（被導到別頁），og 讀到網站通用說明 →
+    # 客戶頁出現一張「物件・3 萬」假卡。真的物件頁 og:url 一定是 /house/<編號> → 對不上就當抓取失敗、不做卡片
+    if f"/house/{case_id}" not in og("og:url"):
+        return {"slug": f"yc{case_id}", "error": "永慶回的不是這戶的物件頁（可能已下架或被導到別頁）"}
 
     # og:title 尾巴是「… | 買房 | 永慶房屋」— 砍掉品牌/樣板段，避免幫競品打廣告
     # ⚠️ 集團五個品牌名都要列全,漏一個就會留在客戶看到的標題尾巴上
@@ -521,6 +525,8 @@ def _fetch_one_yungching_og(case_id, html):
     layout = f"{rm.group(1)}房" if rm else ""
     pm = re.search(r"([\d,]+)\s*萬", f"{desc} {title}")
     price = int(pm.group(1).replace(",", "")) if pm else 0
+    if 0 < price < 100:                                  # 買賣頁不可能幾萬塊：讀到的是別的數字（「3 萬筆物件」之類）
+        return {"slug": f"yc{case_id}", "error": "永慶頁價格讀不出來"}
 
     return {
         "source": "yungching",
@@ -1430,11 +1436,24 @@ _RENT_CAT_TYPE = {'rent_whole': '整層住家', 'rent_suite': '獨立套房', 'r
                   'parking': '車位'}
 
 
+# 各來源寫法不一（永慶、查詢台寫「電梯大樓」「透天厝」）：只認一字不差，電梯大樓全掉進「其他」
+# （2026-10-29 景泰：「為什麼有其他?」，13 戶電梯大樓 13 戶都是其他）→ 先排除商用／套房，再照關鍵字歸類
+_TYPE_NOT_HOME = ('店面', '辦公', '商辦', '廠房', '土地', '車位', '套房')
+_TYPE_KEYWORDS = (('華廈', '華廈'), ('大樓', '大樓'), ('透天', '透天'), ('別墅', '別墅'), ('公寓', '公寓'))
+
+
 def _type_bucket(p, rent_mode=False):
     if rent_mode and p.get("rent_cat"):           # 591 租屋（urls_text）才有 rent_cat；查詢台租屋卡照舊看 building_type
         return _RENT_CAT_TYPE.get(p["rent_cat"], "其他")
     bt = (p.get("building_type") or "").strip()
-    return bt if bt in TYPE_ORDER else "其他"
+    if bt in TYPE_ORDER:
+        return bt
+    if any(w in bt for w in _TYPE_NOT_HOME):
+        return "其他"
+    for kw, bucket in _TYPE_KEYWORDS:
+        if kw in bt:
+            return bucket
+    return "其他"
 
 
 # 價格段 — 一致用於 client page 篩選 + dashboard 分析
