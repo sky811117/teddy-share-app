@@ -548,7 +548,7 @@ class RentTest(_Base):
 class FormatAndBlockTest(_Base):
 
     def test_bad_formats_400(self):
-        cases = ([], [card(), single()], [single(), single()], [card()] * 21, 'x', [card(mode='buy')],
+        cases = ([], [card(), single()], [single(), single()], [card()] * (I.SHARE_MAX + 1), 'x', [card(mode='buy')],
                  [dict(single(), _card=False)])
         for props in cases:
             code, j = self.post(self.body(OWNER, props))
