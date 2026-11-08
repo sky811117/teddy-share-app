@@ -63,13 +63,18 @@ PAGES_BASE_URL = "https://teddy-website-blog.pages.dev/share"
 # 金鑰會嵌進客戶頁的 iframe 網址（前端看得到），靠的是上面的限制、不是藏。
 # 客戶頁的地圖 iframe 帶 referrerpolicy=no-referrer-when-downgrade，所以就算整頁 meta 是 no-referrer，地圖請求照樣帶 Referer 給 Google 核對。
 GOOGLE_MAPS_EMBED_KEY = os.environ.get("GOOGLE_MAPS_EMBED_KEY", "").strip()
-if not GOOGLE_MAPS_EMBED_KEY:
-    # 故意在載入時就炸：寧可整支開不起來，也不要默默產出沒地圖的客戶頁
-    raise RuntimeError(
-        "缺環境變數 GOOGLE_MAPS_EMBED_KEY（Google Maps Embed API 金鑰，客戶頁路段小地圖用）。"
-        "Vercel：Settings → Environment Variables 加上 Production＋Preview 後重新部署；"
-        "本機：先設好環境變數再執行（PowerShell：$env:GOOGLE_MAPS_EMBED_KEY='...'）。變數清單見 .env.example。"
-    )
+
+
+def _require_maps_key():
+    """產生客戶頁前必檢：沒金鑰就明講，不默默產出沒地圖的頁。
+    故意不在載入時炸：/api/track（客戶頁瀏覽紀錄）與 /api/health 不該被一個沒設的變數拖垮；
+    /api/health 回的 maps_key 看得出 Vercel 有沒有吃到這個變數。"""
+    if not GOOGLE_MAPS_EMBED_KEY:
+        raise RuntimeError(
+            "缺環境變數 GOOGLE_MAPS_EMBED_KEY（Google Maps Embed API 金鑰，客戶頁路段小地圖用）。"
+            "Vercel：Settings → Environment Variables 加上 Production＋Preview，存檔後要 Redeploy 才會生效；"
+            "本機：先設好環境變數再執行（PowerShell：$env:GOOGLE_MAPS_EMBED_KEY='...'）。變數清單見 .env.example。"
+        )
 
 DEFAULT_CONTACT = {
     "company": "有巢氏房屋台中世界之心加盟店",
@@ -1736,6 +1741,7 @@ def district_section_html(district, communities_dict, anchor, rc=None):
 
 
 def gen_html(client_data, properties):
+    _require_maps_key()  # 沒金鑰不產頁（明講，不默默出沒地圖的頁）
     contact = client_data.get("contact", DEFAULT_CONTACT)
     mode = "rent" if client_data.get("mode") == "rent" else "sale"
     agent_name = (contact.get("agent_name") or "").strip()
@@ -3250,6 +3256,7 @@ def _publish_props(body, props_in, name, need, contact, dry_run):
     if kind == "single":
         from _lib.single_page import render as _render_single
         p, dropped, found = _sanitize_single(props_in[0])
+        _require_maps_key()
         html = _render_single(p, contact, GOOGLE_MAPS_EMBED_KEY, name, need)
         render, allowed, count, mode = RENDER_SINGLE, [ln["url"] for ln in p.get("links") or []], 1, "sale"
     else:
@@ -3495,7 +3502,7 @@ def publish_endpoint():
 
 @app.route("/api/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "ts": datetime.datetime.now().isoformat(), "build": BUILD,
+    return jsonify({"status": "ok", "ts": datetime.datetime.now().isoformat(), "build": BUILD, "maps_key": bool(GOOGLE_MAPS_EMBED_KEY),
                     "render": RENDER_CARDS, "mp_version": _L.MP_VERSION if _L else None})
 
 

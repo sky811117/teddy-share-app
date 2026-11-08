@@ -16,7 +16,7 @@
 | Key | 說明 |
 |---|---|
 | `GITHUB_TOKEN` | Personal Access Token，需要 `sky811117/teddy-shares` 的 Contents 寫權限 |
-| `GOOGLE_MAPS_EMBED_KEY` | Google Maps Embed API 金鑰（客戶頁的路段小地圖）。**沒設程式會直接報錯、整支啟動不了**。金鑰會嵌進客戶頁前端，靠 Google 端的限制保護：應用程式限制鎖 HTTP 參照網址（客戶頁實際掛的網域，清單見 `api/index.py` 這個常數上方的註解）、API 限制只開 Maps Embed API |
+| `GOOGLE_MAPS_EMBED_KEY` | Google Maps Embed API 金鑰（客戶頁的路段小地圖）。**沒設時網站照常開（`/api/track` 瀏覽紀錄不受影響），但產生客戶頁會直接報錯**；`/api/health` 回的 `maps_key` 是 false 就代表 Vercel 沒吃到這個變數（存檔後要 Redeploy）。金鑰會嵌進客戶頁前端，靠 Google 端的限制保護：應用程式限制鎖 HTTP 參照網址（客戶頁實際掛的網域，清單見 `api/index.py` 這個常數上方的註解）、API 限制只開 Maps Embed API |
 
 其他選填變數（Notion 瀏覽紀錄、TG 通知、覆蓋頁通關碼）列在 `.env.example`，只放變數名、不放值。
 
