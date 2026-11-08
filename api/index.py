@@ -56,8 +56,20 @@ PAGES_BASE_URL = "https://teddy-website-blog.pages.dev/share"
 
 # Google Maps Embed API key（卡片底下的「在地圖上看路段位置」用）
 # Console: https://console.cloud.google.com/google/maps-apis/credentials
-# 需 enable 「Maps Embed API」並鎖 HTTP referrer = https://teddy-website-blog.pages.dev/*
-GOOGLE_MAPS_EMBED_KEY = os.getenv("GOOGLE_MAPS_EMBED_KEY", "AIzaSyCr3x28KwPxPnRGsqXSjZC4zxF-7deAK5E")
+# 金鑰只從環境變數讀：Vercel → Settings → Environment Variables（Production＋Preview）；本機先在 shell 設好再跑（變數清單見 .env.example）。
+# Google 端的保護（2026-11-08 收口）：API 限制只開 Maps Embed API；應用程式限制鎖 HTTP 參照網址＝客戶頁實際掛的網域：
+#   https://teddy-house.tw/*、https://*.teddy-house.tw/*、https://teddy-website-blog.pages.dev/*、
+#   https://*.teddy-website-blog.pages.dev/*、https://sky811117.github.io/*
+# 金鑰會嵌進客戶頁的 iframe 網址（前端看得到），靠的是上面的限制、不是藏。
+# 客戶頁的地圖 iframe 帶 referrerpolicy=no-referrer-when-downgrade，所以就算整頁 meta 是 no-referrer，地圖請求照樣帶 Referer 給 Google 核對。
+GOOGLE_MAPS_EMBED_KEY = os.environ.get("GOOGLE_MAPS_EMBED_KEY", "").strip()
+if not GOOGLE_MAPS_EMBED_KEY:
+    # 故意在載入時就炸：寧可整支開不起來，也不要默默產出沒地圖的客戶頁
+    raise RuntimeError(
+        "缺環境變數 GOOGLE_MAPS_EMBED_KEY（Google Maps Embed API 金鑰，客戶頁路段小地圖用）。"
+        "Vercel：Settings → Environment Variables 加上 Production＋Preview 後重新部署；"
+        "本機：先設好環境變數再執行（PowerShell：$env:GOOGLE_MAPS_EMBED_KEY='...'）。變數清單見 .env.example。"
+    )
 
 DEFAULT_CONTACT = {
     "company": "有巢氏房屋台中世界之心加盟店",
